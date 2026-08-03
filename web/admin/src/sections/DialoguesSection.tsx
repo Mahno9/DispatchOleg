@@ -1,9 +1,98 @@
-import { useEffect, useRef, useState } from 'react';
-import { api, type DialogueDoc, type DialogueNode } from '../api';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  api,
+  type Character,
+  type DialogueChoice,
+  type DialogueDoc,
+  type DialogueNode,
+} from '../api';
 import { showToast } from '../toast';
 
-// TODO: полноценный редактор узлов (список узлов + форма спикер/сторона/текст/переходы/варианты,
-// см. docs/dialogue-system.md §3) — отдельная задача. Пока — JSON + импорт/экспорт/валидация.
+// ---------------------------------------------------------------------------
+// Graph helpers — docs/dialogue-system.md §1, §4
+// ---------------------------------------------------------------------------
+
+/** BFS from `start` over next/choices[].next. */
+function reachableIds(nodes: Record<string, DialogueNode>, start: string): Set<string> {
+  const seen = new Set<string>();
+  if (!(start in nodes)) return seen;
+  seen.add(start);
+  const queue = [start];
+  while (queue.length > 0) {
+    const node = nodes[queue.shift()!];
+    if (!node) continue;
+    const targets = [
+      ...(Array.isArray(node.choices) ? node.choices.map((c) => c?.next) : []),
+      node.next,
+    ];
+    for (const target of targets) {
+      if (typeof target === 'string' && target in nodes && !seen.has(target)) {
+        seen.add(target);
+        queue.push(target);
+      }
+    }
+  }
+  return seen;
+}
+
+/** Repoint every reference to `from`; `to === null` drops the link (next → null, choice removed). */
+function relink(node: DialogueNode, from: string, to: string | null): DialogueNode {
+  const choices = Array.isArray(node.choices)
+    ? node.choices.flatMap((c) =>
+        c?.next === from ? (to === null ? [] : [{ ...c, next: to }]) : [c],
+      )
+    : node.choices;
+  return { ...node, next: node.next === from ? to : (node.next ?? null), choices: choices ?? null };
+}
+
+function renameNode(doc: DialogueDoc, from: string, to: string): DialogueDoc {
+  const nodes: Record<string, DialogueNode> = {};
+  // Object.entries keeps insertion order → the node stays in place in the list.
+  for (const [id, node] of Object.entries(doc.nodes)) {
+    nodes[id === from ? to : id] = relink(node, from, to);
+  }
+  return { start: doc.start === from ? to : doc.start, nodes };
+}
+
+function freeId(nodes: Record<string, DialogueNode>, base = 'n'): string {
+  let i = 1;
+  while (`${base}${i}` in nodes) i++;
+  return `${base}${i}`;
+}
+
+function referrers(nodes: Record<string, DialogueNode>, id: string): string[] {
+  return Object.entries(nodes)
+    .filter(
+      ([other, node]) =>
+        other !== id &&
+        (node.next === id ||
+          (Array.isArray(node.choices) && node.choices.some((c) => c?.next === id))),
+    )
+    .map(([other]) => other);
+}
+
+/** Lenient parse for the editor tab: only structure matters, content is validated separately. */
+function parseDoc(text: string): DialogueDoc | null {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
+  const { start, nodes } = raw as { start?: unknown; nodes?: unknown };
+  if (nodes !== undefined && (typeof nodes !== 'object' || nodes === null || Array.isArray(nodes))) {
+    return null;
+  }
+  return {
+    start: typeof start === 'string' ? start : '',
+    nodes: (nodes ?? {}) as Record<string, DialogueNode>,
+  };
+}
+
+const serialize = (doc: DialogueDoc) => JSON.stringify(doc, null, 2);
+
+const BLANK_NODE: DialogueNode = { speaker: 'oleg', side: 'left', text: '', next: null };
 
 // ---------------------------------------------------------------------------
 // Validation — docs/dialogue-system.md §4
@@ -82,22 +171,7 @@ export function validateDialogue(text: string): ValidationResult {
 
   // Reachability from start — unreachable nodes are a warning, not an error.
   if (typeof start === 'string' && start in map) {
-    const seen = new Set<string>([start]);
-    const queue = [start];
-    while (queue.length > 0) {
-      const node = map[queue.shift()!];
-      if (!node) continue;
-      const targets = [
-        ...(Array.isArray(node.choices) ? node.choices.map((c) => c?.next) : []),
-        node.next,
-      ];
-      for (const target of targets) {
-        if (typeof target === 'string' && target in map && !seen.has(target)) {
-          seen.add(target);
-          queue.push(target);
-        }
-      }
-    }
+    const seen = reachableIds(map, start);
     const orphans = ids.filter((id) => !seen.has(id));
     if (orphans.length > 0) warnings.push(`Недостижимые узлы: ${orphans.join(', ')}`);
   }
@@ -110,45 +184,208 @@ export function validateDialogue(text: string): ValidationResult {
 }
 
 // ---------------------------------------------------------------------------
+// Node form
+// ---------------------------------------------------------------------------
+
+interface NodeFormProps {
+  id: string;
+  node: DialogueNode;
+  ids: string[];
+  characters: Character[];
+  onPatch: (patch: Partial<DialogueNode>) => void;
+  /** Возвращает false, если переименование отклонено (тогда поле откатывается). */
+  onRename: (nextId: string) => boolean;
+  onCreateNext: () => void;
+}
+
+function NodeForm({ id, node, ids, characters, onPatch, onRename, onCreateNext }: NodeFormProps) {
+  const choices = Array.isArray(node.choices) ? node.choices : [];
+  const knownSpeaker =
+    node.speaker === 'oleg' || characters.some((c) => String(c.id) === node.speaker);
+
+  function patchChoice(index: number, patch: Partial<DialogueChoice>) {
+    onPatch({ choices: choices.map((c, i) => (i === index ? { ...c, ...patch } : c)) });
+  }
+
+  return (
+    <div className='dlg-node-form'>
+      <label className='poi-field-label'>id узла</label>
+      <input
+        key={id}
+        defaultValue={id}
+        spellCheck={false}
+        onBlur={(e) => {
+          if (!onRename(e.target.value.trim())) e.target.value = id;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+      />
+
+      <label className='poi-field-label'>Говорит</label>
+      <select
+        className='poi-select'
+        value={node.speaker}
+        onChange={(e) => onPatch({ speaker: e.target.value })}
+      >
+        <option value='oleg'>Олег</option>
+        {characters.map((c) => (
+          <option key={c.id} value={String(c.id)}>
+            {c.name}
+          </option>
+        ))}
+        {!knownSpeaker && <option value={node.speaker}>{node.speaker} (нет такого персонажа)</option>}
+      </select>
+
+      <label className='poi-field-label'>Сторона</label>
+      <select
+        className='poi-select'
+        value={node.side}
+        onChange={(e) => onPatch({ side: e.target.value as DialogueNode['side'] })}
+      >
+        <option value='left'>Слева</option>
+        <option value='right'>Справа</option>
+      </select>
+
+      <label className='poi-field-label'>Реплика</label>
+      <textarea
+        className='dlg-node-text'
+        value={node.text ?? ''}
+        onChange={(e) => onPatch({ text: e.target.value })}
+      />
+
+      {/* next и choices взаимоисключающие — docs/dialogue-system.md §1.2 */}
+      {choices.length === 0 ? (
+        <>
+          <label className='poi-field-label'>Переход</label>
+          <div className='dlg-next-row'>
+            <select
+              className='poi-select'
+              value={node.next ?? ''}
+              onChange={(e) => onPatch({ next: e.target.value || null })}
+            >
+              <option value=''>— конец —</option>
+              {ids.map((other) => (
+                <option key={other} value={other}>
+                  {other}
+                </option>
+              ))}
+            </select>
+            <button onClick={onCreateNext}>+ узел и связать</button>
+          </div>
+        </>
+      ) : (
+        node.next != null && (
+          <p className='dlg-warn'>
+            Заданы варианты — next «{node.next}» игнорируется рендерером.{' '}
+            <button className='dlg-inline-btn' onClick={() => onPatch({ next: null })}>
+              очистить
+            </button>
+          </p>
+        )
+      )}
+
+      <label className='poi-field-label'>Варианты ответа</label>
+      <div className='dlg-choices'>
+        {choices.map((choice, i) => (
+          <div className='dlg-choice-row' key={i}>
+            <input
+              value={choice?.text ?? ''}
+              placeholder='Текст варианта'
+              onChange={(e) => patchChoice(i, { text: e.target.value })}
+            />
+            <select
+              className='poi-select'
+              value={choice?.next ?? ''}
+              onChange={(e) => patchChoice(i, { next: e.target.value })}
+            >
+              <option value=''>— не задан —</option>
+              {ids.map((other) => (
+                <option key={other} value={other}>
+                  {other}
+                </option>
+              ))}
+            </select>
+            <button
+              className='poi-delete-btn'
+              title='Удалить вариант'
+              onClick={() => onPatch({ choices: choices.filter((_, j) => j !== i) })}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          className='foe-list-add'
+          onClick={() => onPatch({ choices: [...choices, { text: '', next: '' }] })}
+        >
+          + вариант
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Section
 // ---------------------------------------------------------------------------
 
-const EMPTY_DOC = JSON.stringify(
-  {
-    start: 'n1',
-    nodes: {
-      n1: { speaker: 'oleg', side: 'left', text: 'Диспетчерская, слушаю.', next: null },
-    },
-  },
-  null,
-  2,
-);
+const EMPTY_DOC = serialize({
+  start: 'n1',
+  nodes: { n1: { speaker: 'oleg', side: 'left', text: 'Диспетчерская, слушаю.', next: null } },
+});
 
 export function DialoguesSection() {
   const [list, setList] = useState<{ id: number; title: string }[]>([]);
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
-  const [result, setResult] = useState<ValidationResult | null>(null);
+  const [tab, setTab] = useState<'editor' | 'json'>('editor');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const report = useMemo(() => validateDialogue(text), [text]);
+  const doc = useMemo(() => parseDoc(text), [text]);
+  const ids = doc ? Object.keys(doc.nodes) : [];
+  const reachable = useMemo(
+    () => (doc ? reachableIds(doc.nodes, doc.start) : new Set<string>()),
+    [doc],
+  );
+  const currentNode = selected !== null ? (doc?.nodes[selected] ?? null) : null;
+  const currentNodeId = currentNode ? selected : null;
 
   useEffect(() => {
     api
       .getDialogues()
       .then(setList)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Ошибка загрузки'));
+    api.getCharacters().then(setCharacters).catch(() => undefined);
   }, []);
+
+  function speakerLabel(speaker: string): string {
+    if (speaker === 'oleg') return 'Олег';
+    return characters.find((c) => String(c.id) === speaker)?.name ?? speaker;
+  }
+
+  function load(nodes: unknown) {
+    const raw = JSON.stringify(nodes ?? {}, null, 2);
+    setText(raw);
+    setImportErrors([]);
+    setTab('editor');
+    setSelected(parseDoc(raw)?.start ?? null);
+  }
 
   async function open(id: number) {
     setError(null);
-    setResult(null);
     try {
       const dialogue = await api.getDialogue(id);
       setCurrentId(dialogue.id);
       setTitle(dialogue.title);
-      setText(JSON.stringify(dialogue.nodes ?? {}, null, 2));
+      load(dialogue.nodes);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка загрузки');
     }
@@ -162,23 +399,120 @@ export function DialoguesSection() {
       setList(await api.getDialogues());
       setCurrentId(created.id);
       setTitle(created.title);
-      setText(JSON.stringify(created.nodes ?? {}, null, 2));
+      load(created.nodes);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка создания', 'error');
     }
   }
 
+  // --- editor operations (doc is the parsed view of `text`; text stays the source of truth) ---
+
+  function updateDoc(fn: (d: DialogueDoc) => DialogueDoc) {
+    if (!doc) return;
+    setText(serialize(fn(doc)));
+    setImportErrors([]);
+  }
+
+  function addNode() {
+    if (!doc) return;
+    const id = freeId(doc.nodes);
+    updateDoc((d) => ({
+      start: d.start in d.nodes ? d.start : id,
+      nodes: { ...d.nodes, [id]: { ...BLANK_NODE } },
+    }));
+    setSelected(id);
+  }
+
+  function duplicateNode() {
+    if (!doc || !currentNodeId) return;
+    const id = freeId(doc.nodes);
+    const source = doc.nodes[currentNodeId];
+    if (!source) return;
+    updateDoc((d) => ({
+      ...d,
+      nodes: {
+        ...d.nodes,
+        [id]: {
+          ...source,
+          choices: Array.isArray(source.choices) ? source.choices.map((c) => ({ ...c })) : null,
+        },
+      },
+    }));
+    setSelected(id);
+  }
+
+  function removeNode() {
+    if (!doc || !currentNodeId) return;
+    const refs = referrers(doc.nodes, currentNodeId);
+    const warn = refs.length > 0 ? `\nНа него ссылаются: ${refs.join(', ')} — ссылки будут сняты.` : '';
+    if (!window.confirm(`Удалить узел «${currentNodeId}»?${warn}`)) return;
+    updateDoc((d) => {
+      const nodes: Record<string, DialogueNode> = {};
+      for (const [id, node] of Object.entries(d.nodes)) {
+        if (id !== currentNodeId) nodes[id] = relink(node, currentNodeId, null);
+      }
+      return { start: d.start === currentNodeId ? (Object.keys(nodes)[0] ?? '') : d.start, nodes };
+    });
+    setSelected(null);
+  }
+
+  function rename(nextId: string): boolean {
+    if (!doc || !currentNodeId || nextId === currentNodeId) return true;
+    if (nextId === '') {
+      showToast('id не может быть пустым', 'error');
+      return false;
+    }
+    if (nextId in doc.nodes) {
+      showToast(`Узел «${nextId}» уже существует`, 'error');
+      return false;
+    }
+    updateDoc((d) => renameNode(d, currentNodeId, nextId));
+    setSelected(nextId);
+    return true;
+  }
+
+  function createNext() {
+    if (!doc || !currentNodeId) return;
+    const id = freeId(doc.nodes);
+    updateDoc((d) => {
+      const node = d.nodes[currentNodeId];
+      if (!node) return d;
+      return {
+        ...d,
+        nodes: { ...d.nodes, [currentNodeId]: { ...node, next: id }, [id]: { ...BLANK_NODE } },
+      };
+    });
+    setSelected(id);
+  }
+
+  function patchNode(patch: Partial<DialogueNode>) {
+    if (!currentNodeId) return;
+    updateDoc((d) => {
+      const node = d.nodes[currentNodeId];
+      if (!node) return d;
+      return { ...d, nodes: { ...d.nodes, [currentNodeId]: { ...node, ...patch } } };
+    });
+  }
+
+  function openEditor() {
+    if (!parseDoc(text)) {
+      showToast('Битый JSON — редактор недоступен, исправьте текст', 'error');
+      return;
+    }
+    setTab('editor');
+  }
+
+  // --- persistence ---
+
   async function save() {
     if (currentId === null) return;
-    const validated = validateDialogue(text);
-    setResult(validated);
-    if (validated.errors.length > 0 || !validated.doc) {
+    if (report.errors.length > 0 || !report.doc) {
       showToast('Есть ошибки — не сохранено', 'error');
       return;
     }
     setSaving(true);
     try {
-      await api.updateDialogue(currentId, { title, nodes: validated.doc });
+      await api.updateDialogue(currentId, { title, nodes: report.doc });
       setList(await api.getDialogues());
       showToast('Сохранено');
     } catch (e) {
@@ -197,6 +531,7 @@ export function DialoguesSection() {
       setCurrentId(null);
       setText('');
       setTitle('');
+      setSelected(null);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка удаления', 'error');
     }
@@ -215,13 +550,13 @@ export function DialoguesSection() {
   async function importJson(file: File) {
     const raw = await file.text();
     const validated = validateDialogue(raw);
-    setResult(validated);
     if (validated.errors.length > 0) {
+      setImportErrors(validated.errors);
       showToast('Импорт отклонён: файл не проходит валидацию', 'error');
       return;
     }
     // Import replaces the whole document (never merges) — docs/dialogue-system.md §3.1
-    setText(JSON.stringify(JSON.parse(raw), null, 2));
+    load(JSON.parse(raw));
     showToast('Импортировано — не забудьте сохранить');
   }
 
@@ -249,38 +584,119 @@ export function DialoguesSection() {
         </div>
 
         {currentId !== null && (
-          <div className='two-pane-panel poi-edit-panel'>
+          <div className='two-pane-panel poi-edit-panel dlg-panel'>
             <label className='poi-field-label'>Название</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} />
 
-            <label className='poi-field-label'>Узлы (JSON)</label>
-            <textarea
-              className='dlg-textarea'
-              spellCheck={false}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
+            <div className='preview-tabs dlg-tabs'>
+              <button
+                className={`preview-tab-btn${tab === 'editor' ? ' preview-tab-btn--active' : ''}`}
+                onClick={openEditor}
+              >
+                Редактор
+              </button>
+              <button
+                className={`preview-tab-btn${tab === 'json' ? ' preview-tab-btn--active' : ''}`}
+                onClick={() => setTab('json')}
+              >
+                JSON
+              </button>
+            </div>
 
-            {result && (
-              <div className='dlg-report'>
-                {result.errors.map((m) => (
-                  <p className='dlg-error' key={m}>
-                    ✕ {m}
-                  </p>
-                ))}
-                {result.warnings.map((m) => (
-                  <p className='dlg-warn' key={m}>
-                    ⚠ {m}
-                  </p>
-                ))}
-                {result.errors.length === 0 && result.warnings.length === 0 && (
-                  <p className='dlg-ok'>✓ Диалог корректен</p>
+            {tab === 'json' ? (
+              <textarea
+                className='dlg-textarea'
+                spellCheck={false}
+                value={text}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setImportErrors([]);
+                }}
+              />
+            ) : doc ? (
+              <div className='dlg-editor'>
+                <div className='dlg-node-list'>
+                  {ids.map((id) => {
+                    const node = doc.nodes[id];
+                    return (
+                      <button
+                        key={id}
+                        className={`minigames-row${currentNodeId === id ? ' minigames-row--active' : ''}`}
+                        onClick={() => setSelected(id)}
+                      >
+                        <span className='minigames-row-name'>
+                          {id === doc.start && <span title='Стартовый узел'>▶ </span>}
+                          {!reachable.has(id) && (
+                            <span className='dlg-warn' title='Недостижим из стартового узла'>
+                              ⚠{' '}
+                            </span>
+                          )}
+                          {id}
+                        </span>
+                        <span className='minigames-row-game'>
+                          {speakerLabel(node?.speaker ?? '')}: {(node?.text ?? '').slice(0, 40) || '—'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {ids.length === 0 && <p className='minigames-empty'>Узлов пока нет.</p>}
+                  <div className='dlg-node-actions'>
+                    <button onClick={addNode}>+ узел</button>
+                    <button disabled={!currentNodeId} onClick={duplicateNode}>
+                      Дублировать
+                    </button>
+                    <button
+                      disabled={!currentNodeId || currentNodeId === doc?.start}
+                      onClick={() => currentNodeId && updateDoc((d) => ({ ...d, start: currentNodeId }))}
+                    >
+                      Сделать стартовым
+                    </button>
+                    <button className='poi-delete-btn' disabled={!currentNodeId} onClick={removeNode}>
+                      Удалить узел
+                    </button>
+                  </div>
+                </div>
+
+                {currentNodeId && currentNode ? (
+                  <NodeForm
+                    id={currentNodeId}
+                    node={currentNode}
+                    ids={ids}
+                    characters={characters}
+                    onPatch={patchNode}
+                    onRename={rename}
+                    onCreateNext={createNext}
+                  />
+                ) : (
+                  <p className='minigames-empty'>Выберите узел слева.</p>
                 )}
               </div>
+            ) : (
+              <p className='dlg-error'>Битый JSON — откройте вкладку «JSON» и исправьте.</p>
             )}
 
+            <div className='dlg-report'>
+              {importErrors.map((m) => (
+                <p className='dlg-error' key={`imp-${m}`}>
+                  ✕ импорт: {m}
+                </p>
+              ))}
+              {report.errors.map((m) => (
+                <p className='dlg-error' key={m}>
+                  ✕ {m}
+                </p>
+              ))}
+              {report.warnings.map((m) => (
+                <p className='dlg-warn' key={m}>
+                  ⚠ {m}
+                </p>
+              ))}
+              {report.errors.length === 0 && report.warnings.length === 0 && (
+                <p className='dlg-ok'>✓ Диалог корректен</p>
+              )}
+            </div>
+
             <div className='poi-panel-actions'>
-              <button onClick={() => setResult(validateDialogue(text))}>Проверить</button>
               <button onClick={() => fileRef.current?.click()}>Импорт JSON</button>
               <input
                 ref={fileRef}

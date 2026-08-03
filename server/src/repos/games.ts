@@ -110,7 +110,10 @@ export function getGame(db: Database, id: number): GameDto | null {
   return row ? rowToDto(row) : null;
 }
 
-export function createGame(db: Database, input: GameInput & { title: string; minigameId: string }): GameDto {
+export function createGame(
+  db: Database,
+  input: GameInput & { title: string; minigameId: string },
+): GameDto {
   const cols = toColumns(input);
   const info = db
     .prepare(
@@ -130,6 +133,21 @@ export function updateGame(db: Database, id: number, input: GameInput): GameDto 
     if (result.changes === 0) return null;
   }
   return getGame(db, id);
+}
+
+/** Seeds the tutorial game if there is none — without it the player has no QR target
+ *  to scan on a fresh DB. Runs on every start, idempotent: any existing is_tutorial row
+ *  wins (so admin edits survive restarts). Returns the created game, or null if one existed. */
+export function ensureTutorialGame(db: Database): GameDto | null {
+  const existing = db.prepare('SELECT id FROM games WHERE is_tutorial = 1 LIMIT 1').get();
+  if (existing) return null;
+  return createGame(db, {
+    title: 'Обучение',
+    minigameId: 'onboarding',
+    config: {},
+    isTutorial: true,
+    sortOrder: 0,
+  });
 }
 
 /** Deletes the game and drops it from every other game's unlock requirements,

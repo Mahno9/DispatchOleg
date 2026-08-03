@@ -43,6 +43,8 @@ export function App() {
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGame, setSelectedGame] = useState<VerifiedGame | null>(null);
   const [onboardStatus, setOnboardStatus] = useState('');
+  /** Texts/timings of the tutorial game — null until (or unless) it loads. */
+  const [tutorialConfig, setTutorialConfig] = useState<Record<string, unknown> | null>(null);
 
   // -- game chain: config is fetched once per run, then pre → game → post --
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
@@ -59,9 +61,22 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    api.getGames().then(setGames, (err: unknown) => {
-      console.error('[app] failed to load games', err);
-    });
+    api.getGames().then(
+      (list) => {
+        setGames(list);
+        // The tutorial row carries the onboarding texts. Missing row or failed
+        // fetch → the screen keeps its built-in defaults, so the flow still runs.
+        const tutorial = list.find((g) => g.isTutorial);
+        if (!tutorial) return;
+        api.getGameConfig(tutorial.id).then(
+          (cfg) => setTutorialConfig(cfg.config),
+          (err: unknown) => console.error('[app] failed to load tutorial config', err),
+        );
+      },
+      (err: unknown) => {
+        console.error('[app] failed to load games', err);
+      },
+    );
   }, []);
 
   useEffect(() => {
@@ -86,6 +101,7 @@ export function App() {
     case 'onboarding':
       workarea = (
         <OnboardingScreen
+          config={tutorialConfig}
           onStatus={setOnboardStatus}
           onDone={() => {
             // Local flag first, meta immediately — sync catches up in background.

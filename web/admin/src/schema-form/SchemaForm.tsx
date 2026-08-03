@@ -8,6 +8,7 @@ import { LiveNumberInput } from './LiveNumberInput';
 import { OpacitySlider } from './OpacitySlider';
 import { ImageCropField, type Crop } from './ImageCropField';
 import { GridPaintField } from './GridPaintField';
+import { MazePreviewField } from './MazePreviewField';
 import type { Asset } from '../api';
 
 // ---------------------------------------------------------------------------
@@ -508,6 +509,16 @@ function Field({ schema, value, onChange, label }: FieldProps) {
       <div className='sf-field sf-field--full'>
         {title && <span className='sf-label'>{title}</span>}
         <GridPaintField schema={schema} value={value === undefined ? schema.default : value} onChange={onChange} />
+      </div>
+    );
+  }
+
+  // x-type maze-preview → normal object fields + canvas preview of the result
+  if (xType === 'maze-preview') {
+    return (
+      <div className='sf-field--full'>
+        <ObjectField schema={schema} value={value} onChange={onChange} label={title} />
+        <MazePreviewField value={value} onChange={onChange} />
       </div>
     );
   }

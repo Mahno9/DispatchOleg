@@ -8,21 +8,26 @@ import { getAllDefaults, setDefaults } from '../repos/minigameDefaults.js';
 
 const serverRoot = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
 export const minigamesDir = path.join(serverRoot, 'static', 'minigames');
+/** Schema-only pseudo-minigames (onboarding): no bundle, the player implements them. */
+export const systemMinigamesDir = path.join(serverRoot, 'system-minigames');
 
 interface MinigameInfo {
   id: string;
   title: string;
-  entryUrl: string;
+  /** null for system games — there is nothing to import. */
+  entryUrl: string | null;
   schemaUrl: string;
+  system?: true;
 }
 
-export function scanMinigames(dir = minigamesDir): MinigameInfo[] {
+function scanDir(dir: string, system: boolean): MinigameInfo[] {
   if (!fs.existsSync(dir)) return [];
   const out: MinigameInfo[] = [];
   for (const id of fs.readdirSync(dir)) {
-    const entry = path.join(dir, id, 'index.js');
     const schemaPath = path.join(dir, id, 'schema.json');
-    if (!fs.existsSync(entry) || !fs.existsSync(schemaPath)) continue;
+    if (!fs.existsSync(schemaPath)) continue;
+    // A bundled game without index.js is a half-built game, not a type.
+    if (!system && !fs.existsSync(path.join(dir, id, 'index.js'))) continue;
     let title = id;
     try {
       const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8')) as { title?: string };
@@ -33,11 +38,16 @@ export function scanMinigames(dir = minigamesDir): MinigameInfo[] {
     out.push({
       id,
       title,
-      entryUrl: `/minigames/${id}/index.js`,
+      entryUrl: system ? null : `/minigames/${id}/index.js`,
       schemaUrl: `/minigames/${id}/schema.json`,
+      ...(system ? { system: true as const } : {}),
     });
   }
   return out;
+}
+
+export function scanMinigames(dir = minigamesDir, systemDir = systemMinigamesDir): MinigameInfo[] {
+  return [...scanDir(dir, false), ...scanDir(systemDir, true)];
 }
 
 export async function minigamesRoutes(app: FastifyInstance) {
@@ -68,9 +78,12 @@ export async function minigamesRoutes(app: FastifyInstance) {
     },
   );
 
-  if (fs.existsSync(minigamesDir)) {
+  // Both roots share the /minigames/ prefix: bundles first, then the schema-only
+  // system games — ids never collide, so order is only a tie-break that never fires.
+  const roots = [minigamesDir, systemMinigamesDir].filter((d) => fs.existsSync(d));
+  if (roots.length > 0) {
     await app.register(fastifyStatic, {
-      root: minigamesDir,
+      root: roots,
       prefix: '/minigames/',
       decorateReply: false,
       // Default Cache-Control (public, max-age=0 + ETag) is what we want:

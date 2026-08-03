@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Обучение (вводный сценарий)",
+  "description": "Тексты, ассеты и тайминги обучалки: BOOT-заставка, ввод имени, подсказка про QR на коробке, сканирование, экран успеха. Не мини-игра из бандла — сценарий живёт в плеере, здесь только его настройки (docs/minigames/01-onboarding.md).",
+  "type": "object",
+  "required": [
+    "bootText",
+    "namePrompt",
+    "qrHintText",
+    "scanFailText",
+    "noCameraText",
+    "deniedText",
+    "busyCameraText",
+    "successText"
+  ],
+  "properties": {
+    "bootText": {
+      "type": "array",
+      "title": "Текст BOOT-заставки",
+      "description": "Строка списка = строка на экране, выводится отдельно typewriter-эффектом",
+      "items": { "type": "string" },
+      "default": [
+        "ДИСПЕТЧЕРСКИЙ ТЕРМИНАЛ ОЛЕГ v1.7",
+        "ПРОВЕРКА ПИТАНИЯ......... OK",
+        "ПРОВЕРКА ПАМЯТИ.......... OK",
+        "ВИДЕОКАНАЛ............... НЕ НАЙДЕН",
+        "БАЗА ОПЕРАТОРОВ.......... OK",
+        "ОЖИДАНИЕ ИДЕНТИФИКАЦИИ"
+      ]
+    },
+    "namePrompt": {
+      "type": "string",
+      "title": "Заголовок над полем имени",
+      "default": "ПРЕДСТАВЬТЕСЬ, ОПЕРАТОР"
+    },
+    "qrHintText": {
+      "type": "array",
+      "title": "Подсказка про код на коробке",
+      "description": "Строка списка = абзац на экране подсказки",
+      "items": { "type": "string" },
+      "default": [
+        "НА КОРОБКЕ НАПЕЧАТАН СЛУЖЕБНЫЙ КОД.",
+        "ВКЛЮЧИТЕ КАМЕРУ И ПОКАЖИТЕ ЕГО ТЕРМИНАЛУ."
+      ]
+    },
+    "qrHintImage": {
+      "type": "string",
+      "title": "Фото коробки с QR-кодом",
+      "description": "Если не задано — рисуется контурный плейсхолдер",
+      "x-type": "asset:image"
+    },
+    "scanFailText": {
+      "type": "string",
+      "title": "Код не опознан",
+      "default": "КОД НЕ ОПОЗНАН"
+    },
+    "noCameraText": {
+      "type": "string",
+      "title": "Камеры нет",
+      "default": "ВИДЕОУСТРОЙСТВО НЕ ОБНАРУЖЕНО. ПОДКЛЮЧИТЕ КАМЕРУ И ПОВТОРИТЕ."
+    },
+    "deniedText": {
+      "type": "string",
+      "title": "Доступ к камере отклонён",
+      "default": "ДОСТУП К ВИДЕОКАНАЛУ ОТКЛОНЁН. РАЗРЕШИТЕ КАМЕРУ В НАСТРОЙКАХ БРАУЗЕРА И ПОВТОРИТЕ."
+    },
+    "busyCameraText": {
+      "type": "string",
+      "title": "Камера занята другой программой",
+      "default": "ВИДЕОКАНАЛ ЗАНЯТ ДРУГОЙ ПРОГРАММОЙ. ЗАКРОЙТЕ ЕЁ И ПОВТОРИТЕ."
+    },
+    "successText": {
+      "type": "string",
+      "title": "Экран успеха",
+      "default": "ОПЕРАТОР ПОДКЛЮЧЁН. ДОБРО ПОЖАЛОВАТЬ В СМЕНУ."
+    },
+    "allowSkipScan": {
+      "type": "boolean",
+      "title": "Разрешить пропуск сканирования",
+      "description": "Аварийный рычаг для мероприятий без коробки или без камеры: показывает кнопку «ПРОПУСТИТЬ СКАНИРОВАНИЕ»",
+      "default": false
+    },
+    "bootLineDelayMs": {
+      "type": "integer",
+      "title": "Пауза между строками BOOT, мс",
+      "description": "0 — вывести всё сразу",
+      "default": 320,
+      "minimum": 0
+    },
+    "bootHoldMs": {
+      "type": "integer",
+      "title": "Пауза после последней строки, мс",
+      "default": 900,
+      "minimum": 0
+    },
+    "bootSkipHintMs": {
+      "type": "integer",
+      "title": "Когда показать подсказку о пропуске, мс",
+      "default": 1500,
+      "minimum": 0
+    },
+    "scanFailFlashMs": {
+      "type": "integer",
+      "title": "Длительность вспышки отказа, мс",
+      "default": 1200,
+      "minimum": 0
+    },
+    "successHoldMs": {
+      "type": "integer",
+      "title": "Длительность экрана успеха, мс",
+      "default": 1800,
+      "minimum": 0
+    },
+    "nameMinLength": {
+      "type": "integer",
+      "title": "Минимальная длина имени",
+      "default": 2,
+      "minimum": 1
+    },
+    "nameMaxLength": {
+      "type": "integer",
+      "title": "Максимальная длина имени",
+      "default": 24,
+      "minimum": 1
+    },
+    "bootSound": {
+      "type": "array",
+      "title": "Звук загрузки терминала",
+      "x-type": "asset:audio"
+    },
+    "successSound": {
+      "type": "array",
+      "title": "Звук успешного распознавания кода",
+      "x-type": "asset:audio"
+    },
+    "failSound": {
+      "type": "array",
+      "title": "Звук отказа",
+      "x-type": "asset:audio"
+    }
+  }
+}

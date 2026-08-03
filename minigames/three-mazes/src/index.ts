@@ -16,6 +16,10 @@ import {
   stepPhysics,
 } from './engine.js';
 
+// Re-exported for the admin preview widget (x-type "maze-preview"), which
+// imports this bundle at runtime to draw a maze from generatorParams.
+export { generateMazeDetailed } from './engine.js';
+
 // ---------------------------------------------------------------------------
 // Config / callbacks
 // ---------------------------------------------------------------------------

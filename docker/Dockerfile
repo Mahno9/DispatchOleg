@@ -37,6 +37,8 @@ WORKDIR /app
 COPY --from=build /repo/node_modules ./node_modules
 COPY --from=build /repo/server/dist ./server/dist
 COPY --from=build /repo/server/static ./server/static
+# Schema-only system minigames (onboarding) — served straight from the source tree.
+COPY --from=build /repo/server/system-minigames ./server/system-minigames
 COPY --from=build /repo/server/package.json ./server/
 COPY --from=build /repo/web/player/dist ./web/player/dist
 COPY --from=build /repo/web/admin/dist ./web/admin/dist

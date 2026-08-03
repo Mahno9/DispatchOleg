@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { ApiError, api } from '../api';
 import {
   getSnapshot as cameraSnapshot,
@@ -17,9 +26,10 @@ import { ScanView } from '../ui/ScanView';
 // ---------------------------------------------------------------------------
 
 /**
- * Defaults from the spec's schema.json table. They live here as constants until
- * the tutorial game's config is delivered with the bootstrap payload — the shape
- * is deliberately flat so it can be swapped for that config verbatim.
+ * Fallbacks for every field of server/system-minigames/onboarding/schema.json.
+ * The tutorial game's config_json (GET /api/games/:id/config) is merged on top —
+ * these values are what runs when the tutorial row or a given field is missing.
+ * Keep in sync with the schema's defaults.
  */
 export const TEXTS = {
   bootText: [
@@ -42,6 +52,10 @@ export const TEXTS = {
   nameTakenText: 'ИМЯ УЖЕ ЗАНЯТО. ВЫБЕРИТЕ ДРУГОЕ.',
   nameNetFailText: 'СВЯЗЬ С ЦЕНТРОМ ПОТЕРЯНА. ПОВТОРИТЕ.',
   scanPrompt: 'НАВЕДИТЕ КАМЕРУ НА КОД',
+  /** Photo of the box with the QR — empty means the outline placeholder. */
+  qrHintImage: '',
+  /** Emergency lever (spec §2.4): finish onboarding without ever scanning. */
+  allowSkipScan: false,
   bootLineDelayMs: 320,
   bootHoldMs: 900,
   bootSkipHintMs: 1500,
@@ -50,6 +64,31 @@ export const TEXTS = {
   nameMinLength: 2,
   nameMaxLength: 24,
 };
+
+export type OnboardingTexts = typeof TEXTS;
+
+/**
+ * Tutorial `config_json` ⊕ defaults, by top-level key. Unknown keys, type
+ * mismatches and blank strings are dropped: a text the admin cleared is a slip,
+ * not a request for an empty screen. A list of lines (how the schema makes
+ * multi-line text editable in the admin form) collapses to a '\n' string.
+ */
+export function mergeTexts(config: Record<string, unknown> | null | undefined): OnboardingTexts {
+  const out: Record<string, unknown> = { ...TEXTS };
+  for (const [key, raw] of Object.entries(config ?? {})) {
+    if (!(key in TEXTS)) continue;
+    const value = Array.isArray(raw)
+      ? raw.filter((line): line is string => typeof line === 'string').join('\n')
+      : raw;
+    if (value === '' || value === null || value === undefined) continue;
+    if (typeof value !== typeof out[key]) continue;
+    out[key] = value;
+  }
+  return out as OnboardingTexts;
+}
+
+const TextsCtx = createContext<OnboardingTexts>(TEXTS);
+const useTexts = () => useContext(TextsCtx);
 
 export type OnboardingStep = 'boot' | 'name' | 'hint' | 'scanning' | 'success';
 
@@ -63,25 +102,25 @@ export const STEP_STATUS: Record<OnboardingStep, string> = {
 };
 
 /** Client-side name check (UX only — the server repeats it). Null = acceptable. */
-export function nameError(raw: string): string | null {
+export function nameError(raw: string, t: OnboardingTexts = TEXTS): string | null {
   const name = raw.trim();
   if (/\p{Cc}/u.test(name)) return 'НЕДОПУСТИМЫЕ СИМВОЛЫ';
-  if (name.length < TEXTS.nameMinLength) return `МИНИМУМ ${TEXTS.nameMinLength} СИМВОЛА`;
-  if (name.length > TEXTS.nameMaxLength) return `МАКСИМУМ ${TEXTS.nameMaxLength} СИМВОЛА`;
+  if (name.length < t.nameMinLength) return `МИНИМУМ ${t.nameMinLength} СИМВОЛА`;
+  if (name.length > t.nameMaxLength) return `МАКСИМУМ ${t.nameMaxLength} СИМВОЛА`;
   return null;
 }
 
 /** getUserMedia failure → the text the player is supposed to act on (spec §6.1–6.3). */
-export function cameraErrorText(name: string): string {
+export function cameraErrorText(name: string, t: OnboardingTexts = TEXTS): string {
   switch (name) {
     case 'NotAllowedError':
     case 'SecurityError':
-      return TEXTS.deniedText;
+      return t.deniedText;
     case 'NotReadableError':
     case 'AbortError':
-      return TEXTS.busyCameraText;
+      return t.busyCameraText;
     default:
-      return TEXTS.noCameraText;
+      return t.noCameraText;
   }
 }
 
@@ -97,10 +136,14 @@ interface OnboardingScreenProps {
   onDone: () => void;
   /** Lets the shell mirror the current step into bottom-bar slot 2. */
   onStatus?: (status: string) => void;
+  /** config_json of the is_tutorial game; undefined until loaded (or forever, if
+   *  the DB has no tutorial row) — the defaults carry the flow either way. */
+  config?: Record<string, unknown> | null;
 }
 
-export function OnboardingScreen({ onDone, onStatus }: OnboardingScreenProps) {
+export function OnboardingScreen({ onDone, onStatus, config }: OnboardingScreenProps) {
   const [step, setStep] = useState<OnboardingStep>(initialStep);
+  const texts = useMemo(() => mergeTexts(config), [config]);
 
   // Stable callbacks: the boot/success screens run timers keyed on them.
   const toName = useCallback(() => setStep('name'), []);
@@ -111,18 +154,33 @@ export function OnboardingScreen({ onDone, onStatus }: OnboardingScreenProps) {
     onStatus?.(STEP_STATUS[step]);
   }, [step, onStatus]);
 
-  switch (step) {
-    case 'boot':
-      return <BootScreen onSkip={toName} />;
-    case 'name':
-      return <NameEntry onRegistered={(onboarded) => (onboarded ? onDone() : toHint())} />;
-    case 'hint':
-      return <CameraHint onLive={() => setStep('scanning')} />;
-    case 'scanning':
-      return <Scanning onVerified={toSuccess} onCameraLost={toHint} />;
-    case 'success':
-      return <SuccessScreen onDone={onDone} />;
+  return <TextsCtx.Provider value={texts}>{renderStep()}</TextsCtx.Provider>;
+
+  function renderStep() {
+    switch (step) {
+      case 'boot':
+        return <BootScreen onSkip={toName} />;
+      case 'name':
+        return <NameEntry onRegistered={(onboarded) => (onboarded ? onDone() : toHint())} />;
+      case 'hint':
+        return <CameraHint onLive={() => setStep('scanning')} onSkip={toSuccess} />;
+      case 'scanning':
+        return <Scanning onVerified={toSuccess} onCameraLost={toHint} onSkip={toSuccess} />;
+      case 'success':
+        return <SuccessScreen onDone={onDone} />;
+    }
   }
+}
+
+/** Emergency lever (spec §2.4): shown only when the admin turned it on. */
+function SkipScanButton({ onSkip }: { onSkip: () => void }) {
+  const t = useTexts();
+  if (!t.allowSkipScan) return null;
+  return (
+    <button type="button" className="btn btn-danger onboarding-skip" onClick={onSkip}>
+      Пропустить сканирование
+    </button>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -130,15 +188,16 @@ export function OnboardingScreen({ onDone, onStatus }: OnboardingScreenProps) {
 // ---------------------------------------------------------------------------
 
 function BootScreen({ onSkip }: { onSkip: () => void }) {
-  const lines = TEXTS.bootText.split('\n');
-  const [shown, setShown] = useState(TEXTS.bootLineDelayMs > 0 ? 1 : lines.length);
+  const t = useTexts();
+  const lines = t.bootText.split('\n');
+  const [shown, setShown] = useState(t.bootLineDelayMs > 0 ? 1 : lines.length);
   const [showHint, setShowHint] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setShowHint(true), TEXTS.bootSkipHintMs);
+    const timer = setTimeout(() => setShowHint(true), t.bootSkipHintMs);
     return () => clearTimeout(timer);
-  }, []);
+  }, [t.bootSkipHintMs]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -153,10 +212,10 @@ function BootScreen({ onSkip }: { onSkip: () => void }) {
     const done = shown >= lines.length;
     const timer = setTimeout(
       () => (done ? onSkip() : setShown((n) => n + 1)),
-      done ? TEXTS.bootHoldMs : TEXTS.bootLineDelayMs,
+      done ? t.bootHoldMs : t.bootLineDelayMs,
     );
     return () => clearTimeout(timer);
-  }, [shown, lines.length, onSkip]);
+  }, [shown, lines.length, onSkip, t.bootHoldMs, t.bootLineDelayMs]);
 
   return (
     <div className="screen boot" onClick={onSkip}>
@@ -176,13 +235,14 @@ function BootScreen({ onSkip }: { onSkip: () => void }) {
 // ---------------------------------------------------------------------------
 
 function NameEntry({ onRegistered }: { onRegistered: (onboarded: boolean) => void }) {
+  const t = useTexts();
   const [name, setName] = useState(() => localState.getSnapshot().profile.name);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const hint = nameError(name);
+  const hint = nameError(name, t);
 
   async function submit() {
     if (hint || pending) return;
@@ -195,12 +255,12 @@ function NameEntry({ onRegistered }: { onRegistered: (onboarded: boolean) => voi
     } catch (err) {
       setRetry(true);
       if (err instanceof ApiError && err.status === 409) {
-        setError(TEXTS.nameTakenText);
+        setError(t.nameTakenText);
         inputRef.current?.select();
       } else if (err instanceof ApiError && err.status === 400) {
-        setError(nameError(name) ?? TEXTS.nameNetFailText);
+        setError(nameError(name, t) ?? t.nameNetFailText);
       } else {
-        setError(TEXTS.nameNetFailText);
+        setError(t.nameNetFailText);
       }
     } finally {
       setPending(false);
@@ -216,13 +276,13 @@ function NameEntry({ onRegistered }: { onRegistered: (onboarded: boolean) => voi
           void submit();
         }}
       >
-        <h2>{TEXTS.namePrompt}</h2>
+        <h2>{t.namePrompt}</h2>
         <input
           ref={inputRef}
           className="field"
           type="text"
           autoFocus
-          maxLength={TEXTS.nameMaxLength}
+          maxLength={t.nameMaxLength}
           disabled={pending}
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -240,7 +300,7 @@ function NameEntry({ onRegistered }: { onRegistered: (onboarded: boolean) => voi
             )}
           </span>
           <span className="label">
-            {name.trim().length}/{TEXTS.nameMaxLength}
+            {name.trim().length}/{t.nameMaxLength}
           </span>
         </div>
         <button type="submit" className="btn" disabled={!!hint || pending}>
@@ -255,9 +315,12 @@ function NameEntry({ onRegistered }: { onRegistered: (onboarded: boolean) => voi
 // 1.3 camera-hint
 // ---------------------------------------------------------------------------
 
-function CameraHint({ onLive }: { onLive: () => void }) {
+function CameraHint({ onLive, onSkip }: { onLive: () => void; onSkip: () => void }) {
+  const t = useTexts();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Spec §6.14: a broken asset must not take the panel down with it.
+  const [imageBroken, setImageBroken] = useState(false);
 
   async function enable() {
     if (pending) return;
@@ -267,7 +330,7 @@ function CameraHint({ onLive }: { onLive: () => void }) {
       await getStream();
       onLive();
     } catch (err) {
-      setError(cameraErrorText(err instanceof DOMException ? err.name : 'UnknownError'));
+      setError(cameraErrorText(err instanceof DOMException ? err.name : 'UnknownError', t));
     } finally {
       setPending(false);
     }
@@ -276,13 +339,22 @@ function CameraHint({ onLive }: { onLive: () => void }) {
   return (
     <div className="screen screen-center">
       <div className="panel hint-panel">
-        <div className="qr-placeholder" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </div>
+        {t.qrHintImage && !imageBroken ? (
+          <img
+            className="hint-image"
+            src={t.qrHintImage}
+            alt=""
+            onError={() => setImageBroken(true)}
+          />
+        ) : (
+          <div className="qr-placeholder" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </div>
+        )}
         <div className="hint-body">
-          {TEXTS.qrHintText.split('\n').map((line, i) => (
+          {t.qrHintText.split('\n').map((line, i) => (
             <p key={i}>{line}</p>
           ))}
           <button
@@ -299,11 +371,12 @@ function CameraHint({ onLive }: { onLive: () => void }) {
                 <i className="marker marker-blink" />
                 {error}
               </span>
-              {error === TEXTS.deniedText && (
+              {error === t.deniedText && (
                 <span className="label dim">Значок камеры в адресной строке → разрешить</span>
               )}
             </div>
           )}
+          <SkipScanButton onSkip={onSkip} />
         </div>
       </div>
     </div>
@@ -317,19 +390,25 @@ function CameraHint({ onLive }: { onLive: () => void }) {
 function Scanning({
   onVerified,
   onCameraLost,
+  onSkip,
 }: {
   onVerified: () => void;
   onCameraLost: () => void;
+  onSkip: () => void;
 }) {
+  const t = useTexts();
   const [flash, setFlash] = useState<string | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout>>();
   const camera = useSyncExternalStore(subscribeCamera, cameraSnapshot);
 
-  const showFlash = useCallback((text: string) => {
-    setFlash(text);
-    clearTimeout(flashTimer.current);
-    flashTimer.current = setTimeout(() => setFlash(null), TEXTS.scanFailFlashMs);
-  }, []);
+  const showFlash = useCallback(
+    (text: string) => {
+      setFlash(text);
+      clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(null), t.scanFailFlashMs);
+    },
+    [t.scanFailFlashMs],
+  );
 
   useEffect(() => () => clearTimeout(flashTimer.current), []);
 
@@ -343,19 +422,19 @@ function Scanning({
     (text: string) => {
       // Foreign QRs are rejected locally: the player still gets feedback, the
       // server does not get the traffic (spec §6.4).
-      if (!isDispatchCode(text)) return showFlash(TEXTS.scanFailText);
+      if (!isDispatchCode(text)) return showFlash(t.scanFailText);
       const userId = localState.getSnapshot().profile.userId;
       api.verifyQr({ payload: text, userId }).then(
         (res) => {
           // Only the tutorial game opens this gate — a valid code of any other
           // game must not skip registration/camera setup.
           if (res.ok && res.game.isTutorial) onVerified();
-          else showFlash(TEXTS.scanFailText);
+          else showFlash(t.scanFailText);
         },
-        () => showFlash(TEXTS.netFailText),
+        () => showFlash(t.netFailText),
       );
     },
-    [onVerified, showFlash],
+    [onVerified, showFlash, t.scanFailText, t.netFailText],
   );
 
   return (
@@ -363,11 +442,12 @@ function Scanning({
       <ScanView
         onDecode={onDecode}
         onError={(name) =>
-          name === 'DecoderUnavailable' ? showFlash(TEXTS.decoderFailText) : onCameraLost()
+          name === 'DecoderUnavailable' ? showFlash(t.decoderFailText) : onCameraLost()
         }
-        hint={TEXTS.scanPrompt}
+        hint={t.scanPrompt}
         flash={flash}
       />
+      <SkipScanButton onSkip={onSkip} />
     </div>
   );
 }
@@ -377,14 +457,15 @@ function Scanning({
 // ---------------------------------------------------------------------------
 
 function SuccessScreen({ onDone }: { onDone: () => void }) {
+  const t = useTexts();
   useEffect(() => {
-    const timer = setTimeout(onDone, TEXTS.successHoldMs);
+    const timer = setTimeout(onDone, t.successHoldMs);
     return () => clearTimeout(timer);
-  }, [onDone]);
+  }, [onDone, t.successHoldMs]);
 
   return (
     <div className="screen screen-center success-flash">
-      <h1 className="success-text">{TEXTS.successText}</h1>
+      <h1 className="success-text">{t.successText}</h1>
     </div>
   );
 }

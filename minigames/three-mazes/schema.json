@@ -105,6 +105,7 @@
           "generatorParams": {
             "type": "object",
             "title": "Параметры генерации",
+            "x-type": "maze-preview",
             "properties": {
               "type": {
                 "type": "string",

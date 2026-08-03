@@ -3,7 +3,8 @@ import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'data/**'] },
+  // server/static/minigames is a copy of each minigame's dist — generated, like dist itself.
+  { ignores: ['**/dist/**', '**/node_modules/**', 'data/**', 'server/static/minigames/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,

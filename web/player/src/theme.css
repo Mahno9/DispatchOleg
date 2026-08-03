@@ -910,6 +910,20 @@ h3 {
   left: 14px;
 }
 
+/* Photo of the box with the QR (qrHintImage) — same footprint as the placeholder. */
+.hint-image {
+  flex: none;
+  width: 130px;
+  height: 130px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+
+/* Emergency skip lever (allowSkipScan): off to the side, never the main path. */
+.onboarding-skip {
+  align-self: flex-end;
+}
+
 .success-flash {
   background: radial-gradient(circle at 50% 50%, rgba(22, 166, 155, 0.35), transparent 70%);
   animation: success-pulse 600ms ease-out 1;
