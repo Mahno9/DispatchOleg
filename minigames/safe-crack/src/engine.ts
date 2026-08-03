@@ -136,6 +136,11 @@ export function resolveExpected(lock: Lock): string {
   if (lock.widget === 'checkbox-wall') {
     return normalizePattern(text(lock.params.pattern), int(lock.params.gridSize, 6));
   }
+  if (lock.widget === 'number-as-words') {
+    // Виджет выдаёт число прописью, а админ пишет цифрами — переводим эталон.
+    const n = Number(lock.answer.trim());
+    if (Number.isInteger(n) && n >= 0 && n <= 999) return numberToWords(n);
+  }
   return lock.answer;
 }
 

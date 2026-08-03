@@ -184,6 +184,18 @@ describe('FSM', () => {
     expect(resolveExpected(lock({ answer: '4471' }))).toBe('4471');
   });
 
+  it('resolveExpected: number-as-words переводит цифровой answer в пропись', () => {
+    expect(resolveExpected(lock({ widget: 'number-as-words', answer: '128' }))).toBe('сто двадцать восемь');
+    expect(resolveExpected(lock({ widget: 'number-as-words', answer: ' 12 ' }))).toBe('двенадцать');
+    expect(resolveExpected(lock({ widget: 'number-as-words', answer: '0' }))).toBe('ноль');
+    // Уже прописью, вне диапазона 0…999 или не целое — остаётся как есть
+    expect(resolveExpected(lock({ widget: 'number-as-words', answer: 'сто двадцать восемь' }))).toBe(
+      'сто двадцать восемь',
+    );
+    expect(resolveExpected(lock({ widget: 'number-as-words', answer: '1000' }))).toBe('1000');
+    expect(resolveExpected(lock({ widget: 'number-as-words', answer: '12.5' }))).toBe('12.5');
+  });
+
   it('styleTag: medvezhatnik без ошибок, отсутствует при поражении', () => {
     const cfg = config({ locks: [lock({ answer: 'а' })] });
     const won = solve(cfg, run(cfg, [{ type: 'START' }]));
