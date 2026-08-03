@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Заполнение силуэта",
+  "description": "Движок сам разбивает нарисованный силуэт на тетромино; игрок по одной перетаскивает детали на их места. Не тетрис — jigsaw: у каждой детали ровно одно правильное место.",
+  "type": "object",
+  "required": ["shape", "scoreThresholds"],
+  "properties": {
+    "shape": {
+      "type": "object",
+      "title": "Силуэт",
+      "description": "Клетки, которые нужно заполнить. Разбиение на детали считается автоматически при запуске.",
+      "x-type": "grid-paint",
+      "x-max-size": 16,
+      "required": ["width", "height", "rows"],
+      "default": {
+        "width": 4,
+        "height": 4,
+        "rows": [".##.", "####", "####", ".##."]
+      },
+      "properties": {
+        "width": { "type": "integer", "title": "Ширина", "minimum": 1, "maximum": 16 },
+        "height": { "type": "integer", "title": "Высота", "minimum": 1, "maximum": 16 },
+        "rows": { "type": "array", "title": "Строки", "items": { "type": "string" } }
+      }
+    },
+    "scoreThresholds": {
+      "type": "array",
+      "title": "Кривая баллов по времени",
+      "description": "Баллы интерполируются по кривой. Для нуля за медленное прохождение добавьте точку с 0 баллов.",
+      "x-type": "curve",
+      "default": [
+        { "maxSeconds": 20, "points": 300 },
+        { "maxSeconds": 60, "points": 150 },
+        { "maxSeconds": 180, "points": 0 }
+      ],
+      "items": {
+        "type": "object",
+        "required": ["maxSeconds", "points"],
+        "properties": {
+          "maxSeconds": { "type": "integer", "title": "Макс. секунд" },
+          "points": { "type": "integer", "title": "Баллы" }
+        }
+      }
+    },
+    "errorPenalty": {
+      "type": "integer",
+      "title": "Штраф за ошибку",
+      "description": "Сколько баллов снимается за одну ошибочную попытку установки. 0 — штрафа нет.",
+      "default": 5,
+      "minimum": 0
+    },
+    "hintAfterErrors": {
+      "type": "integer",
+      "title": "Подсказка после ошибок",
+      "description": "После скольких суммарных ошибок включается призрак-подсказка. 0 — сразу.",
+      "default": 3,
+      "minimum": 0
+    },
+    "randomizeRotation": {
+      "type": "boolean",
+      "title": "Случайный поворот детали",
+      "description": "Выдавать деталь в случайной из 4 ориентаций. Выкл — деталь сразу повёрнута правильно.",
+      "default": true
+    },
+    "sounds": {
+      "type": "object",
+      "title": "Звуки",
+      "properties": {
+        "pickUp": { "type": "string", "title": "Взятие детали", "x-type": "asset:audio" },
+        "place": { "type": "string", "title": "Успешная установка", "x-type": "asset:audio" },
+        "error": { "type": "string", "title": "Отклонённая установка", "x-type": "asset:audio" },
+        "hint": { "type": "string", "title": "Включение подсказки", "x-type": "asset:audio" },
+        "win": { "type": "string", "title": "Силуэт собран", "x-type": "asset:audio" }
+      }
+    }
+  }
+}

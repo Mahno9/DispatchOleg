@@ -1,0 +1,182 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Готовка для персонажей",
+  "description": "К окну выдачи выстраивается очередь супергероев. Игрок читает рецепт, по шагам добавляет ингредиенты (дозируемые — удержанием), затем варит блюдо в котле по кольцевой шкале. Ошибка — блюдо испорчено и заказ начинается заново, три ошибки — вся смена с начала.",
+  "type": "object",
+  "required": [
+    "ingredients",
+    "characters",
+    "fillRatePerSec",
+    "doseTolerancePct",
+    "cookTolerancePct",
+    "failsAllowed"
+  ],
+  "properties": {
+    "ingredients": {
+      "type": "array",
+      "title": "Ингредиенты",
+      "description": "Общая полка на всю игру. На id ссылаются шаги рецептов.",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "unitName"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "ID",
+            "description": "kebab-case, уникален; на него ссылаются шаги рецептов"
+          },
+          "name": { "type": "string", "title": "Название" },
+          "image": { "type": "string", "title": "Изображение", "x-type": "asset:image" },
+          "unitName": {
+            "type": "string",
+            "title": "Единица",
+            "description": "Для строки рецепта: «Мёд ×4 ложки»",
+            "default": "ложка"
+          }
+        }
+      },
+      "default": [
+        { "id": "stardust", "name": "Звёздная пыль", "image": "", "unitName": "щепотка" },
+        { "id": "honey", "name": "Мёд", "image": "", "unitName": "ложка" },
+        { "id": "hero-milk", "name": "Молоко героя", "image": "", "unitName": "мерка" },
+        { "id": "cinnamon", "name": "Корица", "image": "", "unitName": "щепотка" },
+        { "id": "dragon-coal", "name": "Уголёк дракона", "image": "", "unitName": "уголёк" },
+        { "id": "sugar", "name": "Сахар", "image": "", "unitName": "ложка" },
+        { "id": "moon-mint", "name": "Лунная мята", "image": "", "unitName": "листок" },
+        { "id": "iron-bolt", "name": "Железный болт", "image": "", "unitName": "болт" }
+      ]
+    },
+    "characters": {
+      "type": "array",
+      "title": "Заказы (очередь)",
+      "description": "Порядок массива = порядок очереди. Очередь не перемешивается.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "orderName", "cookSeconds", "steps"],
+        "properties": {
+          "name": { "type": "string", "title": "Имя персонажа" },
+          "portrait": { "type": "string", "title": "Портрет", "x-type": "asset:image" },
+          "orderName": { "type": "string", "title": "Название заказа" },
+          "cookSeconds": {
+            "type": "number",
+            "title": "Время варки, с",
+            "default": 6,
+            "minimum": 0.5
+          },
+          "steps": {
+            "type": "array",
+            "title": "Шаги рецепта",
+            "description": "Строго упорядочены. Заказ без шагов состоит только из варки.",
+            "items": {
+              "type": "object",
+              "required": ["ingredientId", "amount"],
+              "properties": {
+                "ingredientId": {
+                  "type": "string",
+                  "title": "Ингредиент",
+                  "description": "id из списка ингредиентов"
+                },
+                "amount": {
+                  "type": "integer",
+                  "title": "Количество",
+                  "description": "0 = просто положить (одиночный клик), >0 = дозирование удержанием",
+                  "default": 1,
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      },
+      "default": [
+        {
+          "name": "Вера",
+          "portrait": "",
+          "orderName": "Какао для ночного дежурства",
+          "cookSeconds": 6,
+          "steps": [
+            { "ingredientId": "hero-milk", "amount": 3 },
+            { "ingredientId": "sugar", "amount": 2 },
+            { "ingredientId": "cinnamon", "amount": 1 }
+          ]
+        },
+        {
+          "name": "Макс",
+          "portrait": "",
+          "orderName": "Зелье второго дыхания",
+          "cookSeconds": 8,
+          "steps": [
+            { "ingredientId": "dragon-coal", "amount": 0 },
+            { "ingredientId": "stardust", "amount": 2 },
+            { "ingredientId": "honey", "amount": 4 },
+            { "ingredientId": "moon-mint", "amount": 0 }
+          ]
+        },
+        {
+          "name": "К-9",
+          "portrait": "",
+          "orderName": "Суп для робота-напарника",
+          "cookSeconds": 10,
+          "steps": [
+            { "ingredientId": "iron-bolt", "amount": 0 },
+            { "ingredientId": "hero-milk", "amount": 2 },
+            { "ingredientId": "stardust", "amount": 3 },
+            { "ingredientId": "dragon-coal", "amount": 0 }
+          ]
+        }
+      ]
+    },
+    "fillRatePerSec": {
+      "type": "number",
+      "title": "Скорость наполнения, ед/с",
+      "default": 1.5,
+      "minimum": 0.1
+    },
+    "doseTolerancePct": {
+      "type": "integer",
+      "title": "Допуск дозы, % единицы",
+      "description": "Полуширина янтарной зоны в долях ОДНОЙ единицы, не от количества",
+      "default": 40,
+      "minimum": 1,
+      "maximum": 100
+    },
+    "cookTolerancePct": {
+      "type": "integer",
+      "title": "Допуск варки, %",
+      "description": "Полуширина янтарного сектора кольца, в % от времени варки",
+      "default": 12,
+      "minimum": 1,
+      "maximum": 50
+    },
+    "failsAllowed": {
+      "type": "integer",
+      "title": "Ошибок до «ВСЁ СГОРЕЛО»",
+      "default": 3,
+      "minimum": 1
+    },
+    "pointsPerStep": { "type": "integer", "title": "Очки за шаг", "default": 10, "minimum": 0 },
+    "pointsPerOrder": { "type": "integer", "title": "Очки за заказ", "default": 50, "minimum": 0 },
+    "spoilAnimationMs": {
+      "type": "integer",
+      "title": "Длительность анимации порчи, мс",
+      "default": 1000,
+      "minimum": 200,
+      "maximum": 5000
+    },
+    "sounds": {
+      "type": "object",
+      "title": "Звуки",
+      "properties": {
+        "place": { "type": "array", "title": "Ингредиент положен", "x-type": "asset:audio" },
+        "pourLoop": { "type": "array", "title": "Наполнение (луп)", "x-type": "asset:audio" },
+        "pourOk": { "type": "array", "title": "Доза в допуске", "x-type": "asset:audio" },
+        "cookLoop": { "type": "array", "title": "Варка (луп)", "x-type": "asset:audio" },
+        "orderDone": { "type": "array", "title": "Заказ выдан", "x-type": "asset:audio" },
+        "fail": { "type": "array", "title": "Блюдо испорчено", "x-type": "asset:audio" },
+        "wipe": { "type": "array", "title": "«ВСЁ СГОРЕЛО»", "x-type": "asset:audio" }
+      }
+    }
+  }
+}

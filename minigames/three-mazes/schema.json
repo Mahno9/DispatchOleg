@@ -1,0 +1,196 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Три лабиринта",
+  "description": "Игрок ведёт точку по трём лабиринтам подряд, не касаясь стен. Часть стен ломается на скорости. Игра сообщает стиль прохождения: ghost или breaker.",
+  "type": "object",
+  "properties": {
+    "screamerImage": {
+      "type": "string",
+      "title": "Картинка скримера",
+      "description": "Показывается на весь экран при столкновении со стеной. Пусто — красная вспышка.",
+      "x-type": "asset:image"
+    },
+    "screamerSound": {
+      "type": "array",
+      "title": "Звук скримера",
+      "x-type": "asset:audio",
+      "default": []
+    },
+    "screamerDurationMs": {
+      "type": "integer",
+      "title": "Длительность скримера, мс",
+      "default": 1200,
+      "minimum": 300,
+      "maximum": 4000
+    },
+    "followSpeed": {
+      "type": "integer",
+      "title": "Скорость точки (кап), px/с",
+      "description": "Главный регулятор сложности: ниже — вязче и безопаснее, выше — резче и опаснее.",
+      "default": 600,
+      "minimum": 100,
+      "maximum": 2000
+    },
+    "bounceSpeed": {
+      "type": "integer",
+      "title": "Минимальная скорость отскока после пролома, px/с",
+      "default": 400,
+      "minimum": 0,
+      "maximum": 2000
+    },
+    "bounceDurationMs": {
+      "type": "integer",
+      "title": "Ослабление пружины после пролома, мс",
+      "default": 300,
+      "minimum": 0,
+      "maximum": 2000
+    },
+    "breakAngleDeg": {
+      "type": "integer",
+      "title": "Конус удара «в лоб», градусы",
+      "description": "Больше — ломать проще.",
+      "default": 40,
+      "minimum": 5,
+      "maximum": 89
+    },
+    "breakMinSpeedRatio": {
+      "type": "number",
+      "title": "Порог скорости слома (доля от скорости точки)",
+      "default": 0.55,
+      "minimum": 0,
+      "maximum": 1
+    },
+    "breakerThreshold": {
+      "type": "integer",
+      "title": "С какого числа сломанных стен стиль = breaker",
+      "default": 1,
+      "minimum": 1
+    },
+    "penaltyPerReset": {
+      "type": "integer",
+      "title": "Штраф за каждый сброс (скример)",
+      "default": 50,
+      "minimum": 0
+    },
+    "mazes": {
+      "type": "array",
+      "title": "Лабиринты",
+      "minItems": 3,
+      "maxItems": 3,
+      "default": [
+        {
+          "generatorParams": { "type": "square", "size": 8, "breakableDensity": 0.15, "seed": 1001 },
+          "walls": [],
+          "scale": 1,
+          "scorePerMaze": 100
+        },
+        {
+          "generatorParams": { "type": "hex", "size": 8, "breakableDensity": 0.15, "seed": 1002 },
+          "walls": [],
+          "scale": 1,
+          "scorePerMaze": 100
+        },
+        {
+          "generatorParams": { "type": "circular", "size": 5, "breakableDensity": 0.15, "seed": 1003 },
+          "walls": [],
+          "scale": 1,
+          "scorePerMaze": 150
+        }
+      ],
+      "items": {
+        "type": "object",
+        "title": "Лабиринт",
+        "x-type": "maze-generator",
+        "properties": {
+          "generatorParams": {
+            "type": "object",
+            "title": "Параметры генерации",
+            "properties": {
+              "type": {
+                "type": "string",
+                "title": "Топология",
+                "enum": ["square", "hex", "circular"],
+                "default": "square"
+              },
+              "size": {
+                "type": "integer",
+                "title": "Размер (ячеек по стороне / колец)",
+                "default": 8,
+                "minimum": 3,
+                "maximum": 20
+              },
+              "breakableDensity": {
+                "type": "number",
+                "title": "Доля ломаемых стен среди срезок",
+                "default": 0.15,
+                "minimum": 0,
+                "maximum": 1
+              },
+              "seed": {
+                "type": "integer",
+                "title": "Сид генератора",
+                "default": 1001
+              }
+            },
+            "required": ["type", "size", "breakableDensity", "seed"]
+          },
+          "walls": {
+            "type": "array",
+            "title": "Стены (результат генерации)",
+            "readOnly": true,
+            "default": [],
+            "items": {
+              "type": "object",
+              "properties": {
+                "x1": { "type": "number" },
+                "y1": { "type": "number" },
+                "x2": { "type": "number" },
+                "y2": { "type": "number" },
+                "breakable": { "type": "boolean" },
+                "group": { "type": "integer" }
+              },
+              "required": ["x1", "y1", "x2", "y2", "breakable"]
+            }
+          },
+          "start": {
+            "type": "object",
+            "title": "Старт (результат генерации)",
+            "readOnly": true,
+            "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+          },
+          "finish": {
+            "type": "object",
+            "title": "Финиш (результат генерации)",
+            "readOnly": true,
+            "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+          },
+          "scale": {
+            "type": "number",
+            "title": "Масштаб отрисовки",
+            "default": 1,
+            "minimum": 0.3,
+            "maximum": 3
+          },
+          "scorePerMaze": {
+            "type": "integer",
+            "title": "Очки за лабиринт",
+            "default": 100,
+            "minimum": 0
+          }
+        },
+        "required": ["generatorParams"]
+      }
+    },
+    "sounds": {
+      "type": "object",
+      "title": "Звуки",
+      "properties": {
+        "wallBreak": { "type": "array", "title": "Хруст ломаемой стены", "x-type": "asset:audio" },
+        "mazeComplete": { "type": "array", "title": "Финиш лабиринта", "x-type": "asset:audio" },
+        "gameComplete": { "type": "array", "title": "Финиш игры", "x-type": "asset:audio" },
+        "ambient": { "type": "array", "title": "Фоновый гул", "x-type": "asset:audio" }
+      }
+    }
+  },
+  "required": ["followSpeed", "mazes"]
+}

@@ -1,0 +1,68 @@
+/* ---------------------------------------------------------------------------
+   CRT texture over the whole terminal. All static gradients + two cheap CSS
+   animations — no timers, no rAF, no per-frame cost. Must never eat clicks.
+   --------------------------------------------------------------------------- */
+
+.crt-overlay {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+/* Scanlines (STYLE.md) + vignette + corner darkening. */
+.crt-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.025) 0,
+      rgba(255, 255, 255, 0.025) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    radial-gradient(ellipse at center, transparent 55%, rgba(3, 11, 12, 0.55) 100%),
+    radial-gradient(circle at 50% 50%, rgba(22, 166, 155, 0.05) 0%, transparent 70%);
+  opacity: 0.7;
+  animation: crt-flicker 5.5s ease-in-out infinite;
+}
+
+/* Chromatic aberration: two hairline colour offsets at the screen edges. */
+.crt-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  opacity: 0.16;
+  background:
+    linear-gradient(90deg, rgba(240, 113, 62, 0.5) 0 1px, transparent 1px 100%),
+    linear-gradient(270deg, rgba(93, 226, 208, 0.5) 0 1px, transparent 1px 100%);
+}
+
+/* Barely-there brightness breathing — must not hurt readability. */
+@keyframes crt-flicker {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  47% {
+    opacity: 0.68;
+  }
+  48% {
+    opacity: 0.78;
+  }
+  49% {
+    opacity: 0.69;
+  }
+  72% {
+    opacity: 0.73;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crt-overlay::before {
+    animation: none;
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Взлом сейфа",
+  "description": "N ригелей, на каждом вопрос и нарочито неудобный виджет ввода. Игра проверяет не знания, а терпение.",
+  "type": "object",
+  "required": ["title", "locks"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "Название сейфа",
+      "description": "Показывается на заставке и в служебной строке",
+      "default": "СЕЙФ"
+    },
+    "timeLimitSeconds": {
+      "type": "integer",
+      "title": "Лимит времени, сек",
+      "description": "Общий на партию, тикает всегда. 0 — без таймера",
+      "default": 0,
+      "minimum": 0
+    },
+    "maxAttempts": {
+      "type": "integer",
+      "title": "Пул попыток",
+      "description": "Одна общая касса ошибок на всю партию. 0 — бесконечно",
+      "default": 0,
+      "minimum": 0
+    },
+    "errorPenalty": {
+      "type": "integer",
+      "title": "Штраф за ошибку",
+      "description": "Сколько очков снимается за каждый неверный ввод. Итог не уходит ниже нуля",
+      "default": 10,
+      "minimum": 0
+    },
+    "prizeImage": {
+      "type": "string",
+      "title": "Что лежит в сейфе",
+      "description": "Показывается на экране победы",
+      "x-type": "asset:image"
+    },
+    "sounds": {
+      "type": "object",
+      "title": "Звуки",
+      "properties": {
+        "dialClick": { "type": "array", "title": "Щелчок лимба / диска / барабана", "x-type": "asset:audio" },
+        "lockOpen": { "type": "array", "title": "Ригель поддался", "x-type": "asset:audio" },
+        "lockFail": { "type": "array", "title": "Ошибка, сирена", "x-type": "asset:audio" },
+        "victory": { "type": "array", "title": "Дверь открылась", "x-type": "asset:audio" }
+      }
+    },
+    "locks": {
+      "type": "array",
+      "title": "Ригели",
+      "description": "Вскрываются строго по порядку. Пустой список — сейф уже открыт, мгновенная победа",
+      "items": {
+        "type": "object",
+        "required": ["question", "widget", "answer", "points"],
+        "properties": {
+          "question": { "type": "string", "title": "Вопрос" },
+          "widget": {
+            "type": "string",
+            "title": "Виджет ввода",
+            "enum": [
+              "mega-slider",
+              "haystack-dropdown",
+              "rotary-dial",
+              "shuffle-keyboard",
+              "number-as-words",
+              "plus-minus",
+              "safe-drum",
+              "hold-button",
+              "checkbox-wall"
+            ],
+            "default": "mega-slider"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Ответ",
+            "description": "Сравнение нормализованное: trim, регистр, ё→е. Игнорируется для hold-button и checkbox-wall"
+          },
+          "points": { "type": "integer", "title": "Очки за ригель", "default": 50, "minimum": 0 },
+          "params": {
+            "type": "object",
+            "title": "Параметры виджета",
+            "description": "Один плоский объект на все виджеты сразу — нерелевантные поля движок игнорирует",
+            "properties": {
+              "min": { "type": "integer", "title": "mega-slider: левая граница", "default": 0 },
+              "max": { "type": "integer", "title": "mega-slider: правая граница", "default": 10000 },
+              "driftAmount": { "type": "integer", "title": "mega-slider: дрейф за тик", "default": 1 },
+              "driftIntervalMs": { "type": "integer", "title": "mega-slider: период дрейфа, мс", "default": 800 },
+              "options": {
+                "type": "array",
+                "title": "haystack-dropdown: пункты списка",
+                "items": { "type": "string" },
+                "default": []
+              },
+              "optionsCount": {
+                "type": "integer",
+                "title": "haystack-dropdown: сколько шума сгенерировать, если список пуст",
+                "default": 300
+              },
+              "digits": { "type": "integer", "title": "rotary-dial: длина набора", "default": 3 },
+              "dialFullTurnDegrees": { "type": "integer", "title": "rotary-dial: угол до упора", "default": 300 },
+              "targetWord": {
+                "type": "string",
+                "title": "shuffle-keyboard / safe-drum: что набрать (пусто — берётся ответ)"
+              },
+              "alphabet": { "type": "string", "title": "shuffle-keyboard / safe-drum: набор символов" },
+              "shuffleEveryKey": {
+                "type": "boolean",
+                "title": "shuffle-keyboard: перемешивать после каждой буквы",
+                "default": true
+              },
+              "slots": { "type": "integer", "title": "number-as-words: число барабанов", "default": 3 },
+              "maxNumber": { "type": "integer", "title": "number-as-words: верхняя граница числа", "default": 999 },
+              "startMin": { "type": "integer", "title": "plus-minus: нижняя граница старта", "default": 0 },
+              "startMax": { "type": "integer", "title": "plus-minus: верхняя граница старта", "default": 100 },
+              "swapEveryNClicks": { "type": "integer", "title": "plus-minus: свап кнопок каждые N кликов", "default": 5 },
+              "friction": { "type": "number", "title": "safe-drum: трение барабана", "default": 0.94 },
+              "targetSeconds": { "type": "number", "title": "hold-button: сколько держать, сек", "default": 5 },
+              "toleranceMs": { "type": "integer", "title": "hold-button: допуск, мс", "default": 300 },
+              "gaugeLagMs": { "type": "integer", "title": "hold-button: отставание стрелки, мс", "default": 400 },
+              "gridSize": { "type": "integer", "title": "checkbox-wall: сторона сетки", "default": 6 },
+              "pattern": { "type": "string", "title": "checkbox-wall: эталон из 0/1 по строкам сетки" }
+            }
+          }
+        }
+      },
+      "default": [
+        {
+          "question": "Сколько патрульных машин в ночную смену?",
+          "widget": "shuffle-keyboard",
+          "answer": "два",
+          "points": 50,
+          "params": { "targetWord": "два" }
+        },
+        {
+          "question": "Номер дела о краже в порту",
+          "widget": "mega-slider",
+          "answer": "4471",
+          "points": 80,
+          "params": { "min": 0, "max": 10000, "driftAmount": 1, "driftIntervalMs": 800 }
+        },
+        {
+          "question": "Код замка архива",
+          "widget": "rotary-dial",
+          "answer": "417",
+          "points": 70,
+          "params": { "digits": 3, "dialFullTurnDegrees": 300 }
+        },
+        {
+          "question": "Сколько секунд длится сигнал тревоги?",
+          "widget": "hold-button",
+          "answer": "",
+          "points": 100,
+          "params": { "targetSeconds": 5, "toleranceMs": 300, "gaugeLagMs": 400 }
+        }
+      ]
+    }
+  }
+}

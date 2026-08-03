@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Ну, погоди! — спасение из высотки",
+  "description": "Ловля выпрыгивающих из горящего дома на батут. Три схемы управления.",
+  "type": "object",
+  "required": ["controlVariant", "rescueTarget", "lives", "fallTime", "hangTime"],
+  "properties": {
+    "controlVariant": {
+      "type": "string",
+      "title": "Схема управления",
+      "enum": ["inverted", "stepwise", "clockwise"],
+      "default": "clockwise",
+      "description": "inverted — стрелки по кольцу с инверсией; clockwise — шаг только по часовой; stepwise — дуга из 5 точек с автопроходом"
+    },
+    "rescueTarget": {
+      "type": "integer",
+      "title": "Спасений до победы",
+      "description": "Условие победы",
+      "default": 20,
+      "minimum": 1,
+      "maximum": 100
+    },
+    "lives": {
+      "type": "integer",
+      "title": "Жизни",
+      "description": "Каждый упавший мимо батута — минус одна",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 10
+    },
+    "spawnIntervalStart": {
+      "type": "number",
+      "title": "Интервал спавна, старт (с)",
+      "description": "Интервал на нулевом прогрессе",
+      "default": 2.5,
+      "minimum": 0.5,
+      "maximum": 10
+    },
+    "spawnIntervalMin": {
+      "type": "number",
+      "title": "Интервал спавна, минимум (с)",
+      "description": "Интервал при достижении цели по спасённым",
+      "default": 0.9,
+      "minimum": 0.3,
+      "maximum": 10
+    },
+    "fallTime": {
+      "type": "number",
+      "title": "Время падения (с)",
+      "description": "От окна до точки ловли",
+      "default": 1.8,
+      "minimum": 0.4,
+      "maximum": 6
+    },
+    "hangTime": {
+      "type": "number",
+      "title": "Телеграф в окне (с)",
+      "description": "Пострадавший виден в окне, цель подсвечена",
+      "default": 1.0,
+      "minimum": 0.1,
+      "maximum": 4
+    },
+    "maxAirborne": {
+      "type": "integer",
+      "title": "Максимум в воздухе",
+      "description": "Считает и телеграф, и падение",
+      "default": 2,
+      "minimum": 1,
+      "maximum": 4
+    },
+    "inversionInterval": {
+      "type": "number",
+      "title": "Период инверсии (с) — вариант inverted",
+      "description": "Как часто меняется направление стрелок. Только для controlVariant = inverted",
+      "default": 5,
+      "minimum": 1,
+      "maximum": 30
+    },
+    "inversionWarnTime": {
+      "type": "number",
+      "title": "Предупреждение до инверсии (с) — вариант inverted",
+      "description": "За сколько до смены направления загорается REV. Только для controlVariant = inverted",
+      "default": 1.0,
+      "minimum": 0.2,
+      "maximum": 3
+    },
+    "stepDelay": {
+      "type": "number",
+      "title": "Задержка шага (с) — варианты stepwise и clockwise",
+      "description": "stepwise — время одного шага автопрохода; clockwise — кулдаун между шагами",
+      "default": 0.25,
+      "minimum": 0.05,
+      "maximum": 1
+    },
+    "pointsPerCatch": {
+      "type": "integer",
+      "title": "Очки за спасение",
+      "description": "База, до множителя серии",
+      "default": 100,
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "streakStep": {
+      "type": "integer",
+      "title": "Шаг серии до +1 множителя",
+      "description": "Каждые N подряд пойманных — множитель растёт на 1",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 20
+    },
+    "maxMultiplier": {
+      "type": "integer",
+      "title": "Максимальный множитель",
+      "description": "Потолок множителя серии",
+      "default": 4,
+      "minimum": 1,
+      "maximum": 10
+    },
+    "sounds": {
+      "type": "object",
+      "title": "Звуки",
+      "properties": {
+        "catch": {
+          "type": "string",
+          "title": "Звук спасения",
+          "x-type": "asset:audio"
+        },
+        "miss": {
+          "type": "string",
+          "title": "Звук промаха",
+          "x-type": "asset:audio"
+        },
+        "inversionWarn": {
+          "type": "string",
+          "title": "Предупреждение об инверсии (inverted)",
+          "x-type": "asset:audio"
+        },
+        "deny": {
+          "type": "string",
+          "title": "Отказ — неверная клавиша (clockwise)",
+          "x-type": "asset:audio"
+        },
+        "win": {
+          "type": "string",
+          "title": "Победа",
+          "x-type": "asset:audio"
+        },
+        "lose": {
+          "type": "string",
+          "title": "Поражение",
+          "x-type": "asset:audio"
+        }
+      }
+    },
+    "music": {
+      "type": "string",
+      "title": "Фоновая музыка",
+      "x-type": "asset:audio"
+    }
+  }
+}

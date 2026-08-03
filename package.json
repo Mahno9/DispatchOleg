@@ -1,0 +1,34 @@
+{
+  "name": "dispatch-oleg",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web/player",
+    "web/admin",
+    "minigames/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,player,admin -c blue,green,magenta \"npm:dev:server\" \"npm:dev:player\" \"npm run dev:admin -- --host\"",
+    "dev:server": "npm run dev -w server",
+    "dev:player": "npm run dev -w web/player",
+    "dev:admin": "npm run dev -w web/admin",
+    "build": "npm run build --workspaces --if-present && node scripts/sync-minigames.mjs",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "concurrently": "^10.0.3",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.6.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

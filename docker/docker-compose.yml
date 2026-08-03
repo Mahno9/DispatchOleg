@@ -1,0 +1,23 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    environment:
+      - ADMIN_LOGIN=${ADMIN_LOGIN:?set in .env}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set in .env}
+      - COOKIE_SECRET=${COOKIE_SECRET:?set in .env}
+      - QR_SECRET=${QR_SECRET:?set in .env}
+    volumes:
+      - ../data:/data
+    ports:
+      - '127.0.0.1:8081:8080'
+    mem_limit: 400m
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?set in .env}
+    depends_on:
+      - app
