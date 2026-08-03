@@ -21,6 +21,7 @@ interface MimeMeta {
   kind: AssetKind;
   ext: string;
   transcode?: true; // convert via ffmpeg before storing
+  sanitize?: true; // scan decoded text for embedded scripts before storing
 }
 
 const MIME_MAP: Record<string, MimeMeta> = {
@@ -31,6 +32,7 @@ const MIME_MAP: Record<string, MimeMeta> = {
   'image/x-icon': { kind: 'image', ext: 'ico' },
   'image/vnd.microsoft.icon': { kind: 'image', ext: 'ico' },
   'image/gif': { kind: 'gif', ext: 'gif' },
+  'image/svg+xml': { kind: 'image', ext: 'svg', sanitize: true },
   'audio/mpeg': { kind: 'audio', ext: 'mp3' },
   'audio/ogg': { kind: 'audio', ext: 'ogg' },
   'audio/wav': { kind: 'audio', ext: 'wav' },
@@ -40,6 +42,14 @@ const MIME_MAP: Record<string, MimeMeta> = {
   'audio/flac': { kind: 'audio', ext: 'flac', transcode: true },
   'audio/x-flac': { kind: 'audio', ext: 'flac', transcode: true },
 };
+
+// SVGs are live XML documents once served from /assets-store/, so any
+// script-bearing SVG must be rejected outright rather than stored/stripped.
+const SVG_DANGER_RE = /<script[\s>]|\bon[a-z]+\s*=|javascript:|<foreignObject|data:text\/html/i;
+
+export function svgLooksDangerous(text: string): boolean {
+  return SVG_DANGER_RE.test(text);
+}
 
 async function transcodeToOgg(buf: Buffer, srcExt: string): Promise<Buffer> {
   const tmpIn = path.join(os.tmpdir(), `do-in-${nanoid(8)}.${srcExt}`);
@@ -146,6 +156,11 @@ export async function assetsRoutes(app: FastifyInstance) {
       let buf = await part.toBuffer();
       let storedMime = mime;
       let storedMeta = meta;
+
+      if (meta.sanitize && svgLooksDangerous(buf.toString('utf8'))) {
+        rejected.push(`${part.filename} (unsafe SVG content)`);
+        continue;
+      }
 
       if (meta.transcode) {
         try {

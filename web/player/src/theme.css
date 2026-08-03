@@ -681,6 +681,23 @@ h3 {
   cursor: pointer;
 }
 
+/* Stage placement: absolute spot on the floor, x/y addressing the sprite's
+   centre. --char-scale comes from the admin's per-character scale. */
+.meta-char--placed {
+  position: absolute;
+  transform: translate(-50%, -50%) scale(var(--char-scale, 1));
+  transform-origin: center center;
+}
+
+/* A placed character with no dialogue is scenery: no cursor, no hover glow. */
+.meta-char--idle {
+  cursor: default;
+}
+
+.meta-char--idle .meta-char-frame {
+  border-color: var(--line-dim);
+}
+
 .meta-char-frame {
   position: relative;
   display: flex;
@@ -697,7 +714,7 @@ h3 {
     background var(--t) linear;
 }
 
-.meta-char:hover .meta-char-frame,
+.meta-char:not(.meta-char--idle):hover .meta-char-frame,
 .meta-char:focus-visible .meta-char-frame {
   border-color: var(--glow);
   background: var(--surface);
@@ -945,6 +962,62 @@ h3 {
     opacity: 1;
     filter: none;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Victory — the shift closes: one terminal panel, the final transmission
+   --------------------------------------------------------------------------- */
+
+.victory {
+  background: radial-gradient(circle at 50% 45%, rgba(22, 166, 155, 0.18), transparent 68%);
+}
+
+.victory-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(620px, 92%);
+  padding: 18px 20px;
+}
+
+.victory-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.victory-badge {
+  letter-spacing: 0.24em;
+}
+
+.victory-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 2px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--glow);
+  text-transform: uppercase;
+  text-align: center;
+}
+
+/* Blinking marker: the terminal is still holding the line open. */
+.victory-cursor {
+  align-self: center;
+  width: 9px;
+  height: 15px;
+  background: var(--glow);
+  box-shadow: var(--halo);
+  animation: blink 1.1s steps(1, end) infinite;
+}
+
+.victory-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1258,6 +1331,7 @@ h3 {
   .marker-blink,
   .boot-cursor,
   .scan-line,
+  .victory-cursor,
   .success-flash {
     animation: none;
   }

@@ -17,7 +17,15 @@ interface MinigameInfo {
   /** null for system games — there is nothing to import. */
   entryUrl: string | null;
   schemaUrl: string;
+  /** Top-level `default` values from schema.json — the base layer of a game's
+   *  effective config. Same extraction the admin editor does client-side. */
+  schemaDefaults: Record<string, unknown>;
   system?: true;
+}
+
+interface SchemaFile {
+  title?: string;
+  properties?: Record<string, { default?: unknown }>;
 }
 
 function scanDir(dir: string, system: boolean): MinigameInfo[] {
@@ -29,17 +37,24 @@ function scanDir(dir: string, system: boolean): MinigameInfo[] {
     // A bundled game without index.js is a half-built game, not a type.
     if (!system && !fs.existsSync(path.join(dir, id, 'index.js'))) continue;
     let title = id;
+    const schemaDefaults: Record<string, unknown> = {};
     try {
-      const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8')) as { title?: string };
+      const schema = JSON.parse(fs.readFileSync(schemaPath, 'utf8')) as SchemaFile;
       if (schema.title) title = schema.title;
+      for (const [key, sub] of Object.entries(schema.properties ?? {})) {
+        if (sub && typeof sub === 'object' && sub.default !== undefined) {
+          schemaDefaults[key] = sub.default;
+        }
+      }
     } catch {
-      // malformed schema → keep id as title
+      // malformed schema → keep id as title, no defaults
     }
     out.push({
       id,
       title,
       entryUrl: system ? null : `/minigames/${id}/index.js`,
       schemaUrl: `/minigames/${id}/schema.json`,
+      schemaDefaults,
       ...(system ? { system: true as const } : {}),
     });
   }
@@ -51,10 +66,17 @@ export function scanMinigames(dir = minigamesDir, systemDir = systemMinigamesDir
 }
 
 export async function minigamesRoutes(app: FastifyInstance) {
-  // GET /api/minigames — scanned games, each augmented with its stored default config.
+  // GET /api/minigames — scanned games, each augmented with its effective default
+  // config: schema.json defaults ⊕ admin-stored overrides. The player's launcher
+  // merges defaultConfig ⊕ games.config_json, so schema defaults must be part of
+  // this layer — with an empty minigame_defaults table a game would otherwise
+  // start on an empty config and die on its own config validation.
   app.get('/api/minigames', async () => {
     const defaults = getAllDefaults(getDb());
-    return scanMinigames().map((m) => ({ ...m, defaultConfig: defaults[m.id] ?? {} }));
+    return scanMinigames().map((m) => ({
+      ...m,
+      defaultConfig: { ...m.schemaDefaults, ...(defaults[m.id] ?? {}) },
+    }));
   });
 
   // PUT /api/admin/minigames/:id/defaults — set a game's default config.

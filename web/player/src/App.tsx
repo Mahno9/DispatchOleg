@@ -11,8 +11,16 @@ import { MetaScreen, isUnlocked } from './screens/MetaScreen';
 import { MinigameScreen } from './screens/MinigameScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { QrScanScreen } from './screens/QrScanScreen';
+import { VictoryScreen } from './screens/VictoryScreen';
 
-type Screen = 'onboarding' | 'meta' | 'qr-scan' | 'launch' | 'dialogue' | 'minigame';
+type Screen = 'onboarding' | 'meta' | 'qr-scan' | 'launch' | 'dialogue' | 'minigame' | 'victory';
+
+/**
+ * "The player has already seen the ending." Deliberately outside ClientState:
+ * it is a one-off presentation flag, not progress, so it must not enter the
+ * sync contract with the server.
+ */
+const VICTORY_SEEN_KEY = 'dispatch_victory_seen';
 
 /** Which dialogue is on screen and where the chain goes once it ends. */
 interface DialogueStep {
@@ -51,6 +59,15 @@ export function App() {
   const [dialogue, setDialogue] = useState<DialogueStep | null>(null);
   /** Slot 2 rented out to the dialogue scene / the running minigame. */
   const [slotContext, setSlotContext] = useState<ReactNode>(null);
+
+  // Onboarding hands this to timer-driven screens: it must be referentially
+  // stable, or their setTimeout effects restart on every App re-render (the
+  // clock ticks once a second) and never fire.
+  const finishOnboarding = useCallback(() => {
+    // Local flag first, meta immediately — sync catches up in background.
+    localState.setOnboarded(true);
+    setScreen('meta');
+  }, []);
 
   const endChain = useCallback(() => {
     setDialogue(null);
@@ -92,6 +109,18 @@ export function App() {
   const playable = games.filter((g) => !g.isTutorial);
   const won = playable.filter((g) => state.gameResults[String(g.id)]?.won).length;
   const unlocked = playable.filter((g) => isUnlocked(g, state.gameResults)).length;
+  const allWon = playable.length > 0 && won === playable.length;
+
+  // The ending fires once per completed run. Falling short of a full clear —
+  // an admin reset, a new game added — arms it again for the next time.
+  useEffect(() => {
+    if (!allWon) return localStorage.removeItem(VICTORY_SEEN_KEY);
+    // Only the meta screen may be interrupted: a dialogue or a running minigame
+    // gets to finish, and lands back on the meta, where this fires.
+    if (screen !== 'meta' || localStorage.getItem(VICTORY_SEEN_KEY) === '1') return;
+    localStorage.setItem(VICTORY_SEEN_KEY, '1');
+    setScreen('victory');
+  }, [allWon, screen]);
 
   let workarea;
   let context;
@@ -103,11 +132,7 @@ export function App() {
         <OnboardingScreen
           config={tutorialConfig}
           onStatus={setOnboardStatus}
-          onDone={() => {
-            // Local flag first, meta immediately — sync catches up in background.
-            localState.setOnboarded(true);
-            setScreen('meta');
-          }}
+          onDone={finishOnboarding}
         />
       );
       context = <div className="label">{onboardStatus}</div>;
@@ -118,9 +143,11 @@ export function App() {
         <MetaScreen
           games={games}
           results={state.gameResults}
-          // Meta chatter: no game, no results — the dialogue just leads back here.
-          onCharacter={(character) => {
-            setDialogue({ id: character.metaDialogueId, then: 'meta', characterId: character.id });
+          // Meta chatter: no game, no results — the dialogue just leads back
+          // here. The id comes with the click: a stage placement may point the
+          // same character at a different dialogue than their default one.
+          onCharacter={({ character, dialogueId }) => {
+            setDialogue({ id: dialogueId, then: 'meta', characterId: character.id });
             setScreen('dialogue');
           }}
         />
@@ -246,6 +273,20 @@ export function App() {
       action = (
         <button type="button" className="btn btn-key btn-danger" onClick={endChain}>
           Выйти
+        </button>
+      );
+      break;
+
+    case 'victory':
+      workarea = <VictoryScreen />;
+      context = (
+        <div className="label">
+          Прогресс по всей игре · операций завершено {won} / {playable.length} · смена закрыта
+        </div>
+      );
+      action = (
+        <button type="button" className="btn btn-key" onClick={() => setScreen('meta')}>
+          НА МЕТУ
         </button>
       );
       break;

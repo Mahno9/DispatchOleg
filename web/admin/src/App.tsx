@@ -3,6 +3,7 @@ import { api } from './api';
 import { LoginScreen } from './auth/LoginScreen';
 import { GamesSection } from './sections/GamesSection';
 import { CharactersSection } from './sections/CharactersSection';
+import { MetaSection } from './sections/MetaSection';
 import { DialoguesSection } from './sections/DialoguesSection';
 import { PlayersSection } from './sections/PlayersSection';
 import { MinigamesSection } from './sections/MinigamesSection';
@@ -13,6 +14,7 @@ import { ToastHost } from './toast';
 type Section =
   | 'games'
   | 'characters'
+  | 'meta'
   | 'dialogues'
   | 'players'
   | 'minigames'
@@ -22,6 +24,7 @@ type Section =
 const SECTIONS: { id: Section; title: string }[] = [
   { id: 'games', title: 'Игры' },
   { id: 'characters', title: 'Персонажи' },
+  { id: 'meta', title: 'Мета' },
   { id: 'dialogues', title: 'Диалоги' },
   { id: 'players', title: 'Игроки' },
   { id: 'minigames', title: 'Мини-игры' },
@@ -69,6 +72,7 @@ export function App() {
         <main className='content'>
           {section === 'games' && <GamesSection />}
           {section === 'characters' && <CharactersSection />}
+          {section === 'meta' && <MetaSection />}
           {section === 'dialogues' && <DialoguesSection />}
           {section === 'players' && <PlayersSection />}
           {section === 'minigames' && <MinigamesSection />}

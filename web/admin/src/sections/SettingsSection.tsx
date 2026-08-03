@@ -14,6 +14,7 @@ export function SettingsSection() {
   const [sound, setSound] = useState('');
   const [savedSound, setSavedSound] = useState('');
   const [weighted, setWeighted] = useState(false);
+  const [victoryText, setVictoryText] = useState('');
   const [picking, setPicking] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -24,6 +25,7 @@ export function SettingsSection() {
     setSound(firstSoundUrl(s.ui_click_sound_url));
     setSavedSound(firstSoundUrl(s.ui_click_sound_url));
     setWeighted(Array.isArray(s.ui_click_sound_url) && s.ui_click_sound_url.length > 1);
+    setVictoryText(s.final_victory_text ?? '');
   }
 
   useEffect(() => {
@@ -46,6 +48,7 @@ export function SettingsSection() {
       apply(
         await api.updateSettings({
           sync_interval_s: seconds,
+          final_victory_text: victoryText.trim() ? victoryText : null,
           ...(sound === savedSound ? {} : { ui_click_sound_url: sound || null }),
         }),
       );
@@ -85,6 +88,15 @@ export function SettingsSection() {
             один. Взвешенный список правится во вкладке «Ассеты».
           </p>
         )}
+
+        <label className='poi-field-label'>Текст финальной победы</label>
+        <textarea
+          className='meta-ed-victory-text'
+          rows={4}
+          value={victoryText}
+          placeholder='Показывается игроку, когда пройдены все игры'
+          onChange={(e) => setVictoryText(e.target.value)}
+        />
 
         <div className='poi-panel-actions'>
           <button className='modal-save-primary' disabled={saving} onClick={() => void save()}>

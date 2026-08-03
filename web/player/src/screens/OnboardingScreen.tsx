@@ -145,7 +145,9 @@ export function OnboardingScreen({ onDone, onStatus, config }: OnboardingScreenP
   const [step, setStep] = useState<OnboardingStep>(initialStep);
   const texts = useMemo(() => mergeTexts(config), [config]);
 
-  // Stable callbacks: the boot/success screens run timers keyed on them.
+  // Step transitions, kept stable to avoid needless re-renders. Correctness no
+  // longer rides on it: the boot/success screens hold their callbacks in refs,
+  // so their timers survive an unstable prop from anywhere up the tree.
   const toName = useCallback(() => setStep('name'), []);
   const toHint = useCallback(() => setStep('hint'), []);
   const toSuccess = useCallback(() => setStep('success'), []);
@@ -193,6 +195,10 @@ function BootScreen({ onSkip }: { onSkip: () => void }) {
   const [shown, setShown] = useState(t.bootLineDelayMs > 0 ? 1 : lines.length);
   const [showHint, setShowHint] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
+  // Same guard as SuccessScreen: the line-feed timer must not depend on the
+  // identity of a callback the parent may recreate on every render.
+  const skipRef = useRef(onSkip);
+  skipRef.current = onSkip;
 
   useEffect(() => {
     const timer = setTimeout(() => setShowHint(true), t.bootSkipHintMs);
@@ -201,21 +207,21 @@ function BootScreen({ onSkip }: { onSkip: () => void }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape') onSkip();
+      if (e.key === ' ' || e.key === 'Enter' || e.key === 'Escape') skipRef.current();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onSkip]);
+  }, []);
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     const done = shown >= lines.length;
     const timer = setTimeout(
-      () => (done ? onSkip() : setShown((n) => n + 1)),
+      () => (done ? skipRef.current() : setShown((n) => n + 1)),
       done ? t.bootHoldMs : t.bootLineDelayMs,
     );
     return () => clearTimeout(timer);
-  }, [shown, lines.length, onSkip, t.bootHoldMs, t.bootLineDelayMs]);
+  }, [shown, lines.length, t.bootHoldMs, t.bootLineDelayMs]);
 
   return (
     <div className="screen boot" onClick={onSkip}>
@@ -458,10 +464,17 @@ function Scanning({
 
 function SuccessScreen({ onDone }: { onDone: () => void }) {
   const t = useTexts();
+  // The hold timer must survive an unstable parent callback: App re-renders once
+  // a second (the clock), so an inline `onDone` in the deps would restart the
+  // timeout before it ever fires and strand the player on this screen. The ref
+  // keeps the latest callback without making it a dependency.
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+
   useEffect(() => {
-    const timer = setTimeout(onDone, t.successHoldMs);
+    const timer = setTimeout(() => doneRef.current(), t.successHoldMs);
     return () => clearTimeout(timer);
-  }, [onDone, t.successHoldMs]);
+  }, [t.successHoldMs]);
 
   return (
     <div className="screen screen-center success-flash">

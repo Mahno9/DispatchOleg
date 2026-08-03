@@ -5,6 +5,8 @@
 export interface Settings {
   ui_click_sound_url: { url: string; weight: number; volume?: number }[] | string | null;
   sync_interval_s: number;
+  /** Текст, показываемый игроку после прохождения всех игр. */
+  final_victory_text: string | null;
 }
 
 export interface Asset {
@@ -74,6 +76,39 @@ export interface Dialogue {
   title: string;
   nodes: unknown;
 }
+
+// --- Мета-этапы -------------------------------------------------------------
+
+export interface MetaStageBackground {
+  image?: string;
+  fit?: 'cover' | 'contain' | 'fill-x' | 'fill-y' | 'center' | 'tile';
+  scale?: number;
+  offset?: { x: number; y: number };
+}
+
+/** x/y — проценты от бокса сцены; якорь спрайта — его центр. */
+export interface MetaStageCharacter {
+  characterId: number;
+  x: number;
+  y: number;
+  scale?: number;
+  dialogueId?: number | null;
+}
+
+export type MetaStageTrigger =
+  | { type: 'wonCount'; value: number }
+  | { type: 'games'; ids: number[] };
+
+export interface MetaStage {
+  id: number;
+  title: string;
+  sortOrder: number;
+  background: MetaStageBackground;
+  characters: MetaStageCharacter[];
+  trigger: MetaStageTrigger;
+}
+
+export type MetaStageInput = Partial<Omit<MetaStage, 'id'>>;
 
 export interface GameResult {
   bestScore: number;
@@ -170,6 +205,17 @@ export const api = {
     request<Dialogue>(`/api/admin/dialogues/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteDialogue: (id: number) =>
     request<{ ok: true }>(`/api/admin/dialogues/${id}`, { method: 'DELETE' }),
+
+  getMetaStages: () => request<MetaStage[]>('/api/meta-stages'),
+  createMetaStage: (body: MetaStageInput & { title: string }) =>
+    request<MetaStage>('/api/admin/meta-stages', { method: 'POST', body: JSON.stringify(body) }),
+  updateMetaStage: (id: number, body: MetaStageInput) =>
+    request<MetaStage>(`/api/admin/meta-stages/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+  deleteMetaStage: (id: number) =>
+    request<{ ok: true }>(`/api/admin/meta-stages/${id}`, { method: 'DELETE' }),
 
   getUsers: () => request<AdminUser[]>('/api/admin/users'),
   resetUserGame: (userId: string, gameId: number) =>

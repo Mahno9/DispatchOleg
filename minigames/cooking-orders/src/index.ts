@@ -92,7 +92,31 @@ function hash(value: string): number {
   return h;
 }
 
+// Thematic icons for the eight default ingredients (§4.2 defaults) — same
+// visual language as GLYPHS: 24x24, stroke-only, no fills. Custom ingredients
+// added via the admin fall back to the generic GLYPHS hash below.
+const INGREDIENT_ICONS: Record<string, string> = {
+  // stardust — four-point star with a short trail of dust dots
+  stardust: `<path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"/><circle cx="5.5" cy="17" r="0.9"/><circle cx="8" cy="20" r="0.7"/><circle cx="3.5" cy="20.5" r="0.5"/>`,
+  // honey — dipper stick over a drop
+  honey: `<path d="M12 13c3 3.4 4 5.6 4 7.2A4 4 0 0 1 4 20.2c0-1.6 1-3.8 4-7.2z"/><path d="M12 13V4M9 4h6M9.5 7h5"/>`,
+  // hero-milk — bottle with a small star emblem
+  'hero-milk': `<path d="M9.5 3h5v3.4l2 3V19a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2v-9.6l2-3z"/><path d="M7.5 12h9"/><path d="M12 15.2l0.9 1.9 2.1 0.3-1.5 1.5 0.4 2.1-1.9-1-1.9 1 0.4-2.1-1.5-1.5 2.1-0.3z"/>`,
+  // cinnamon — two rolled sticks crossed
+  cinnamon: `<path d="M4 8.5a2.2 2.2 0 1 1 4.4 0 2.2 2.2 0 0 1-4.4 0z"/><path d="M6.2 8.5L17 19.5"/><path d="M15.6 19.5a2.2 2.2 0 1 0 4.4 0 2.2 2.2 0 0 0-4.4 0z"/><path d="M4.6 15.4L15.4 4.6"/>`,
+  // dragon-coal — faceted lump with a small flame
+  'dragon-coal': `<path d="M6 16c-1.4-1.8-1.4-4.2 0-6l3-3.4 3 2 3-2 3 3.4c1.4 1.8 1.4 4.2 0 6l-3 3.4H9z"/><path d="M12 8c0.8 1.4 1.4 2.3 1.4 3.2a1.4 1.4 0 1 1-2.8 0c0-0.9 0.6-1.8 1.4-3.2z"/>`,
+  // sugar — two stacked cubes
+  sugar: `<path d="M5 13h6v6H5zM13 13h6v6h-6zM9 5h6v6H9z"/>`,
+  // moon-mint — crescent moon cradling a leaf
+  'moon-mint': `<path d="M15.5 4a8 8 0 1 0 0 16 8 8 0 0 1 0-16z"/><path d="M10.5 12.5c2.4 0 4 1.6 4 4-2.4 0-4-1.6-4-4z"/><path d="M10.5 12.5c0-1.8 1-3 2.4-3.6"/>`,
+  // iron-bolt — hexagonal bolt head + threaded shaft
+  'iron-bolt': `<path d="M12 3l5.2 3v6L12 15l-5.2-3V6z"/><path d="M12 15v6M9.5 17.5h5M9.5 19.5h5M9.5 21h5"/>`,
+};
+
 function glyphSvg(seed: string): string {
+  const themed = INGREDIENT_ICONS[seed];
+  if (themed) return `<svg viewBox="0 0 24 24" aria-hidden="true">${themed}</svg>`;
   return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${GLYPHS[hash(seed) % GLYPHS.length]!}"/></svg>`;
 }
 
@@ -198,8 +222,8 @@ const STYLES = `
 }
 .${PREFIX}card__order {
   flex: 0 0 auto; padding: 0 4px 2px;
-  font-size: 10px; letter-spacing: 0.05em; color: #759C96;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 10px; line-height: 1.25; letter-spacing: 0.05em; color: #759C96;
+  white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .${PREFIX}aside { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; gap: 4px; }
 .${PREFIX}fails { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #759C96; letter-spacing: 0.1em; }
@@ -225,9 +249,9 @@ const STYLES = `
 .${PREFIX}panel { background: #062326; border: 1px solid #0A3435; box-shadow: inset 0 0 0 1px #030B0C; display: flex; flex-direction: column; min-height: 0; }
 .${PREFIX}panel__head {
   flex: 0 0 auto; padding: 2px 6px;
-  font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+  font-size: 12px; font-weight: 700; line-height: 1.3; letter-spacing: 0.1em;
   color: #030B0C; background: #16A69B;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .${PREFIX}recipe { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin: 0; padding: 4px; list-style: none; scrollbar-width: thin; }
 .${PREFIX}recipe li {
@@ -245,7 +269,7 @@ const STYLES = `
 .${PREFIX}recipe li.${PREFIX}now b { color: #E9A928; }
 .${PREFIX}glitch { animation: ${PREFIX}glitch 180ms steps(2, end) 5; }
 
-.${PREFIX}stage { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; overflow: hidden; }
+.${PREFIX}stage { position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .${PREFIX}potwrap {
   position: relative;
   width: 210px; max-width: 62%; max-height: 100%; aspect-ratio: 1;
@@ -265,14 +289,21 @@ const STYLES = `
 }
 .${PREFIX}pot svg { width: 100%; display: block; fill: none; stroke: #16A69B; stroke-width: 2; stroke-linecap: square; }
 .${PREFIX}pot svg .${PREFIX}steam { stroke: #759C96; opacity: 0.35; }
-.${PREFIX}pot__fill {
+.${PREFIX}pot__stack {
   position: absolute; left: 14%; right: 14%; bottom: 13%;
-  height: 0; max-height: 42%;
-  background: var(--co-hue, #16A69B);
-  opacity: 0.35;
-  transition: none;
+  height: 42%;
+  display: flex; flex-direction: column-reverse;
+  overflow: hidden;
   pointer-events: none;
 }
+.${PREFIX}pot__layer {
+  flex: 0 0 auto;
+  width: 100%;
+  height: 0;
+  background: var(--co-hue, #16A69B);
+  opacity: 0.35;
+}
+.${PREFIX}pot__layer--live { transition: none; }
 .${PREFIX}stage--cook .${PREFIX}pot { border-color: #E9A928; box-shadow: 0 0 14px rgba(233,169,40,0.25); }
 .${PREFIX}stage--spoiled .${PREFIX}pot { animation: ${PREFIX}alarm 260ms steps(2, end) 4; }
 .${PREFIX}hint {
@@ -282,9 +313,9 @@ const STYLES = `
 }
 .${PREFIX}stage--cook .${PREFIX}hint { opacity: 1; animation: ${PREFIX}blink 900ms steps(2, end) infinite; }
 
-.${PREFIX}gauge { position: relative; width: 26px; height: 72%; border: 1px solid #0A3435; background: #041518; opacity: 0; transition: opacity 140ms ease; }
+.${PREFIX}gauge { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); width: 26px; height: 72%; border: 1px solid #0A3435; background: #041518; opacity: 0; transition: opacity 140ms ease; }
 .${PREFIX}stage--pour .${PREFIX}gauge { opacity: 1; }
-.${PREFIX}gauge__zone { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: rgba(233,169,40,0.22); border-top: 1px solid #E9A928; }
+.${PREFIX}gauge__zone { position: absolute; left: 0; right: 0; top: 0; bottom: auto; height: 0; background: rgba(233,169,40,0.22); border-top: none; border-bottom: 1px solid #E9A928; }
 .${PREFIX}gauge__fill { position: absolute; left: 1px; right: 1px; bottom: 1px; height: 0; background: #5DE2D0; }
 .${PREFIX}gauge__tick { position: absolute; left: 0; width: 7px; height: 1px; background: #759C96; }
 .${PREFIX}gauge__cap { position: absolute; left: -2px; right: -2px; top: -1px; height: 2px; background: #E86836; }
@@ -440,6 +471,8 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   let pendingPick: string | null = null;
   let renderedOrder = -1;
   let lastProgress = '';
+  let renderedPotOrder = -1;
+  let renderedPotStep = -1;
 
   // --- audio ---
   const audioCache = new Map<string, HTMLAudioElement>();
@@ -570,8 +603,10 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   ringBar.style.strokeDashoffset = String(RING_C);
   const pot = el('div', `${PREFIX}pot`);
   pot.innerHTML = POT_SVG;
-  const potFill = el('div', `${PREFIX}pot__fill`);
-  pot.appendChild(potFill);
+  const potStack = el('div', `${PREFIX}pot__stack`);
+  const potLive = el('div', `${PREFIX}pot__layer ${PREFIX}pot__layer--live`);
+  potStack.appendChild(potLive);
+  pot.appendChild(potStack);
   potWrap.appendChild(pot);
   const hint = el('div', `${PREFIX}hint`);
   hint.textContent = 'Зажми';
@@ -625,6 +660,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     const order = currentOrder(state, cfg);
     renderedOrder = state.orderIndex;
     recipeHead.textContent = order ? order.orderName : 'Смена закрыта';
+    recipeHead.title = order ? order.orderName : '';
     recipeList.innerHTML = '';
     if (!order) return;
     order.steps.forEach((step, i) => {
@@ -674,7 +710,8 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     shelf.classList.toggle(`${PREFIX}shelf--off`, cooking);
 
     const step = currentStep(state, cfg);
-    potFill.style.setProperty('--co-hue', step ? tint(step.ingredientId) : '#16A69B');
+    potLive.style.setProperty('--co-hue', step ? tint(step.ingredientId) : '#16A69B');
+    renderPotLayers();
 
     if (state.phase !== 'cooking') {
       ringBar.style.strokeDashoffset = String(RING_C);
@@ -688,8 +725,34 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     }
     if (state.phase !== 'pouring') {
       gaugeFill.style.height = '0';
-      potFill.style.height = '0';
+      potLive.style.height = '0';
       renderGaugeMarks();
+    }
+  }
+
+  /**
+   * Rebuilds the settled pot layers purely from `state` — one sliver per
+   * completed step of the current order, oldest at the bottom. Since layers
+   * are derived from orderIndex/stepIndex rather than accumulated, a fail,
+   * wipe, or order advance clears the pot for free (§5.1).
+   */
+  function renderPotLayers(): void {
+    if (renderedPotOrder === state.orderIndex && renderedPotStep === state.stepIndex) return;
+    renderedPotOrder = state.orderIndex;
+    renderedPotStep = state.stepIndex;
+    potStack.querySelectorAll(`.${PREFIX}pot__layer:not(.${PREFIX}pot__layer--live)`).forEach((n) => n.remove());
+    const order = currentOrder(state, cfg);
+    if (!order || order.steps.length === 0) return;
+    // Percentages here resolve against potStack's own box (42% of the pot),
+    // so a full-height slot is 100/steps.length — an even split of the stack.
+    const slot = 100 / order.steps.length;
+    const sliver = Math.min(slot, 100 * (3 / 42)); // ~2-3px-equivalent for amount:0 steps
+    for (let i = 0; i < state.stepIndex && i < order.steps.length; i++) {
+      const layer = el('div', `${PREFIX}pot__layer`);
+      const stepAmount = order.steps[i]!.amount;
+      layer.style.height = `${stepAmount === 0 ? sliver : slot}%`;
+      layer.style.setProperty('--co-hue', tint(order.steps[i]!.ingredientId));
+      potStack.insertBefore(layer, potLive);
     }
   }
 
@@ -716,7 +779,9 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       if (!w || w.scaleMax <= 0) return;
       const pct = Math.min(100, (state.holdValue / w.scaleMax) * 100);
       gaugeFill.style.height = `${pct}%`;
-      potFill.style.height = `${pct * 0.42}%`;
+      const order = currentOrder(state, cfg);
+      const slot = order && order.steps.length > 0 ? 100 / order.steps.length : 100;
+      potLive.style.height = `${(pct / 100) * slot}%`;
     } else if (state.phase === 'cooking') {
       const w = cookWindow(state, cfg);
       if (!w || w.ringMax <= 0) return;

@@ -33,6 +33,44 @@ export interface GameConfig {
   styleDialogues: Record<string, number>;
 }
 
+/** Background of a meta stage. `offset` is in percent of the stage box. */
+export interface MetaStageBackground {
+  image?: string;
+  fit?: 'cover' | 'contain' | 'fill-x' | 'fill-y' | 'center' | 'tile';
+  scale?: number;
+  offset?: { x: number; y: number };
+}
+
+/** One character placed on a stage. x/y are percent of the stage box; the
+ *  sprite is anchored by its centre. `dialogueId` overrides `metaDialogueId`. */
+export interface MetaStageCharacter {
+  characterId: number;
+  x: number;
+  y: number;
+  scale?: number;
+  dialogueId?: number | null;
+}
+
+/** What has to be true for the stage to be the current one. */
+export type MetaStageTrigger =
+  { type: 'wonCount'; value: number } | { type: 'games'; ids: number[] };
+
+/** GET /api/meta-stages — the meta scene at a given point of the story. */
+export interface MetaStage {
+  id: number;
+  title: string;
+  sortOrder: number;
+  background: MetaStageBackground;
+  characters: MetaStageCharacter[];
+  trigger: MetaStageTrigger;
+}
+
+/** GET /api/settings — admin-editable knobs; only the keys we read are typed. */
+export interface Settings {
+  final_victory_text?: string | null;
+  [key: string]: unknown;
+}
+
 export interface Minigame {
   id: string;
   title: string;
@@ -111,6 +149,8 @@ export const api = {
   getGames: () => request<Game[]>('/api/games'),
   getGameConfig: (id: number) => request<GameConfig>(`/api/games/${id}/config`),
   getCharacters: () => request<Character[]>('/api/characters'),
+  getMetaStages: () => request<MetaStage[]>('/api/meta-stages'),
+  getSettings: () => request<Settings>('/api/settings'),
   getDialogue: (id: number) => request<unknown>(`/api/dialogues/${id}`),
   getMinigames: () => request<Minigame[]>('/api/minigames'),
   verifyQr: (body: { payload: string; userId: string }) =>

@@ -1,6 +1,10 @@
 import type { Database } from 'better-sqlite3';
 
-export const SETTING_KEYS = ['ui_click_sound_url', 'sync_interval_s'] as const;
+export const SETTING_KEYS = [
+  'ui_click_sound_url',
+  'sync_interval_s',
+  'final_victory_text',
+] as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[number];
 export type Settings = Record<SettingKey, unknown>;

@@ -7,6 +7,7 @@ import { settingsRoutes } from './routes/settings.js';
 import { minigamesRoutes } from './routes/minigames.js';
 import { gamesRoutes } from './routes/games.js';
 import { charactersRoutes } from './routes/characters.js';
+import { metaStagesRoutes } from './routes/metaStages.js';
 import { dialoguesRoutes } from './routes/dialogues.js';
 import { qrRoutes } from './routes/qr.js';
 import { sessionRoutes } from './routes/session.js';
@@ -41,6 +42,7 @@ export async function buildApp() {
   await app.register(minigamesRoutes);
   await app.register(gamesRoutes);
   await app.register(charactersRoutes);
+  await app.register(metaStagesRoutes);
   await app.register(dialoguesRoutes);
   await app.register(qrRoutes);
   await app.register(sessionRoutes);

@@ -3256,3 +3256,142 @@ select {
   font-size: 12px;
   padding: 2px 8px;
 }
+
+/* --------------------------------------------------------------------------
+   Мета — редактор этапов (сцена + спрайты)
+   -------------------------------------------------------------------------- */
+.meta-ed-panel {
+  max-width: 760px;
+}
+
+.meta-ed-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 7;
+  overflow: hidden;
+  background: #030B0C;
+  border: 1px solid #0A3435;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.meta-ed-canvas--grabbing {
+  cursor: grabbing;
+}
+
+.meta-ed-canvas-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.meta-ed-sprite {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.meta-ed-sprite-img {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.meta-ed-sprite-ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  font-size: 24px;
+  font-weight: 600;
+  color: #5DE2D0;
+  background: rgba(3, 11, 12, 0.75);
+  border: 1px dashed #16A69B;
+  pointer-events: none;
+}
+
+.meta-ed-sprite-name {
+  font-size: 11px;
+  color: #D3DED5;
+  background: rgba(3, 11, 12, 0.75);
+  padding: 1px 5px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.meta-ed-bg-opts {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.meta-ed-bg-opts > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.meta-ed-bg-opts input[type='number'] {
+  width: 90px;
+}
+
+.meta-ed-chars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.meta-ed-char-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.meta-ed-char-name {
+  width: 120px;
+  flex-shrink: 0;
+  font-size: 13px;
+  color: #D3DED5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta-ed-char-row input[type='number'] {
+  width: 68px;
+  flex-shrink: 0;
+}
+
+.meta-ed-char-row .poi-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.meta-ed-char-add {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.meta-ed-char-add .poi-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.meta-ed-victory-text {
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid #0A3435;
+  background: #030B0C;
+  color: #D3DED5;
+}
