@@ -17,7 +17,7 @@
 // Config
 // ---------------------------------------------------------------------------
 
-export type ControlVariant = 'inverted' | 'stepwise' | 'clockwise';
+export type ControlVariant = 'inverted' | 'stepwise' | 'clockwise' | 'bidirectional';
 
 /** Ring order, clockwise: top row left→right, bottom row right→left. */
 export const RING_KEYS = ['Q', 'W', 'E', 'D', 'S', 'A'] as const;
@@ -82,7 +82,9 @@ function numOr(raw: unknown, def: number, lo: number, hi: number): number {
 export function normalizeConfig(raw: Partial<EngineConfig> | undefined): EngineConfig {
   const c = raw ?? {};
   const variant: ControlVariant =
-    c.controlVariant === 'inverted' || c.controlVariant === 'stepwise'
+    c.controlVariant === 'inverted' ||
+    c.controlVariant === 'stepwise' ||
+    c.controlVariant === 'bidirectional'
       ? c.controlVariant
       : 'clockwise';
   return {
@@ -119,14 +121,7 @@ export interface Victim {
 }
 
 export type GameEventType =
-  | 'catch'
-  | 'miss'
-  | 'deny'
-  | 'step'
-  | 'inversionWarn'
-  | 'inverted'
-  | 'win'
-  | 'lose';
+  'catch' | 'miss' | 'deny' | 'step' | 'inversionWarn' | 'inverted' | 'win' | 'lose';
 
 export interface GameEvent {
   type: GameEventType;
@@ -239,7 +234,9 @@ function earliestVictim(s: GameState): Victim | undefined {
 
 /** Minimum number of steps from `from` to `to` under the variant's rules. */
 export function stepsBetween(s: GameState, from: number, to: number): number {
-  if (s.cfg.controlVariant === 'clockwise') return (to - from + s.points) % s.points;
+  const d = (to - from + s.points) % s.points;
+  if (s.cfg.controlVariant === 'clockwise') return d;
+  if (s.cfg.controlVariant === 'bidirectional') return Math.min(d, s.points - d);
   return Math.abs(to - from); // stepwise: open arc, both directions
 }
 
@@ -324,10 +321,35 @@ export function applyInput(state: GameState, input: InputEvent, now: number): Ga
 
   switch (s.cfg.controlVariant) {
     case 'inverted': {
-      if (input.type !== 'arrow') return s; // wrong input for this variant — ignore
-      const step = s.inverted ? -input.dir : input.dir;
+      // Arrows steer directly; a point key means "one step towards that point"
+      // — and the inversion applies to it just the same, which is the joke.
+      let dir: -1 | 1;
+      if (input.type === 'arrow') dir = input.dir;
+      else {
+        if (input.index < 0 || input.index >= s.points || input.index === s.position) return s;
+        dir = (input.index - s.position + s.points) % s.points <= s.points / 2 ? 1 : -1;
+      }
+      const step = s.inverted ? -dir : dir;
       s.position = (s.position + step + s.points) % s.points;
       s.targetIndex = s.position;
+      s.events.push({ type: 'step', point: s.position });
+      return s;
+    }
+    case 'bidirectional': {
+      if (now < s.nextStepAt) return s; // inside the cooldown — silently ignored
+      let step: -1 | 1;
+      if (input.type === 'arrow') step = input.dir;
+      else {
+        const d = (input.index - s.position + s.points) % s.points;
+        if (d !== 1 && d !== s.points - 1) {
+          s.events.push({ type: 'deny', point: input.index });
+          return s;
+        }
+        step = d === 1 ? 1 : -1;
+      }
+      s.position = (s.position + step + s.points) % s.points;
+      s.targetIndex = s.position;
+      s.nextStepAt = now + s.cfg.stepDelay;
       s.events.push({ type: 'step', point: s.position });
       return s;
     }

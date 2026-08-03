@@ -93,9 +93,17 @@ const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.m
 const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
 const STYLES = `
-.${PREFIX}root{position:absolute;inset:0;background:${C.bg};opacity:0;transition:opacity ${FADE_MS}ms linear;overflow:hidden}
+.${PREFIX}root{position:absolute;inset:0;background:${C.bg};opacity:0;transition:opacity ${FADE_MS}ms linear;overflow:hidden;
+touch-action:none;user-select:none;-webkit-user-select:none}
+.${PREFIX}root:focus{outline:none}
 .${PREFIX}root.${PREFIX}visible{opacity:1}
-.${PREFIX}canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.${PREFIX}canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.${PREFIX}arrows{position:absolute;left:0;right:0;bottom:14px;display:flex;justify-content:space-between;
+padding:0 14px;pointer-events:none}
+.${PREFIX}arrow{width:24%;max-width:140px;min-width:80px;height:70px;padding:0;cursor:pointer;pointer-events:auto;
+touch-action:none;background:${C.surface};color:${C.glow};border:1px solid ${C.teal};border-radius:0;
+font:30px ${MONO};opacity:.85}
+.${PREFIX}arrow:active{border-color:${C.glow};color:${C.text}}
 .${PREFIX}scan{position:absolute;inset:0;pointer-events:none;opacity:.35;
 background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 1px,transparent 1px,transparent 4px)}
 .${PREFIX}btn{position:absolute;top:10px;right:10px;width:34px;height:34px;padding:0;cursor:pointer;
@@ -141,6 +149,7 @@ export function init(
 
   const root = document.createElement('div');
   root.className = `${PREFIX}root`;
+  root.tabIndex = 0; // keyboard listener lives here, not on window (contract)
   const canvas = document.createElement('canvas');
   canvas.className = `${PREFIX}canvas`;
   const scan = document.createElement('div');
@@ -169,7 +178,7 @@ export function init(
   let last = performance.now();
   let alarm = 0; // whole-scene alarm flash, seconds left
   let bounce = 0; // rescuer hop, seconds left
-  const flashes: { point: number; kind: 'catch' | 'miss' | 'deny'; t: number }[] = [];
+  const flashes: { point: number; kind: 'catch' | 'miss' | 'deny' | 'step'; t: number }[] = [];
 
   // --- audio -------------------------------------------------------------
   let muted = config.muted === true;
@@ -221,7 +230,11 @@ export function init(
       gain.connect(master);
       src.start(0);
     };
-    if (audioCtx.state !== 'running') void audioCtx.resume().then(fire).catch(() => {});
+    if (audioCtx.state !== 'running')
+      void audioCtx
+        .resume()
+        .then(fire)
+        .catch(() => {});
     else fire();
   }
 
@@ -304,6 +317,11 @@ export function init(
           play(sounds.deny);
           flashes.push({ point: e.point ?? state.position, kind: 'deny', t: 0.18 });
           break;
+        case 'step':
+          // ponytail: flash only — every sound key in the schema means something
+          // else (deny is the failure blip), and inventing one is a schema change.
+          flashes.push({ point: e.point ?? state.position, kind: 'step', t: 0.14 });
+          break;
         case 'inversionWarn':
           play(sounds.inversionWarn);
           break;
@@ -328,10 +346,17 @@ export function init(
     drain(state.events);
   }
 
+  const usesArrows =
+    state.cfg.controlVariant === 'inverted' || state.cfg.controlVariant === 'bidirectional';
+
+  function live(): boolean {
+    return !paused && !finished && state.status === 'running';
+  }
+
   function onKeyDown(e: KeyboardEvent): void {
-    if (e.repeat || paused || finished || state.status !== 'running') return;
-    if (state.cfg.controlVariant === 'inverted') {
-      if (e.code !== 'ArrowLeft' && e.code !== 'ArrowRight') return;
+    if (e.repeat || !live()) return;
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+      if (!usesArrows) return;
       e.preventDefault();
       feed({ type: 'arrow', dir: e.code === 'ArrowRight' ? 1 : -1 });
       return;
@@ -341,7 +366,47 @@ export function init(
     e.preventDefault();
     feed({ type: 'point', index });
   }
-  window.addEventListener('keydown', onKeyDown);
+  root.addEventListener('keydown', onKeyDown);
+
+  // Tap a point on the canvas — the only control a phone has.
+  canvas.addEventListener('pointerdown', (e) => {
+    root.focus({ preventScroll: true });
+    if (!live()) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left - offX) / scale;
+    const y = (e.clientY - rect.top - offY) / scale;
+    let hit = -1;
+    let best = 44 * 44; // logical units, generous enough for a fingertip
+    for (let i = 0; i < state.points; i++) {
+      const p = pointPos(state, i);
+      const d = (p.x - x) ** 2 + (p.y - y) ** 2;
+      if (d < best) {
+        best = d;
+        hit = i;
+      }
+    }
+    if (hit < 0) return;
+    e.preventDefault();
+    feed({ type: 'point', index: hit });
+  });
+
+  if (usesArrows) {
+    const arrows = document.createElement('div');
+    arrows.className = `${PREFIX}arrows`;
+    for (const dir of [-1, 1] as const) {
+      const btn = document.createElement('button');
+      btn.className = `${PREFIX}arrow`;
+      btn.textContent = dir === 1 ? '▶' : '◀';
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        root.focus({ preventScroll: true });
+        if (live()) feed({ type: 'arrow', dir });
+      });
+      arrows.appendChild(btn);
+    }
+    root.appendChild(arrows);
+  }
 
   // --- pause -------------------------------------------------------------
   function pause(): void {
@@ -395,7 +460,14 @@ export function init(
     ctx.restore();
   }
 
-  function label(text: string, x: number, y: number, color: string, size: number, font = COND): void {
+  function label(
+    text: string,
+    x: number,
+    y: number,
+    color: string,
+    size: number,
+    font = COND,
+  ): void {
     if (!ctx) return;
     ctx.save();
     ctx.fillStyle = color;
@@ -510,6 +582,10 @@ export function init(
     if (state.cfg.controlVariant === 'clockwise' && i !== (state.position + 1) % state.points) {
       return 'blocked';
     }
+    if (state.cfg.controlVariant === 'bidirectional') {
+      const d = (i - state.position + state.points) % state.points;
+      if (d !== 1 && d !== state.points - 1) return 'blocked';
+    }
     return 'idle';
   }
 
@@ -559,7 +635,15 @@ export function init(
       const a = clamp(f.t * 3, 0, 1);
       ctx.save();
       ctx.globalAlpha = a;
-      glow(f.kind === 'catch' ? C.glow : f.kind === 'deny' ? C.orange : C.alarm, 16, 3, () => {
+      const fc =
+        f.kind === 'catch'
+          ? C.glow
+          : f.kind === 'deny'
+            ? C.orange
+            : f.kind === 'step'
+              ? C.teal
+              : C.alarm;
+      glow(fc, 16, 3, () => {
         ctx.beginPath();
         ctx.ellipse(p.x, p.y, 15 + (1 - a) * 22, (15 + (1 - a) * 22) * 0.62, 0, 0, Math.PI * 2);
         ctx.stroke();
@@ -787,6 +871,7 @@ export function init(
     render();
   }
   raf = requestAnimationFrame(loop);
+  root.focus({ preventScroll: true });
 
   // --- destroy -----------------------------------------------------------
   function destroy(): void {
@@ -794,7 +879,7 @@ export function init(
     cancelAnimationFrame(raf);
     clearTimeout(fadeTimer);
     ro.disconnect();
-    window.removeEventListener('keydown', onKeyDown);
+    root.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('blur', pause);
     window.removeEventListener('focus', resume);
     document.removeEventListener('visibilitychange', onVisibility);

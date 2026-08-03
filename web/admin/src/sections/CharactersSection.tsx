@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, type Character } from '../api';
 import { AssetPickerModal } from '../schema-form/AssetPickerModal';
 import { showToast } from '../toast';
+import { Segmented } from '../ui/Segmented';
 
 const NEW_ID = 0;
 
@@ -138,14 +139,15 @@ export function CharactersSection() {
             </select>
 
             <label className='poi-field-label'>Позиция на мета-экране</label>
-            <select
-              className='poi-select'
+            <Segmented
+              name='char-meta-position'
+              options={[
+                { value: 'left', label: 'Слева' },
+                { value: 'right', label: 'Справа' },
+              ]}
               value={draft.metaPosition}
-              onChange={(e) => patch({ metaPosition: e.target.value })}
-            >
-              <option value='left'>Слева</option>
-              <option value='right'>Справа</option>
-            </select>
+              onChange={(v) => patch({ metaPosition: v })}
+            />
 
             <div className='poi-panel-actions'>
               <button

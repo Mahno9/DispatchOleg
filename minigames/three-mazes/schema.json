@@ -111,6 +111,11 @@
                 "type": "string",
                 "title": "Топология",
                 "enum": ["square", "hex", "circular"],
+                "x-enumLabels": {
+                  "square": "Квадратный",
+                  "hex": "Шестиугольный",
+                  "circular": "Круговой"
+                },
                 "default": "square"
               },
               "size": {

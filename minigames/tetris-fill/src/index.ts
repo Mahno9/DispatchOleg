@@ -1,15 +1,23 @@
 import {
   EmptyShapeError,
-  normalize,
+  createFallState,
+  hardDrop,
+  landingY,
+  move,
   parseShape,
-  partition,
-  rotate,
-  sameCells,
+  rotateActive,
   scoreForElapsed,
+  setSoftDrop,
+  spawn,
+  update,
+  type Active,
   type Cell,
+  type FallEvent,
+  type FallState,
   type Piece,
   type ScoreThreshold,
   type Shape,
+  type SpawnColumn,
 } from './engine.js';
 
 // ---------------------------------------------------------------------------
@@ -25,8 +33,12 @@ interface GameConfig {
   errorPenalty?: number;
   hintAfterErrors?: number;
   randomizeRotation?: boolean;
+  fallIntervalMs?: number;
+  softDropFactor?: number;
+  lockDelayMs?: number;
+  spawnColumn?: SpawnColumn;
   sounds?: {
-    pickUp?: AudioValue;
+    rotate?: AudioValue;
     place?: AudioValue;
     error?: AudioValue;
     hint?: AudioValue;
@@ -47,6 +59,12 @@ const WIN_MS = 400;
 const GAP = 1;
 const MIN_CELL = 16;
 const MAX_CELL = 48;
+/** Rows of empty space kept above the silhouette so a spawning piece is visible. */
+const SKY = 2;
+/** Auto-repeat of the ◀ ▶ pad buttons while held. */
+const REPEAT_MS = 120;
+/** Longer than this on ⤓ is a soft drop, shorter is a hard drop. */
+const TAP_MS = 250;
 /** Piece colours cycle; neighbours in the deal order never share one. */
 const PALETTE = ['#16A69B', '#E9A928', '#E86836', '#C8A878', '#5DE2D0', '#759C96'];
 
@@ -59,6 +77,7 @@ const STYLES = `
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   gap: 6px;
   padding: 8px;
   box-sizing: border-box;
@@ -77,7 +96,6 @@ const STYLES = `
 }
 .${PREFIX}root.${PREFIX}visible { opacity: 1; }
 .${PREFIX}root:focus { outline: none; }
-.${PREFIX}mono { font-family: 'Share Tech Mono', 'IBM Plex Mono', ui-monospace, monospace; }
 
 .${PREFIX}panel {
   background: #062326;
@@ -93,6 +111,8 @@ const STYLES = `
   align-items: center;
   justify-content: center;
   padding: 8px;
+  padding-top: calc(8px + var(--c) * ${SKY});
+  overflow: hidden;
 }
 .${PREFIX}grid {
   display: grid;
@@ -111,8 +131,6 @@ const STYLES = `
 }
 .${PREFIX}cell.${PREFIX}void { background: transparent; border-color: transparent; }
 .${PREFIX}cell.${PREFIX}fill { border-color: #030B0C; }
-.${PREFIX}cell.${PREFIX}ok { background: #12595a; box-shadow: inset 0 0 0 1px #5DE2D0; }
-.${PREFIX}cell.${PREFIX}bad { background: #1b2526; border-color: #759C96; }
 .${PREFIX}cell.${PREFIX}ghost {
   border-style: dashed;
   border-color: #E9A928;
@@ -120,16 +138,14 @@ const STYLES = `
 }
 .${PREFIX}cell.${PREFIX}flash { animation: ${PREFIX}flash 160ms steps(2, end) 2; }
 
-.${PREFIX}piece {
+.${PREFIX}piece, .${PREFIX}shadow {
   position: absolute;
   left: 0;
   top: 0;
-  z-index: 20;
-  cursor: grab;
-  touch-action: none;
+  pointer-events: none;
 }
-.${PREFIX}piece.${PREFIX}drag { cursor: grabbing; }
-.${PREFIX}piece.${PREFIX}hidden { display: none; }
+.${PREFIX}piece { z-index: 20; }
+.${PREFIX}shadow { z-index: 10; }
 .${PREFIX}sq {
   position: absolute;
   box-sizing: border-box;
@@ -137,40 +153,44 @@ const STYLES = `
   border: 1px solid #E9A928;
   box-shadow: inset 0 0 0 1px #030B0C;
 }
-.${PREFIX}piece.${PREFIX}drag .${PREFIX}sq {
-  background: #8a6316;
-  box-shadow: inset 0 0 0 1px #030B0C, 0 0 8px rgba(233,169,40,0.45);
+.${PREFIX}shadow .${PREFIX}sq {
+  background: transparent;
+  border: 1px dashed rgba(233,169,40,0.5);
+  box-shadow: none;
 }
 
-.${PREFIX}tray {
-  flex: 0 0 auto;
-  width: 168px;
+.${PREFIX}bar {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 6px;
-  box-sizing: border-box;
-}
-.${PREFIX}head {
-  padding: 2px 6px;
-  background: #16A69B;
-  color: #030B0C;
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-}
-.${PREFIX}stage {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 64px;
-  border: 1px dashed #0A3435;
-}
-.${PREFIX}line {
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
   font-size: 12px;
   letter-spacing: 0.08em;
   color: #759C96;
 }
-.${PREFIX}line.${PREFIX}alert { color: #F0713E; }
+.${PREFIX}bar .${PREFIX}alert { color: #F0713E; }
+
+.${PREFIX}pad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.${PREFIX}key {
+  padding: 12px 0;
+  background: #0A3435;
+  border: 1px solid #16A69B;
+  box-shadow: inset 0 0 0 1px #062326;
+  color: #D3DED5;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+  border-radius: 0;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.${PREFIX}key:active, .${PREFIX}key.${PREFIX}on { background: #12595a; border-color: #5DE2D0; }
 
 .${PREFIX}mute {
   position: absolute;
@@ -227,11 +247,6 @@ const STYLES = `
 @keyframes ${PREFIX}flash {
   50% { background: #E9A928; border-color: #E9A928; }
 }
-@media (max-width: 640px) {
-  .${PREFIX}root { flex-direction: column; }
-  .${PREFIX}tray { width: auto; flex: 0 0 auto; flex-direction: row; align-items: center; flex-wrap: wrap; }
-  .${PREFIX}stage { min-width: 120px; min-height: 56px; }
-}
 `;
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
@@ -251,6 +266,11 @@ function mulberry32(seed: number): () => number {
   };
 }
 
+const intOr = (v: unknown, fallback: number, min: number, max: number): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : fallback;
+};
+
 export function init(container: HTMLElement, config: GameConfig, callbacks: Callbacks): { destroy: () => void } {
   const styleEl = el('style');
   styleEl.textContent = STYLES;
@@ -264,6 +284,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
 
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let rafId = 0;
+  let repeatId = 0;
   let finished = false;
 
   function later(fn: () => void, ms: number): void {
@@ -311,9 +332,15 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     node.play().catch(() => {});
   }
 
+  function stopRepeat(): void {
+    if (repeatId) clearInterval(repeatId);
+    repeatId = 0;
+  }
+
   function baseDestroy(): void {
     for (const t of timers) clearTimeout(t);
     timers.clear();
+    stopRepeat();
     if (rafId) cancelAnimationFrame(rafId);
     rafId = 0;
     for (const audio of audioCache.values()) {
@@ -352,26 +379,27 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   const shape = config.shape as Shape;
   const W = shape.width;
   const H = shape.height;
-  const pieces: Piece[] = partition(cells);
-  const total = pieces.length;
 
-  const errorPenalty = Number.isFinite(Number(config.errorPenalty))
-    ? Math.max(0, Math.round(Number(config.errorPenalty)))
-    : 5;
-  const hintAfterErrors = Number.isFinite(Number(config.hintAfterErrors))
-    ? Math.max(0, Math.round(Number(config.hintAfterErrors)))
-    : 3;
+  const errorPenalty = intOr(config.errorPenalty, 5, 0, Number.MAX_SAFE_INTEGER);
+  const hintAfterErrors = intOr(config.hintAfterErrors, 3, 0, Number.MAX_SAFE_INTEGER);
   const randomizeRotation = config.randomizeRotation !== false;
   const thresholds = Array.isArray(config.scoreThresholds) ? config.scoreThresholds : [];
   const rng = mulberry32(Date.now());
 
+  const state: FallState = createFallState(shape, {
+    fallIntervalMs: intOr(config.fallIntervalMs, 700, 150, 3000),
+    softDropFactor: Math.max(1, Math.min(20, Number(config.softDropFactor) || 6)),
+    lockDelayMs: intOr(config.lockDelayMs, 500, 0, 2000),
+    spawnColumn: config.spawnColumn === 'target' ? 'target' : 'center',
+  });
+  const total = state.pieces.length;
+
   // --- state ---
   const startedAt = performance.now();
-  let current = 0;
-  let errors = 0;
-  let turns = 0;
   let hintOn = hintAfterErrors <= 0;
   let cell = 24;
+  let painted = 0;
+  let nextTurns = randomizeRotation ? Math.floor(rng() * 4) : 0;
 
   // --- chrome ---
   const field = el('div', `${PREFIX}panel ${PREFIX}field`);
@@ -387,7 +415,9 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       gridEl.appendChild(node);
     }
   }
-  field.appendChild(gridEl);
+  const shadowEl = el('div', `${PREFIX}shadow`);
+  const pieceEl = el('div', `${PREFIX}piece`);
+  field.append(gridEl, shadowEl, pieceEl);
 
   const muteBtn = el('button', `${PREFIX}mute`);
   muteBtn.setAttribute('aria-label', 'Звук');
@@ -395,105 +425,72 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   muteBtn.addEventListener('click', () => {
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
-    root.focus();
+    root.focus({ preventScroll: true });
   });
   field.appendChild(muteBtn);
 
-  const tray = el('div', `${PREFIX}panel ${PREFIX}tray`);
-  const headEl = el('div', `${PREFIX}head`);
-  const stage = el('div', `${PREFIX}stage`);
-  const errEl = el('div', `${PREFIX}line`);
-  const hintEl = el('div', `${PREFIX}line`);
-  hintEl.textContent = 'R / ПКМ — поворот';
-  tray.append(headEl, stage, errEl, hintEl);
+  const bar = el('div', `${PREFIX}bar`);
+  const headEl = el('span');
+  const errEl = el('span');
+  bar.append(headEl, errEl);
 
-  const pieceEl = el('div', `${PREFIX}piece`);
-  root.append(field, tray, pieceEl);
+  const pad = el('div', `${PREFIX}pad`);
+  root.append(field, bar, pad);
 
-  interface Drag {
-    pointerId: number;
-    offX: number;
-    offY: number;
-    clientX: number;
-    clientY: number;
-    col: number;
-    row: number;
-    over: boolean;
-  }
-  let drag: Drag | null = null;
+  // --- layout / rendering ---
+  const stepPx = (): number => cell + GAP;
 
-  // --- layout ---
-  function shapeCells(): Cell[] {
-    const piece = pieces[current] as Piece;
-    return rotate(normalize(piece.cells), turns);
-  }
-
-  function bbox(cs: Cell[]): { w: number; h: number } {
-    let w = 0;
-    let h = 0;
-    for (const c of cs) {
-      if (c.x + 1 > w) w = c.x + 1;
-      if (c.y + 1 > h) h = c.y + 1;
-    }
-    return { w, h };
-  }
-
-  function step(): number {
-    return cell + GAP;
-  }
-
-  function renderPiece(): void {
-    pieceEl.innerHTML = '';
-    if (finished || current >= total) {
-      pieceEl.classList.add(`${PREFIX}hidden`);
-      return;
-    }
-    pieceEl.classList.remove(`${PREFIX}hidden`);
-    const cs = shapeCells();
-    const box = bbox(cs);
-    pieceEl.style.width = `${box.w * step() - GAP}px`;
-    pieceEl.style.height = `${box.h * step() - GAP}px`;
+  function renderSquares(host: HTMLElement, cs: Cell[]): void {
+    host.innerHTML = '';
     for (const c of cs) {
       const sq = el('div', `${PREFIX}sq`);
-      sq.style.left = `${c.x * step()}px`;
-      sq.style.top = `${c.y * step()}px`;
+      sq.style.left = `${c.x * stepPx()}px`;
+      sq.style.top = `${c.y * stepPx()}px`;
       sq.style.width = `${cell}px`;
       sq.style.height = `${cell}px`;
-      pieceEl.appendChild(sq);
+      host.appendChild(sq);
     }
   }
 
-  function homePosition(): { x: number; y: number } {
-    const rootRect = root.getBoundingClientRect();
-    const stageRect = stage.getBoundingClientRect();
-    const box = bbox(shapeCells());
-    const pw = box.w * step() - GAP;
-    const ph = box.h * step() - GAP;
-    return {
-      x: Math.round(stageRect.left - rootRect.left + (stageRect.width - pw) / 2),
-      y: Math.round(stageRect.top - rootRect.top + (stageRect.height - ph) / 2),
-    };
+  function placeHost(host: HTMLElement, x: number, y: number): void {
+    host.style.transform = `translate(${gridEl.offsetLeft + x * stepPx()}px, ${gridEl.offsetTop + y * stepPx()}px)`;
   }
 
-  function goHome(): void {
-    if (current >= total) return;
-    const p = homePosition();
-    pieceEl.style.transform = `translate(${p.x}px, ${p.y}px)`;
+  let shapeKey = '';
+  function renderActive(): void {
+    const a: Active | null = state.active;
+    if (!a || finished) {
+      pieceEl.style.display = 'none';
+      shadowEl.style.display = 'none';
+      shapeKey = '';
+      return;
+    }
+    pieceEl.style.display = '';
+    const key = `${state.current}:${a.turns}:${cell}`;
+    if (key !== shapeKey) {
+      shapeKey = key;
+      renderSquares(pieceEl, a.shape);
+      renderSquares(shadowEl, a.shape);
+    }
+    placeHost(pieceEl, a.x, a.y);
+    const ly = landingY(state);
+    placeHost(shadowEl, a.x, ly);
+    shadowEl.style.display = ly === a.y ? 'none' : '';
   }
 
   function relayout(): void {
-    const availW = field.clientWidth - 20;
-    const availH = field.clientHeight - 20;
-    const next = Math.floor(Math.min((availW - (W - 1) * GAP) / W, (availH - (H - 1) * GAP) / H));
+    const availW = field.clientWidth - 16;
+    const availH = field.clientHeight - 16;
+    // (H + SKY) rows must fit: the silhouette plus the sky the piece spawns in
+    const next = Math.floor(Math.min((availW - (W - 1) * GAP) / W, (availH - (H - 1) * GAP) / (H + SKY)));
     cell = Math.max(MIN_CELL, Math.min(MAX_CELL, Number.isFinite(next) ? next : MIN_CELL));
     root.style.setProperty('--c', `${cell}px`);
-    renderPiece();
-    if (!drag) goHome();
+    shapeKey = '';
+    renderActive();
   }
 
   const observer = new ResizeObserver(() => relayout());
   observer.observe(field);
-  observer.observe(stage);
 
   // --- board helpers ---
   function cellAt(x: number, y: number): HTMLElement | undefined {
@@ -503,226 +500,182 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
 
   function setHint(on: boolean): void {
     for (const node of cellEls) node.classList.remove(`${PREFIX}ghost`);
-    if (!on || current >= total) return;
-    for (const c of (pieces[current] as Piece).cells) cellAt(c.x, c.y)?.classList.add(`${PREFIX}ghost`);
+    if (!on || state.current >= total) return;
+    for (const c of (state.pieces[state.current] as Piece).cells) cellAt(c.x, c.y)?.classList.add(`${PREFIX}ghost`);
   }
 
-  let highlighted: HTMLElement[] = [];
-  function clearHighlight(): void {
-    for (const node of highlighted) node.classList.remove(`${PREFIX}ok`, `${PREFIX}bad`);
-    highlighted = [];
-  }
-
-  function highlight(col: number, row: number): void {
-    clearHighlight();
-    for (const c of shapeCells()) {
-      const node = cellAt(col + c.x, row + c.y);
-      if (!node) continue;
-      const idx = (row + c.y) * W + (col + c.x);
-      const free = inShape[idx] === 1 && !node.classList.contains(`${PREFIX}fill`);
-      node.classList.add(free ? `${PREFIX}ok` : `${PREFIX}bad`);
-      highlighted.push(node);
-    }
-  }
-
-  function updateTray(): void {
-    headEl.textContent = current < total ? `Деталь ${current + 1} / ${total}` : `Собрано ${total} / ${total}`;
-    errEl.textContent = `Ошибок: ${errors}`;
-    errEl.classList.toggle(`${PREFIX}alert`, errors > 0);
+  function updateBar(): void {
+    headEl.textContent = state.current < total ? `Деталь ${state.current + 1} / ${total}` : `Собрано ${total} / ${total}`;
+    errEl.textContent = `Ошибок: ${state.errors}`;
+    errEl.classList.toggle(`${PREFIX}alert`, state.errors > 0);
   }
 
   function reportProgress(): void {
-    callbacks.onProgress?.(`СОБРАНО ${current} / ${total}`, Math.round((current / total) * 100));
+    callbacks.onProgress?.(`СОБРАНО ${state.current} / ${total}`, Math.round((state.current / total) * 100));
   }
 
-  // --- drag ---
-  function frame(): void {
-    rafId = 0;
-    const d = drag;
-    if (!d) return;
-    const rootRect = root.getBoundingClientRect();
-    const gridRect = gridEl.getBoundingClientRect();
-    let px = d.clientX - rootRect.left - d.offX;
-    let py = d.clientY - rootRect.top - d.offY;
-    d.over =
-      d.clientX >= gridRect.left &&
-      d.clientX <= gridRect.right &&
-      d.clientY >= gridRect.top &&
-      d.clientY <= gridRect.bottom;
-    if (d.over) {
-      d.col = Math.round((d.clientX - d.offX - gridRect.left) / step());
-      d.row = Math.round((d.clientY - d.offY - gridRect.top) / step());
-      px = gridRect.left - rootRect.left + d.col * step();
-      py = gridRect.top - rootRect.top + d.row * step();
-      highlight(d.col, d.row);
-    } else {
-      clearHighlight();
-    }
-    pieceEl.style.transform = `translate(${px}px, ${py}px)`;
-  }
-
-  function schedule(): void {
-    if (!rafId) rafId = requestAnimationFrame(frame);
-  }
-
-  function endDrag(): void {
-    const d = drag;
-    drag = null;
-    clearHighlight();
-    pieceEl.classList.remove(`${PREFIX}drag`);
-    if (rafId) {
-      cancelAnimationFrame(rafId);
-      rafId = 0;
-    }
-    if (d) {
-      try {
-        pieceEl.releasePointerCapture(d.pointerId);
-      } catch {
-        /* pointer already released */
-      }
-    }
-    goHome();
-  }
-
-  pieceEl.addEventListener('pointerdown', (e) => {
-    if (finished || drag || current >= total) return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const rect = pieceEl.getBoundingClientRect();
-    drag = {
-      pointerId: e.pointerId,
-      offX: e.clientX - rect.left,
-      offY: e.clientY - rect.top,
-      clientX: e.clientX,
-      clientY: e.clientY,
-      col: 0,
-      row: 0,
-      over: false,
-    };
-    pieceEl.classList.add(`${PREFIX}drag`);
-    try {
-      pieceEl.setPointerCapture(e.pointerId);
-    } catch {
-      /* capture unavailable — pointer events still bubble */
-    }
-    root.focus();
-    play(config.sounds?.pickUp);
-    schedule();
-  });
-
-  pieceEl.addEventListener('pointermove', (e) => {
-    const d = drag;
-    if (!d || e.pointerId !== d.pointerId) return;
-    d.clientX = e.clientX;
-    d.clientY = e.clientY;
-    schedule();
-  });
-
-  pieceEl.addEventListener('pointerup', (e) => {
-    const d = drag;
-    if (!d || e.pointerId !== d.pointerId) return;
-    const { over, col, row } = d;
-    endDrag();
-    if (over) attempt(col, row); // outside the grid = cancel, not an error (§1.3)
-  });
-
-  pieceEl.addEventListener('pointercancel', (e) => {
-    if (!drag || e.pointerId !== drag.pointerId) return;
-    endDrag();
-  });
-
-  pieceEl.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    turnPiece();
-  });
-
-  root.addEventListener('keydown', (e) => {
-    if (finished) return;
-    if (e.key === 'r' || e.key === 'R' || e.key === 'к' || e.key === 'К') {
-      e.preventDefault();
-      turnPiece();
-    } else if (e.key === 'Escape' && drag) {
-      e.preventDefault();
-      endDrag();
-    }
-  });
-
-  function turnPiece(): void {
-    if (finished || current >= total) return;
-    turns = (turns + 1) % 4;
-    // keep the grab point inside the new bounding box
-    const box = bbox(shapeCells());
-    if (drag) {
-      drag.offX = Math.min(drag.offX, box.w * step() - GAP);
-      drag.offY = Math.min(drag.offY, box.h * step() - GAP);
-    }
-    renderPiece();
-    if (drag) schedule();
-    else goHome();
-  }
-
-  // --- placement ---
-  function attempt(col: number, row: number): void {
-    const piece = pieces[current] as Piece;
-    const placed = shapeCells().map((c) => ({ x: col + c.x, y: row + c.y }));
-    if (sameCells(placed, piece.cells)) {
-      const color = PALETTE[piece.index % PALETTE.length] as string;
-      for (const c of piece.cells) {
-        const node = cellAt(c.x, c.y);
-        if (!node) continue;
-        node.classList.add(`${PREFIX}fill`);
-        node.classList.remove(`${PREFIX}ghost`);
-        node.style.background = color;
-      }
-      play(config.sounds?.place);
-      current++;
-      turns = randomizeRotation ? Math.floor(rng() * 4) : 0;
-      updateTray();
-      reportProgress();
-      if (current >= total) {
-        win();
-        return;
-      }
-      renderPiece();
-      goHome();
-      setHint(hintOn);
-      return;
-    }
-
-    errors++;
-    play(config.sounds?.error);
-    for (const c of placed) {
+  function paintPiece(piece: Piece): void {
+    const color = PALETTE[piece.index % PALETTE.length] as string;
+    for (const c of piece.cells) {
       const node = cellAt(c.x, c.y);
+      if (!node) continue;
+      node.classList.add(`${PREFIX}fill`);
+      node.classList.remove(`${PREFIX}ghost`);
+      node.style.background = color;
+    }
+  }
+
+  function flash(snap: Active): void {
+    for (const c of snap.shape) {
+      const node = cellAt(snap.x + c.x, snap.y + c.y);
       if (!node) continue;
       node.classList.add(`${PREFIX}flash`);
       node.addEventListener('animationend', () => node.classList.remove(`${PREFIX}flash`), { once: true });
     }
-    updateTray();
-    if (!hintOn && errors >= hintAfterErrors) {
-      hintOn = true;
-      play(config.sounds?.hint);
-      setHint(true);
+  }
+
+  // --- game loop ---
+  function handle(events: FallEvent[], snap: Active | null): void {
+    if (events.length === 0) return;
+    for (const ev of events) {
+      if (ev === 'placed') {
+        play(config.sounds?.place);
+        paintPiece(state.pieces[painted++] as Piece);
+        nextTurns = randomizeRotation ? Math.floor(rng() * 4) : 0;
+        reportProgress();
+      } else if (ev === 'rejected') {
+        play(config.sounds?.error);
+        if (snap) {
+          flash(snap);
+          nextTurns = snap.turns; // same piece comes back in the same orientation
+        }
+        if (!hintOn && state.errors >= hintAfterErrors) {
+          hintOn = true;
+          play(config.sounds?.hint);
+        }
+      } else {
+        win();
+        return;
+      }
+    }
+    updateBar();
+    if (!state.active) spawn(state, nextTurns);
+    setHint(hintOn);
+  }
+
+  let lastFrame = 0;
+  function tick(now: number): void {
+    rafId = requestAnimationFrame(tick);
+    const dt = lastFrame ? now - lastFrame : 0;
+    lastFrame = now;
+    if (finished) return;
+    const a = state.active;
+    const snap: Active | null = a ? { shape: a.shape, x: a.x, y: a.y, turns: a.turns } : null;
+    handle(update(state, dt), snap);
+    renderActive();
+  }
+
+  function doHardDrop(): void {
+    const a = state.active;
+    if (finished || !a) return;
+    const snap: Active = { shape: a.shape, x: a.x, y: landingY(state), turns: a.turns };
+    handle(hardDrop(state), snap);
+    renderActive();
+  }
+
+  function doRotate(): void {
+    if (finished) return;
+    if (rotateActive(state)) {
+      play(config.sounds?.rotate);
+      shapeKey = '';
+      renderActive();
     }
   }
+
+  function doMove(dx: -1 | 1): void {
+    if (finished) return;
+    if (move(state, dx)) renderActive();
+  }
+
+  // --- controls (touch first: pad under the field, keyboard in parallel) ---
+  function padKey(label: string, down: () => void, up?: () => void): HTMLButtonElement {
+    const btn = el('button', `${PREFIX}key`);
+    btn.textContent = label;
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      root.focus({ preventScroll: true });
+      down();
+    });
+    const release = (): void => up?.();
+    btn.addEventListener('pointerup', release);
+    btn.addEventListener('pointercancel', release);
+    btn.addEventListener('pointerleave', release);
+    pad.appendChild(btn);
+    return btn;
+  }
+
+  function holdMove(dx: -1 | 1): void {
+    stopRepeat();
+    doMove(dx);
+    repeatId = setInterval(() => doMove(dx), REPEAT_MS) as unknown as number;
+  }
+
+  padKey('◀', () => holdMove(-1), stopRepeat);
+  padKey('▶', () => holdMove(1), stopRepeat);
+  padKey('↻', doRotate);
+
+  let dropDownAt = 0;
+  padKey(
+    '⤓',
+    () => {
+      dropDownAt = performance.now();
+      setSoftDrop(state, true);
+    },
+    () => {
+      if (!state.softDrop) return;
+      setSoftDrop(state, false);
+      if (performance.now() - dropDownAt < TAP_MS) doHardDrop();
+    },
+  );
+
+  root.addEventListener('keydown', (e) => {
+    if (finished) return;
+    const k = e.key;
+    if (k === 'ArrowLeft') doMove(-1);
+    else if (k === 'ArrowRight') doMove(1);
+    else if (k === 'ArrowUp' || k === 'r' || k === 'R' || k === 'к' || k === 'К') doRotate();
+    else if (k === 'ArrowDown') setSoftDrop(state, true);
+    else if (k === ' ' || k === 'Spacebar') {
+      if (!e.repeat) doHardDrop();
+    } else return;
+    e.preventDefault();
+  });
+
+  root.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowDown') setSoftDrop(state, false);
+  });
 
   function win(): void {
     if (finished) return;
     finished = true;
-    renderPiece();
+    stopRepeat();
+    renderActive();
     setHint(false);
+    updateBar();
     root.classList.add(`${PREFIX}won`);
     play(config.sounds?.win);
     const elapsedSeconds = Math.round((performance.now() - startedAt) / 1000);
-    const score = Math.max(0, Math.round(scoreForElapsed(thresholds, elapsedSeconds)) - errorPenalty * errors);
+    const score = Math.max(0, Math.round(scoreForElapsed(thresholds, elapsedSeconds)) - errorPenalty * state.errors);
     later(() => {
       fadeOut(() =>
         callbacks.onComplete({
           score,
           won: true,
           details: {
-            errors,
+            errors: state.errors,
             pieces: total,
             elapsedSeconds,
-            styleTag: errors === 0 ? 'precise' : 'rough',
+            styleTag: state.errors === 0 ? 'precise' : 'rough',
           },
         }),
       );
@@ -730,17 +683,17 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   }
 
   // --- start ---
-  turns = randomizeRotation ? Math.floor(rng() * 4) : 0;
+  spawn(state, nextTurns);
   relayout();
-  updateTray();
+  updateBar();
   reportProgress();
   setHint(hintOn);
   root.focus({ preventScroll: true });
+  rafId = requestAnimationFrame(tick);
 
   return {
     destroy(): void {
       observer.disconnect();
-      endDrag();
       baseDestroy();
     },
   };

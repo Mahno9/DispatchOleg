@@ -166,7 +166,6 @@ export function App() {
                 <i
                   key={game.id}
                   className={`seg ${done ? 'seg-done' : open ? 'seg-open' : ''}`}
-                  title={game.title}
                 />
               );
             })}
@@ -255,6 +254,7 @@ export function App() {
       workarea = selectedGame && (
         <MinigameScreen
           gameId={selectedGame.id}
+          minigameId={selectedGame.minigameId}
           muted={state.prefs.muted}
           onContext={setSlotContext}
           onFinished={(result) => {
@@ -295,7 +295,7 @@ export function App() {
   return (
     <div className="terminal">
       <div className="terminal-bar">
-        <span className="terminal-title">DISPATCH</span>
+        <span className="terminal-title">CALL OF DOODY</span>
         <span>{clock}</span>
         <span className="terminal-bar-spacer" />
         <span>{state.profile.name || 'ГОСТЬ'}</span>

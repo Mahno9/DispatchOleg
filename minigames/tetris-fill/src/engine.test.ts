@@ -1,13 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
   EmptyShapeError,
+  collides,
+  createFallState,
+  hardDrop,
+  landingY,
+  move,
   normalize,
+  orderForGravity,
   parseShape,
   partition,
   rotate,
+  rotateActive,
   sameCells,
   scoreForElapsed,
+  setSoftDrop,
+  spawn,
+  update,
+  type Active,
   type Cell,
+  type FallRules,
+  type FallState,
   type Piece,
 } from './engine.js';
 
@@ -156,13 +169,24 @@ describe('partition', () => {
     expect(partition([...cells].reverse())).toEqual(partition(cells));
   });
 
-  it('deals pieces bottom-up, left-to-right by their anchor cell', () => {
-    const pieces = partition(cellsOf(['####', '####', '####', '####']));
-    const anchors = pieces.map((p) => [...p.cells].sort((a, b) => b.y - a.y || a.x - b.x)[0] as Cell);
-    for (let i = 1; i < anchors.length; i++) {
-      const prev = anchors[i - 1] as Cell;
-      const cur = anchors[i] as Cell;
-      expect(cur.y < prev.y || (cur.y === prev.y && cur.x > prev.x)).toBe(true);
+  it('orders pieces so gravity can reach every target', () => {
+    for (const rows of [
+      ['####', '####', '####', '####'],
+      ['##', '##', '.#'],
+      ['###', '...', '###'],
+      ['####', '#..#', '#..#', '####'],
+      ['.###.', '#####', '##.##', '.###.'],
+    ]) {
+      const pieces = orderForGravity(partition(cellsOf(rows)));
+      expect(pieces.map((p) => p.index)).toEqual(pieces.map((_, i) => i));
+      for (let i = 0; i < pieces.length; i++) {
+        for (let j = i + 1; j < pieces.length; j++) {
+          const above = (pieces[i] as Piece).cells.some((a) =>
+            (pieces[j] as Piece).cells.some((b) => a.x === b.x && a.y < b.y),
+          );
+          expect(above).toBe(false); // an earlier piece must never sit above a later one
+        }
+      }
     }
   });
 
@@ -245,6 +269,170 @@ describe('sameCells', () => {
   it('differs on length', () => {
     expect(sameCells([{ x: 0, y: 0 }], [])).toBe(false);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Falling mode
+// ---------------------------------------------------------------------------
+
+const rulesOf = (over: Partial<FallRules> = {}): FallRules => ({
+  fallIntervalMs: 700,
+  softDropFactor: 6,
+  lockDelayMs: 500,
+  spawnColumn: 'center',
+  ...over,
+});
+const fallOf = (rows: string[], over?: Partial<FallRules>) => createFallState(shapeOf(rows), rulesOf(over));
+const dot = [{ x: 0, y: 0 }];
+
+describe('collides', () => {
+  const s = fallOf(['###', '...', '###']);
+
+  it('blocks walls and the floor but leaves everything above row 0 free', () => {
+    expect(collides(s, dot, -1, 0)).toBe(true);
+    expect(collides(s, dot, 3, 0)).toBe(true);
+    expect(collides(s, dot, 0, 3)).toBe(true);
+    expect(collides(s, dot, 0, -5)).toBe(false);
+    expect(collides(s, dot, -1, -5)).toBe(true); // walls apply above the board too
+  });
+
+  it('lets a piece pass through silhouette voids but not through locked cells', () => {
+    expect(collides(s, dot, 1, 1)).toBe(false); // the '...' row is not part of the silhouette
+    s.locked[1 * 3 + 1] = 1;
+    expect(collides(s, dot, 1, 1)).toBe(true);
+  });
+});
+
+describe('update timing', () => {
+  const ready = (over?: Partial<FallRules>): FallState => {
+    const s = fallOf(['.....', '.....', '.....', '.##..'], over);
+    spawn(s, 0);
+    (s.active as Active).x = 3; // off target, so nothing commits mid-flight
+    return s;
+  };
+
+  it('does not move below one interval and moves exactly one row at the interval', () => {
+    const s = ready();
+    const y0 = (s.active as Active).y;
+    update(s, 99);
+    update(s, 99);
+    update(s, 99); // 297 ms < 700
+    expect((s.active as Active).y).toBe(y0);
+    for (let i = 0; i < 5; i++) update(s, 99); // 792 ms total → one row
+    expect((s.active as Active).y).toBe(y0 + 1);
+  });
+
+  it('divides the interval by softDropFactor', () => {
+    const s = ready({ fallIntervalMs: 700, softDropFactor: 7 });
+    const y0 = (s.active as Active).y;
+    update(s, 100);
+    expect((s.active as Active).y).toBe(y0); // 100 < 700
+    setSoftDrop(s, true);
+    update(s, 100); // 200 accumulated, interval now 100 → two rows
+    expect((s.active as Active).y).toBe(y0 + 2);
+  });
+
+  it('clamps a tab-resume delta to 100 ms', () => {
+    const s = ready();
+    const y0 = (s.active as Active).y;
+    update(s, 5000);
+    expect((s.active as Active).y).toBe(y0);
+    expect(s.fallTimer).toBe(100);
+  });
+});
+
+describe('lock delay', () => {
+  it('rejects exactly once after lockDelayMs, and a successful move resets it', () => {
+    const s = fallOf(['.....', '.....', '.....', '.##..'], { lockDelayMs: 500 });
+    spawn(s, 0);
+    const a = s.active as Active;
+    a.x = 3;
+    a.y = 3; // resting on the floor, off target
+
+    expect(update(s, 100)).toEqual([]);
+    expect(update(s, 100)).toEqual([]);
+    expect(s.lockTimer).toBe(200);
+
+    expect(move(s, -1)).toBe(true);
+    expect(s.lockTimer).toBe(0);
+
+    for (let i = 0; i < 4; i++) expect(update(s, 100)).toEqual([]);
+    expect(update(s, 100)).toEqual(['rejected']);
+    expect(s.errors).toBe(1);
+    expect(s.current).toBe(0); // the same piece will be dealt again
+    expect(s.active).toBe(null);
+  });
+});
+
+describe('magnetic lock', () => {
+  it("locks on the target even when the piece could still fall — ['###','...','###']", () => {
+    const s = fallOf(['###', '...', '###']);
+    expect(s.pieces).toHaveLength(2);
+    expect((s.pieces[0] as Piece).cells.every((c) => c.y === 2)).toBe(true); // bottom bar first
+
+    spawn(s, 0);
+    (s.active as Active).y = 2;
+    expect(update(s, 0)).toEqual(['placed']);
+
+    spawn(s, 0);
+    const a = s.active as Active;
+    a.y = 0;
+    expect(collides(s, a.shape, a.x, a.y + 1)).toBe(false); // nothing under it — it could keep falling
+    expect(update(s, 0)).toEqual(['placed', 'won']);
+    expect(s.done).toBe(true);
+    expect(s.errors).toBe(0);
+  });
+});
+
+describe('hardDrop', () => {
+  it('lands where landingY promised and rejects once when that is not the target', () => {
+    const s = fallOf(['.....', '.....', '.....', '.##..']);
+    spawn(s, 0);
+    (s.active as Active).x = 3;
+    expect(landingY(s)).toBe(3);
+    expect(hardDrop(s)).toEqual(['rejected']);
+    expect(s.errors).toBe(1);
+    expect(s.current).toBe(0);
+    expect(s.active).toBe(null);
+  });
+});
+
+describe('winnability', () => {
+  /** Steers every piece onto its target and hard-drops it. */
+  function solve(rows: string[]): FallState {
+    const s = fallOf(rows);
+    while (!s.done) {
+      spawn(s, 3); // deliberately not the target orientation
+      const target = (s.pieces[s.current] as Piece).cells;
+      const base = normalize(target);
+      const wantX = Math.min(...target.map((c) => c.x));
+      const a = s.active as Active;
+      for (let k = 0; k < 4 && !sameCells(a.shape, base); k++) expect(rotateActive(s)).toBe(true);
+      expect(sameCells(a.shape, base)).toBe(true);
+      while (a.x > wantX) expect(move(s, -1)).toBe(true);
+      while (a.x < wantX) expect(move(s, 1)).toBe(true);
+      expect(hardDrop(s)[0]).toBe('placed');
+    }
+    return s;
+  }
+
+  const table: [string, string[]][] = [
+    ['two bars with a gap', ['###', '...', '###']],
+    ['piece that would bury another', ['##', '##', '.#']],
+    ['single row', ['####', '....']],
+    ['4x4 frame', ['####', '#..#', '#..#', '####']],
+    ['two islands', ['##...', '##...', '.....', '..###', '...##']],
+    ['6x10 slab', Array.from({ length: 10 }, () => '######')],
+  ];
+
+  for (const [name, rows] of table) {
+    it(`is fully solvable without a single error — ${name}`, () => {
+      const s = solve(rows);
+      expect(s.done).toBe(true);
+      expect(s.errors).toBe(0);
+      expect(s.current).toBe(s.pieces.length);
+    });
+  }
 });
 
 describe('scoreForElapsed', () => {

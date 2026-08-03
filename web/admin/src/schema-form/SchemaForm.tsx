@@ -11,6 +11,7 @@ import { GridPaintField } from './GridPaintField';
 import { MazePreviewField } from './MazePreviewField';
 import { BgPreviewBox } from './BgPreviewBox';
 import type { Asset } from '../api';
+import { Segmented } from '../ui/Segmented';
 
 // ---------------------------------------------------------------------------
 // WAV encoder — used to re-encode trimmed mic recordings
@@ -425,20 +426,32 @@ function ColorField({ value, onChange }: { value: string; onChange: (v: string) 
 function Field({ schema, value, onChange, label }: FieldProps) {
   const title = label ?? schema.title;
 
-  // enum → select
+  // enum → radio group (≤3 options) or select
   if (schema.enum) {
     const current = value === undefined ? schema.default : value;
     const enumLabels = schema['x-enumLabels'] ?? {};
+    const pick = (raw: string) => onChange(schema.enum?.find((o) => String(o) === raw) ?? raw);
+    if (schema.enum.length <= 3) {
+      return (
+        <div className='sf-field'>
+          {title && <span className='sf-label'>{title}</span>}
+          <Segmented
+            options={schema.enum.map((opt) => ({
+              value: String(opt),
+              label: enumLabels[String(opt)] ?? String(opt),
+            }))}
+            value={String(current ?? '')}
+            onChange={pick}
+          />
+        </div>
+      );
+    }
     return (
       <label className='sf-field'>
         {title && <span className='sf-label'>{title}</span>}
         <select
           value={String(current ?? '')}
-          onChange={(e) => {
-            const raw = e.target.value;
-            const match = schema.enum?.find((o) => String(o) === raw);
-            onChange(match ?? raw);
-          }}
+          onChange={(e) => pick(e.target.value)}
         >
           {schema.enum.map((opt) => (
             <option key={String(opt)} value={String(opt)}>

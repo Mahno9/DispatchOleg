@@ -25,6 +25,47 @@ const PALETTE = ['#16A69B', '#E9A928', '#E86836', '#C8A878', '#5DE2D0', '#759C96
 // otherwise the piece's deal-order index.
 // ---------------------------------------------------------------------------
 
+/**
+ * Mirror of `orderForGravity()` in the game engine — keep the two in sync.
+ * Pieces are lists of flat cell indices; A is dealt before B when some column
+ * holds a cell of A strictly below a cell of B. Ties keep the anchor order.
+ */
+function orderForGravity(pieces: number[][], width: number): number[][] {
+  const n = pieces.length;
+  const after: number[][] = pieces.map(() => []);
+  const indeg = new Array<number>(n).fill(0);
+  const isBelow = (a: number[], b: number[]): boolean =>
+    a.some((p) => b.some((q) => p % width === q % width && Math.floor(p / width) > Math.floor(q / width)));
+  for (let a = 0; a < n; a++) {
+    for (let b = 0; b < n; b++) {
+      if (a !== b && isBelow(pieces[a] as number[], pieces[b] as number[])) {
+        (after[a] as number[]).push(b);
+        indeg[b] = (indeg[b] as number) + 1;
+      }
+    }
+  }
+  const out: number[][] = [];
+  const taken = new Uint8Array(n);
+  for (let placed = 0; placed < n; placed++) {
+    let pick = -1;
+    for (let i = 0; i < n; i++) {
+      if (!taken[i] && indeg[i] === 0) {
+        pick = i;
+        break;
+      }
+    }
+    if (pick < 0) {
+      // cycle — no gravity order exists; show the anchor order (see the engine)
+      for (let i = 0; i < n; i++) if (!taken[i]) out.push(pieces[i] as number[]);
+      break;
+    }
+    taken[pick] = 1;
+    out.push(pieces[pick] as number[]);
+    for (const b of after[pick] as number[]) indeg[b] = (indeg[b] as number) - 1;
+  }
+  return out;
+}
+
 export function decompose(rows: string[], width: number, height: number): number[] {
   const owner = new Array<number>(width * height).fill(-1);
   const idx: number[] = []; // cell indices, bottom-up then left-to-right
@@ -153,8 +194,12 @@ export function decompose(rows: string[], width: number, height: number): number
 
   search();
   const found = (best as number[][] | null) ?? [];
-  found.forEach((sub, pieceIndex) => {
-    for (const i of sub) owner[idx[i] as number] = pieceIndex;
+  const dealt = orderForGravity(
+    found.map((sub) => sub.map((i) => idx[i] as number)),
+    width,
+  );
+  dealt.forEach((sub, pieceIndex) => {
+    for (const cellIndex of sub) owner[cellIndex] = pieceIndex;
   });
   return owner;
 }

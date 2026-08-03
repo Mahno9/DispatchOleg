@@ -1,16 +1,22 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Ну, погоди! — спасение из высотки",
-  "description": "Ловля выпрыгивающих из горящего дома на батут. Три схемы управления.",
+  "description": "Ловля выпрыгивающих из горящего дома на батут. Четыре схемы управления.",
   "type": "object",
   "required": ["controlVariant", "rescueTarget", "lives", "fallTime", "hangTime"],
   "properties": {
     "controlVariant": {
       "type": "string",
       "title": "Схема управления",
-      "enum": ["inverted", "stepwise", "clockwise"],
+      "enum": ["inverted", "stepwise", "clockwise", "bidirectional"],
+      "x-enumLabels": {
+        "clockwise": "По часовой",
+        "stepwise": "Пошаговый по дуге",
+        "inverted": "Инверсия направления",
+        "bidirectional": "В обе стороны"
+      },
       "default": "clockwise",
-      "description": "inverted — стрелки по кольцу с инверсией; clockwise — шаг только по часовой; stepwise — дуга из 5 точек с автопроходом"
+      "description": "clockwise — шаг только по часовой; bidirectional — шаг на любую соседнюю точку; inverted — стрелки по кольцу с инверсией; stepwise — дуга из 5 точек с автопроходом"
     },
     "rescueTarget": {
       "type": "integer",
@@ -86,8 +92,8 @@
     },
     "stepDelay": {
       "type": "number",
-      "title": "Задержка шага (с) — варианты stepwise и clockwise",
-      "description": "stepwise — время одного шага автопрохода; clockwise — кулдаун между шагами",
+      "title": "Задержка шага (с) — stepwise, clockwise, bidirectional",
+      "description": "stepwise — время одного шага автопрохода; clockwise/bidirectional — кулдаун между шагами",
       "default": 0.25,
       "minimum": 0.05,
       "maximum": 1
@@ -137,7 +143,7 @@
         },
         "deny": {
           "type": "string",
-          "title": "Отказ — неверная клавиша (clockwise)",
+          "title": "Отказ — неверная клавиша (clockwise, bidirectional)",
           "x-type": "asset:audio"
         },
         "win": {

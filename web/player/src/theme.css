@@ -324,99 +324,6 @@ h3 {
 }
 
 /* ---------------------------------------------------------------------------
-   Dossier cards — status strip on top, preview, big name, corner ticks
-   --------------------------------------------------------------------------- */
-
-.dossier {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  min-width: 150px;
-  background: var(--terminal);
-  border: 1px solid var(--card-frame);
-  clip-path: var(--cut-sm);
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color var(--t) linear,
-    background var(--t) linear;
-}
-
-.dossier:hover {
-  border-color: var(--glow);
-  background: var(--surface);
-  box-shadow: var(--halo);
-}
-
-.dossier-active {
-  border-color: var(--amber);
-  box-shadow: var(--halo-amber);
-}
-
-.dossier-locked {
-  border-color: var(--line-dim);
-  color: var(--text-dim);
-  cursor: not-allowed;
-}
-
-.dossier-locked .dossier-body {
-  opacity: 0.35;
-  filter: grayscale(1);
-}
-
-.dossier-strip {
-  display: block;
-  padding: 2px 8px;
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--page);
-  background: var(--text-dim);
-}
-
-.dossier-strip-open {
-  background: var(--amber);
-}
-
-.dossier-strip-done {
-  background: var(--glow);
-}
-
-.dossier-body {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 84px;
-  padding: 10px;
-  background: rgba(3, 11, 12, 0.5);
-  border-top: 1px solid var(--line-dim);
-  border-bottom: 1px solid var(--line-dim);
-}
-
-.dossier-name {
-  padding: 6px 8px;
-  font-weight: 700;
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-/* Small geometric indicators in the card corners. */
-.dossier::after {
-  content: '';
-  position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 5px;
-  height: 5px;
-  border: 1px solid currentColor;
-  opacity: 0.5;
-}
-
-/* ---------------------------------------------------------------------------
    Progress bar — segmented, technical
    --------------------------------------------------------------------------- */
 
@@ -477,8 +384,9 @@ h3 {
 .terminal-title {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: 0.28em;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
   color: var(--glow);
 }
 
@@ -576,34 +484,6 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-
-/* One compact non-wrapping strip of dossiers along the bottom of a screen. */
-.card-strip {
-  flex: none;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  overflow-x: auto;
-  padding-bottom: 2px;
-}
-
-.card-strip .dossier {
-  flex: none;
-  width: 158px;
-}
-
-.card-strip .dossier-body {
-  min-height: 52px;
-}
-
-.dossier-lock {
-  font-size: 1.4rem;
-}
-
-.dossier-req {
-  padding: 0 8px 6px;
-  font-size: 0.6rem;
-  line-height: 1.3;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1212,36 +1092,12 @@ h3 {
   filter: saturate(0.6) contrast(1.1);
 }
 
-/* Contour stand-in until a portrait asset / camera stream shows up. */
-.avatar-outline {
-  position: relative;
-  width: 55%;
-  height: 70%;
+/* Hero silhouette (Silhouettes.tsx) until a portrait asset / camera shows up. */
+.avatar-silhouette {
+  width: 100%;
+  height: 100%;
   color: var(--teal);
-  opacity: 0.5;
-}
-
-.avatar-outline i {
-  position: absolute;
-  border: 2px solid currentColor;
-}
-
-.avatar-head {
-  left: 50%;
-  top: 6%;
-  width: 38%;
-  aspect-ratio: 1;
-  transform: translateX(-50%);
-  border-radius: 50%;
-}
-
-.avatar-body {
-  left: 8%;
-  right: 8%;
-  top: 52%;
-  bottom: 0;
-  border-bottom: none;
-  border-radius: 40% 40% 0 0;
+  opacity: 0.55;
 }
 
 .dialogue-choices {
@@ -1324,6 +1180,72 @@ h3 {
   gap: 10px;
   width: min(520px, 90%);
   text-align: center;
+}
+
+/* Инструктаж перед запуском: стрелки на проценты рабочей области. Лежит перед
+   .minigame-error в DOM, поэтому панель сбоя всё равно перекрывает его. */
+.minigame-tutorial {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: rgba(3, 11, 12, 0.85);
+}
+
+.tut-step {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* Подпись не должна уезжать за край телефона. */
+  max-width: 46%;
+  pointer-events: none;
+}
+
+/* Остриё глифа садится на (x, y), подпись — с противоположной стороны. */
+.tut-up {
+  flex-direction: column;
+  transform: translate(-50%, 0);
+}
+.tut-down {
+  flex-direction: column-reverse;
+  transform: translate(-50%, -100%);
+}
+.tut-left {
+  flex-direction: row;
+  transform: translate(0, -50%);
+}
+.tut-right {
+  flex-direction: row-reverse;
+  transform: translate(-100%, -50%);
+}
+
+.tut-arrow {
+  flex: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--amber);
+  text-shadow: 0 0 6px rgba(233, 169, 40, 0.5);
+}
+
+.tut-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* Подпись — предложение, а не ярлык: капс от .label здесь только мешает. */
+.tut-text .label {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.tut-start {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
 }
 
 @media (prefers-reduced-motion: reduce) {

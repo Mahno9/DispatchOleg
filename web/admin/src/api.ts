@@ -64,6 +64,9 @@ export interface DialogueNode {
   text: string;
   next?: string | null;
   choices?: DialogueChoice[] | null;
+  /** Позиция узла в графовом редакторе, % от холста. Игрок эти поля игнорирует. */
+  x?: number;
+  y?: number;
 }
 
 export interface DialogueDoc {

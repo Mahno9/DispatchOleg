@@ -24,7 +24,7 @@ export function LoginScreen({ onLogin }: { onLogin: () => void }) {
   return (
     <div className="login-screen">
       <form onSubmit={submit} className="login-form">
-        <h1>DISPATCH // ADMIN</h1>
+        <h1>CALL OF DOODY // ADMIN</h1>
         <input
           placeholder="Логин"
           value={login}

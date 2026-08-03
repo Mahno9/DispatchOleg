@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { api, type Character, type Game, type MetaStage, type MetaStageCharacter } from '../api';
-import { AvatarOutline } from '../dialogue/DialogueScene';
+import { silhouetteFor } from '../dialogue/Silhouettes';
 import type { GameResult } from '../state/localState';
 import { bgStyle, resolveStage } from './metaStage';
 
@@ -38,7 +38,7 @@ const SIDES = ['left', 'right'] as const;
 
 /**
  * Meta scene (Windows.png, frame «МЕТА»): the command-centre floor with the
- * clickable cast standing on it, and the game dossiers as a compact strip below.
+ * clickable cast standing on it.
  *
  * Two layouts share the frame. When the admin has configured a meta stage whose
  * trigger the player has met, that stage owns the floor: its background image
@@ -82,7 +82,6 @@ export function MetaScreen({ games, results, onCharacter }: MetaScreenProps) {
 
   const chatty = cast.filter((c): c is MetaCharacter => c.metaDialogueId !== null);
   const byId = new Map(cast.map((c) => [c.id, c]));
-  const titles = new Map(games.map((g) => [g.id, g.title]));
 
   /** Stage placements paired with the roster; unknown ids are dropped. */
   const placed = stage
@@ -145,42 +144,6 @@ export function MetaScreen({ games, results, onCharacter }: MetaScreenProps) {
 
         {headcount === 0 && <span className="label meta-empty">Персонал вне зоны связи</span>}
       </div>
-
-      <div className="card-row card-strip">
-        {playable.map((game) => {
-          const result = results[String(game.id)];
-          const unlocked = isUnlocked(game, results);
-          const status = !unlocked ? 'ЗАБЛОКИРОВАНО' : result?.won ? 'ВЫПОЛНЕНО' : 'АКТИВНО';
-          const stripClass = !unlocked
-            ? ''
-            : result?.won
-              ? 'dossier-strip-done'
-              : 'dossier-strip-open';
-          return (
-            <div
-              key={game.id}
-              className={`dossier ${unlocked ? '' : 'dossier-locked'}`}
-              title={unlocked ? game.title : 'Недоступно: нужен прогресс в других играх'}
-            >
-              <span className={`dossier-strip ${stripClass}`}>{status}</span>
-              <div className="dossier-body">
-                {unlocked ? (
-                  <span className="label">{game.minigameId}</span>
-                ) : (
-                  <span className="dossier-lock">&#128274;</span>
-                )}
-              </div>
-              <div className="dossier-name">{game.title}</div>
-              {!unlocked && (
-                <div className="label dossier-req">
-                  Нужно: {game.requiredGameIds.map((id) => titles.get(id) ?? `#${id}`).join(' · ')}
-                </div>
-              )}
-            </div>
-          );
-        })}
-        {playable.length === 0 && <span className="label">Заданий нет</span>}
-      </div>
     </div>
   );
 }
@@ -189,7 +152,7 @@ function CharacterMedia({ character }: { character: Character }) {
   return character.portraitAsset ? (
     <img className="portrait-media" src={character.portraitAsset} alt="" />
   ) : (
-    <AvatarOutline />
+    silhouetteFor(character.id)
   );
 }
 

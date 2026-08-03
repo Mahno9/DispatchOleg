@@ -209,7 +209,10 @@ describe('spawn', () => {
 describe('progressText', () => {
   it('renders the panel line and a 0..100 percent', () => {
     const s = mk({ rescueTarget: 20, lives: 3 });
-    expect(progressText(s)).toEqual({ text: 'СПАСЕНО 0/20 · ЖИЗНИ ●●● · СЕРИЯ ×1 · 0', percent: 0 });
+    expect(progressText(s)).toEqual({
+      text: 'СПАСЕНО 0/20 · ЖИЗНИ ●●● · СЕРИЯ ×1 · 0',
+      percent: 0,
+    });
     const mid = { ...s, rescued: 5, lives: 2, streak: 3, score: 900 };
     expect(progressText(mid)).toEqual({
       text: 'СПАСЕНО 5/20 · ЖИЗНИ ●●○ · СЕРИЯ ×2 · 900',
@@ -241,11 +244,23 @@ describe('control: inverted', () => {
     expect(applyInput({ ...s, position: 0 }, { type: 'arrow', dir: -1 }, 0).position).toBe(5);
   });
 
-  it('ignores point input (the key labels are decorative here)', () => {
+  it('a point key steps one point towards that point', () => {
     const s = mk(cfg);
-    const after = applyInput(s, { type: 'point', index: 4 }, 0);
-    expect(after.position).toBe(0);
-    expect(after.events).toHaveLength(0);
+    const near = applyInput(s, { type: 'point', index: 2 }, 0); // +2 around -> +1
+    expect(near.position).toBe(1);
+    expect(types(near)).toEqual(['step']);
+    const far = applyInput(s, { type: 'point', index: 4 }, 0); // -2 around -> -1
+    expect(far.position).toBe(5);
+    // own point: nothing happens, no deny
+    const same = applyInput(s, { type: 'point', index: 0 }, 0);
+    expect(same.position).toBe(0);
+    expect(same.events).toHaveLength(0);
+  });
+
+  it('a point key obeys the inversion too', () => {
+    const s = { ...mk(cfg), inverted: true };
+    expect(applyInput(s, { type: 'point', index: 2 }, 0).position).toBe(5); // away from it
+    expect(applyInput(s, { type: 'point', index: 4 }, 0).position).toBe(1);
   });
 
   it('flips exactly every inversionInterval', () => {
@@ -369,6 +384,61 @@ describe('control: clockwise', () => {
 });
 
 // ---------------------------------------------------------------------------
+// bidirectional
+// ---------------------------------------------------------------------------
+
+describe('control: bidirectional', () => {
+  const cfg: Partial<EngineConfig> = { controlVariant: 'bidirectional', stepDelay: 0.25 };
+
+  it('steps onto either neighbour and wraps both ways', () => {
+    const s = mk(cfg);
+    const cw = applyInput(s, { type: 'point', index: 1 }, 0);
+    expect(cw.position).toBe(1);
+    expect(types(cw)).toEqual(['step']);
+    const ccw = applyInput(s, { type: 'point', index: 5 }, 0);
+    expect(ccw.position).toBe(5);
+    expect(types(ccw)).toEqual(['step']);
+  });
+
+  it('accepts arrows as well', () => {
+    const s = mk(cfg);
+    expect(applyInput(s, { type: 'arrow', dir: 1 }, 0).position).toBe(1);
+    expect(applyInput(s, { type: 'arrow', dir: -1 }, 0).position).toBe(5);
+  });
+
+  it('denies non-adjacent points, including the current one', () => {
+    const s = mk(cfg);
+    for (const index of [0, 2, 3, 4]) {
+      const after = applyInput(s, { type: 'point', index }, 0);
+      expect(after.position).toBe(0);
+      expect(types(after)).toEqual(['deny']);
+    }
+  });
+
+  it('respects the stepDelay cooldown, silently', () => {
+    const s = applyInput(mk(cfg), { type: 'point', index: 1 }, 0);
+    expect(s.nextStepAt).toBeCloseTo(0.25);
+    const early = applyInput(s, { type: 'point', index: 0 }, 0.1);
+    expect(early.position).toBe(1);
+    expect(early.events).toHaveLength(0);
+    const earlyArrow = applyInput(s, { type: 'arrow', dir: 1 }, 0.1);
+    expect(earlyArrow.position).toBe(1);
+    expect(earlyArrow.events).toHaveLength(0);
+    const late = applyInput(s, { type: 'point', index: 0 }, 0.25);
+    expect(late.position).toBe(0);
+  });
+
+  it('stepsBetween uses the shortest arc, and reachable() follows it', () => {
+    const s = mk({ ...cfg, stepDelay: 0.6, hangTime: 0.5, fallTime: 0.8 }); // budget 1.3 s -> 2 steps
+    expect(stepsBetween(s, 0, 5)).toBe(1); // 5 the clockwise way, 1 the other
+    expect(stepsBetween(s, 0, 3)).toBe(3);
+    expect(reachable(s, 5)).toBe(true); // unreachable in clockwise, one step here
+    expect(reachable(s, 2)).toBe(true);
+    expect(reachable(s, 3)).toBe(false); // 3 steps = 1.8 > 1.3
+  });
+});
+
+// ---------------------------------------------------------------------------
 // stepwise
 // ---------------------------------------------------------------------------
 
@@ -437,7 +507,13 @@ describe('control: stepwise', () => {
   });
 
   it('reachable() uses the open-arc distance', () => {
-    const s = mk({ ...cfg, stepDelay: 0.6, hangTime: 0.5, fallTime: 0.8, controlVariant: 'stepwise' });
+    const s = mk({
+      ...cfg,
+      stepDelay: 0.6,
+      hangTime: 0.5,
+      fallTime: 0.8,
+      controlVariant: 'stepwise',
+    });
     expect(stepsBetween(s, 2, 4)).toBe(2);
     expect(reachable(s, 4)).toBe(true); // 2 steps = 1.2 <= 1.3
     expect(reachable({ ...s, position: 0 }, 4)).toBe(false); // 4 steps = 2.4

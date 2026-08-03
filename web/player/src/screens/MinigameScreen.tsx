@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { launchMinigame, type MinigameHandle, type MinigameResult } from '../game/minigameLoader';
+import { TUTORIALS, type TutorialStep } from '../game/tutorials';
 
 interface MinigameScreenProps {
   gameId: number;
+  /** Какой бандл запустится — ключ инструктажа; игру грузит уже loader. */
+  minigameId: string;
   muted: boolean;
   /** Bottom-bar slot 2 — fed by the game's onProgress (docs/platform.md §3.1). */
   onContext: (node: ReactNode) => void;
@@ -14,9 +17,19 @@ interface MinigameScreenProps {
  * Host for a minigame bundle: the whole work area becomes its container, the
  * bottom bar stays platform-owned (docs/platform.md §2.5, §3.4).
  */
-export function MinigameScreen({ gameId, muted, onContext, onFinished }: MinigameScreenProps) {
+export function MinigameScreen({
+  gameId,
+  minigameId,
+  muted,
+  onContext,
+  onFinished,
+}: MinigameScreenProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const steps = TUTORIALS[minigameId] ?? [];
+  // Игра без инструктажа стартует сразу, как и раньше.
+  const [briefed, setBriefed] = useState(steps.length === 0);
 
   const cb = useRef({ onContext, onFinished });
   cb.current = { onContext, onFinished };
@@ -24,6 +37,14 @@ export function MinigameScreen({ gameId, muted, onContext, onFinished }: Minigam
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Пока идёт инструктаж, бандл не грузится — иначе его таймер тикал бы,
+    // пока игрок читает. Слот 2 держит статичную подпись; чистит его либо
+    // cleanup запущенной игры, либо endChain() в App при выходе.
+    if (!briefed) {
+      cb.current.onContext(<div className="label">Инструктаж · перед запуском</div>);
+      return;
+    }
 
     let live = true;
     let handle: MinigameHandle | null = null;
@@ -67,11 +88,12 @@ export function MinigameScreen({ gameId, muted, onContext, onFinished }: Minigam
       cb.current.onContext(null);
       handle?.destroy();
     };
-  }, [gameId, muted]);
+  }, [gameId, muted, briefed]);
 
   return (
     <div className="minigame-host">
       <div className="minigame-container" ref={containerRef} />
+      {!briefed && <Briefing steps={steps} onStart={() => setBriefed(true)} />}
       {error && (
         <div className="minigame-error">
           <div className="panel error-panel">
@@ -83,6 +105,39 @@ export function MinigameScreen({ gameId, muted, onContext, onFinished }: Minigam
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const GLYPH: Record<TutorialStep['dir'], string> = {
+  up: '▲',
+  down: '▼',
+  left: '◀',
+  right: '▶',
+};
+
+/** Стрелки с подписями поверх пустой рабочей области; координаты — проценты. */
+function Briefing({ steps, onStart }: { steps: TutorialStep[]; onStart: () => void }) {
+  return (
+    <div className="minigame-tutorial">
+      {steps.map((step, i) => (
+        <div
+          key={i}
+          className={`tut-step tut-${step.dir}`}
+          style={{ left: `${step.x}%`, top: `${step.y}%` }}
+        >
+          <span className="tut-arrow" aria-hidden="true">
+            {GLYPH[step.dir]}
+          </span>
+          <span className="tut-text">
+            <i className="status status-warn">{i + 1}</i>
+            <span className="label">{step.text}</span>
+          </span>
+        </div>
+      ))}
+      <button type="button" className="btn tut-start" onClick={onStart}>
+        Понятно
+      </button>
     </div>
   );
 }

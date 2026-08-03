@@ -7,6 +7,8 @@ import {
   type DialogueNode,
 } from '../api';
 import { showToast } from '../toast';
+import { Segmented } from '../ui/Segmented';
+import { DialogueGraph, autoLayout } from './DialogueGraph';
 
 // ---------------------------------------------------------------------------
 // Graph helpers — docs/dialogue-system.md §1, §4
@@ -238,14 +240,15 @@ function NodeForm({ id, node, ids, characters, onPatch, onRename, onCreateNext }
       </select>
 
       <label className='poi-field-label'>Сторона</label>
-      <select
-        className='poi-select'
+      <Segmented
+        name={`dlg-side-${id}`}
+        options={[
+          { value: 'left', label: 'Слева' },
+          { value: 'right', label: 'Справа' },
+        ]}
         value={node.side}
-        onChange={(e) => onPatch({ side: e.target.value as DialogueNode['side'] })}
-      >
-        <option value='left'>Слева</option>
-        <option value='right'>Справа</option>
-      </select>
+        onChange={(v) => onPatch({ side: v as DialogueNode['side'] })}
+      />
 
       <label className='poi-field-label'>Реплика</label>
       <textarea
@@ -340,6 +343,7 @@ export function DialoguesSection() {
   const [currentId, setCurrentId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
+  const [newTitle, setNewTitle] = useState('');
   const [tab, setTab] = useState<'editor' | 'json'>('editor');
   const [selected, setSelected] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -372,11 +376,13 @@ export function DialoguesSection() {
   }
 
   function load(nodes: unknown) {
-    const raw = JSON.stringify(nodes ?? {}, null, 2);
+    // Auto-layout on open/import so every node has stable x/y from then on.
+    const parsed = parseDoc(JSON.stringify(nodes ?? {}));
+    const raw = parsed ? serialize(autoLayout(parsed)) : JSON.stringify(nodes ?? {}, null, 2);
     setText(raw);
     setImportErrors([]);
     setTab('editor');
-    setSelected(parseDoc(raw)?.start ?? null);
+    setSelected(parsed?.start ?? null);
   }
 
   async function open(id: number) {
@@ -392,10 +398,11 @@ export function DialoguesSection() {
   }
 
   async function create() {
-    const name = window.prompt('Название диалога');
+    const name = newTitle.trim();
     if (!name) return;
     try {
       const created = await api.createDialogue(name, JSON.parse(EMPTY_DOC));
+      setNewTitle('');
       setList(await api.getDialogues());
       setCurrentId(created.id);
       setTitle(created.title);
@@ -413,12 +420,12 @@ export function DialoguesSection() {
     setImportErrors([]);
   }
 
-  function addNode() {
+  function addNode(x = 50, y = 50) {
     if (!doc) return;
     const id = freeId(doc.nodes);
     updateDoc((d) => ({
       start: d.start in d.nodes ? d.start : id,
-      nodes: { ...d.nodes, [id]: { ...BLANK_NODE } },
+      nodes: { ...d.nodes, [id]: { ...BLANK_NODE, x, y } },
     }));
     setSelected(id);
   }
@@ -434,11 +441,35 @@ export function DialoguesSection() {
         ...d.nodes,
         [id]: {
           ...source,
+          x: Math.min((source.x ?? 50) + 6, 98),
+          y: Math.min((source.y ?? 50) + 6, 97),
           choices: Array.isArray(source.choices) ? source.choices.map((c) => ({ ...c })) : null,
         },
       },
     }));
     setSelected(id);
+  }
+
+  /** Port drag: plain `next`, or an extra choice when the node already branches. */
+  function connect(from: string, to: string) {
+    updateDoc((d) => {
+      const node = d.nodes[from];
+      if (!node) return d;
+      const choices = Array.isArray(node.choices) ? node.choices : [];
+      const patched: DialogueNode =
+        choices.length > 0
+          ? { ...node, choices: [...choices, { text: '', next: to }] }
+          : { ...node, next: to };
+      return { ...d, nodes: { ...d.nodes, [from]: patched } };
+    });
+    setSelected(from);
+  }
+
+  function moveNode(id: string, x: number, y: number) {
+    updateDoc((d) => {
+      const node = d.nodes[id];
+      return node ? { ...d, nodes: { ...d.nodes, [id]: { ...node, x, y } } } : d;
+    });
   }
 
   function removeNode() {
@@ -479,7 +510,11 @@ export function DialoguesSection() {
       if (!node) return d;
       return {
         ...d,
-        nodes: { ...d.nodes, [currentNodeId]: { ...node, next: id }, [id]: { ...BLANK_NODE } },
+        nodes: {
+          ...d.nodes,
+          [currentNodeId]: { ...node, next: id },
+          [id]: { ...BLANK_NODE, x: Math.min((node.x ?? 40) + 20, 98), y: node.y ?? 50 },
+        },
       };
     });
     setSelected(id);
@@ -564,7 +599,19 @@ export function DialoguesSection() {
     <div className='lb-section'>
       <div className='poi-panel-header'>
         <h3 className='lb-block-title'>Диалоги</h3>
-        <button onClick={() => void create()}>+ Новый диалог</button>
+        <div className='dlg-create-row'>
+          <input
+            value={newTitle}
+            placeholder='Название диалога'
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void create();
+            }}
+          />
+          <button disabled={!newTitle.trim()} onClick={() => void create()}>
+            + Новый диалог
+          </button>
+        </div>
       </div>
       {error && <p className='sf-asset-error'>{error}</p>}
 
@@ -593,7 +640,7 @@ export function DialoguesSection() {
                 className={`preview-tab-btn${tab === 'editor' ? ' preview-tab-btn--active' : ''}`}
                 onClick={openEditor}
               >
-                Редактор
+                Граф
               </button>
               <button
                 className={`preview-tab-btn${tab === 'json' ? ' preview-tab-btn--active' : ''}`}
@@ -615,33 +662,24 @@ export function DialoguesSection() {
               />
             ) : doc ? (
               <div className='dlg-editor'>
-                <div className='dlg-node-list'>
-                  {ids.map((id) => {
-                    const node = doc.nodes[id];
-                    return (
-                      <button
-                        key={id}
-                        className={`minigames-row${currentNodeId === id ? ' minigames-row--active' : ''}`}
-                        onClick={() => setSelected(id)}
-                      >
-                        <span className='minigames-row-name'>
-                          {id === doc.start && <span title='Стартовый узел'>▶ </span>}
-                          {!reachable.has(id) && (
-                            <span className='dlg-warn' title='Недостижим из стартового узла'>
-                              ⚠{' '}
-                            </span>
-                          )}
-                          {id}
-                        </span>
-                        <span className='minigames-row-game'>
-                          {speakerLabel(node?.speaker ?? '')}: {(node?.text ?? '').slice(0, 40) || '—'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  {ids.length === 0 && <p className='minigames-empty'>Узлов пока нет.</p>}
+                <div className='dlg-graph-pane'>
+                  <DialogueGraph
+                    doc={doc}
+                    selected={currentNodeId}
+                    reachable={reachable}
+                    speakerLabel={speakerLabel}
+                    onSelect={setSelected}
+                    onMove={moveNode}
+                    onConnect={connect}
+                    onCreateAt={addNode}
+                    onDelete={removeNode}
+                  />
+                  <p className='dlg-graph-hint'>
+                    Тяните узлы · порт справа — связь · двойной клик по полю — новый узел · Delete —
+                    удалить
+                  </p>
                   <div className='dlg-node-actions'>
-                    <button onClick={addNode}>+ узел</button>
+                    <button onClick={() => addNode()}>+ узел</button>
                     <button disabled={!currentNodeId} onClick={duplicateNode}>
                       Дублировать
                     </button>

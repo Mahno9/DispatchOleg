@@ -50,7 +50,7 @@ export function App() {
     <>
       <div className='layout'>
         <nav className='sidebar'>
-          <h2>DISPATCH // ADMIN</h2>
+          <h2>CALL OF DOODY // ADMIN</h2>
           {SECTIONS.map((s) => (
             <button
               key={s.id}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from '../camera/camera';
+import { silhouetteFor } from './Silhouettes';
 import { OLEG, advance, type DialogueDoc } from './engine';
 
 /** Portrait source for one speaker id (`characters` row, trimmed). */
@@ -25,17 +26,7 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
-/** Head-and-shoulders outline, used until a real portrait/stream is available. */
-export function AvatarOutline() {
-  return (
-    <div className="avatar-outline">
-      <i className="avatar-head" />
-      <i className="avatar-body" />
-    </div>
-  );
-}
-
-/** Oleg's portrait is the player: the live webcam frame, or an outline. */
+/** Oleg's portrait is the player: the live webcam frame, or his silhouette. */
 function OlegPortrait() {
   const cam = useSyncExternalStore(subscribeCamera, cameraSnapshot);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -52,7 +43,7 @@ function OlegPortrait() {
     };
   }, [cam]);
 
-  if (cam.status !== 'live') return <AvatarOutline />;
+  if (cam.status !== 'live') return silhouetteFor(OLEG);
   return <video ref={videoRef} className="portrait-media" muted playsInline />;
 }
 
@@ -78,7 +69,7 @@ function Portrait({ id, side, speaking, cast }: PortraitProps) {
         ) : character?.portraitAsset ? (
           <img className="portrait-media" src={character.portraitAsset} alt="" />
         ) : (
-          <AvatarOutline />
+          silhouetteFor(id)
         )}
       </div>
       <figcaption className={`status ${speaking ? 'status-active' : 'status-idle'}`}>

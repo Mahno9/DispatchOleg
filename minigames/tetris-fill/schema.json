@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Заполнение силуэта",
-  "description": "Движок сам разбивает нарисованный силуэт на тетромино; игрок по одной перетаскивает детали на их места. Не тетрис — jigsaw: у каждой детали ровно одно правильное место.",
+  "description": "Движок сам разбивает нарисованный силуэт на тетромино и роняет их сверху по одной. Игрок двигает и вращает падающую деталь; у каждой детали ровно одно правильное место — попала на него, фиксируется; легла мимо, рассыпается и подаётся заново.",
   "type": "object",
   "required": ["shape", "scoreThresholds"],
   "properties": {
@@ -62,11 +62,43 @@
       "description": "Выдавать деталь в случайной из 4 ориентаций. Выкл — деталь сразу повёрнута правильно.",
       "default": true
     },
+    "fallIntervalMs": {
+      "type": "integer",
+      "title": "Интервал падения, мс",
+      "description": "Сколько миллисекунд деталь проводит на одной строке. Больше — медленнее и проще.",
+      "default": 700,
+      "minimum": 150,
+      "maximum": 3000
+    },
+    "softDropFactor": {
+      "type": "number",
+      "title": "Ускорение мягкого спуска",
+      "description": "Во сколько раз быстрее падает деталь, пока удерживается кнопка ⤓ (или ↓).",
+      "default": 6,
+      "minimum": 1,
+      "maximum": 20
+    },
+    "lockDelayMs": {
+      "type": "integer",
+      "title": "Задержка фиксации, мс",
+      "description": "Сколько деталь лежит на препятствии не на своём месте, прежде чем рассыпаться и засчитать ошибку. 0 — мгновенно.",
+      "default": 500,
+      "minimum": 0,
+      "maximum": 2000
+    },
+    "spawnColumn": {
+      "type": "string",
+      "title": "Где появляется деталь",
+      "description": "По центру поля или сразу над своим местом — второй вариант заметно проще.",
+      "enum": ["center", "target"],
+      "default": "center",
+      "x-enumLabels": { "center": "По центру", "target": "Над своим местом (проще)" }
+    },
     "sounds": {
       "type": "object",
       "title": "Звуки",
       "properties": {
-        "pickUp": { "type": "string", "title": "Взятие детали", "x-type": "asset:audio" },
+        "rotate": { "type": "string", "title": "Поворот детали", "x-type": "asset:audio" },
         "place": { "type": "string", "title": "Успешная установка", "x-type": "asset:audio" },
         "error": { "type": "string", "title": "Отклонённая установка", "x-type": "asset:audio" },
         "hint": { "type": "string", "title": "Включение подсказки", "x-type": "asset:audio" },
