@@ -161,21 +161,6 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
     screen = undefined;
   }
 
-  function introScreen(): void {
-    const rows = el('div', `${P}screen__rows ${P}mono`);
-    rows.append(el('div', `${P}hint`, `РИГЕЛЕЙ: ${total}`));
-    if (config.maxAttempts > 0) rows.append(el('div', `${P}hint`, `ПОПЫТОК: ${config.maxAttempts}`));
-    if (config.timeLimitSeconds > 0) rows.append(el('div', `${P}hint`, `ВРЕМЯ: ${clock(config.timeLimitSeconds)}`));
-    rows.append(el('div', `${P}hint`, `ШТРАФ ЗА ОШИБКУ: ${config.errorPenalty}`));
-    const start = el('button', `${P}btn ${P}btn--enter`, 'НАЧАТЬ ВЗЛОМ');
-    start.type = 'button';
-    start.addEventListener('click', () => {
-      play('dialClick');
-      dispatch({ type: 'START' });
-    });
-    showScreen([makeDoor(false, false), el('div', `${P}screen__title`, config.title), rows, start]);
-  }
-
   function endScreen(won: boolean): void {
     const nodes: HTMLElement[] = [makeDoor(won, false)];
     if (won && rawConfig.prizeImage) {
@@ -341,7 +326,11 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
     }
   }
 
-  introScreen();
+  // Своего экрана «НАЧАТЬ ВЗЛОМ» больше нет: платформа показывает инструктаж
+  // перед каждой игрой, и второй гейт мешал ему — под ним должен быть виден
+  // рабочий стол сейфа (вопрос, виджет, ВВОД), а не дверь с кнопкой.
+  // Лимит/попытки/штраф видны в HUD и в статус-баре при отказе.
+  dispatch({ type: 'START' });
   render();
   callbacks.onProgress?.(`Замок 0/${total}`, 0);
 

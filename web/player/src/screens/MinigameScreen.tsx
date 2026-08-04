@@ -30,6 +30,7 @@ export function MinigameScreen({
   const steps = TUTORIALS[minigameId] ?? [];
   // Игра без инструктажа стартует сразу, как и раньше.
   const [briefed, setBriefed] = useState(steps.length === 0);
+  const [previewRun, setPreviewRun] = useState(0);
 
   const cb = useRef({ onContext, onFinished });
   cb.current = { onContext, onFinished };
@@ -38,13 +39,11 @@ export function MinigameScreen({
     const container = containerRef.current;
     if (!container) return;
 
-    // Пока идёт инструктаж, бандл не грузится — иначе его таймер тикал бы,
-    // пока игрок читает. Слот 2 держит статичную подпись; чистит его либо
-    // cleanup запущенной игры, либо endChain() в App при выходе.
-    if (!briefed) {
-      cb.current.onContext(<div className="label">Инструктаж · перед запуском</div>);
-      return;
-    }
+    // Инструктаж идёт ПОВЕРХ живой игры — иначе стрелки указывают в пустоту.
+    // Этот прогон одноразовый: звук выключен, результат и прогресс игнорируются,
+    // а по «Понятно» эффект перезапускается и бандл поднимается с нуля. Поэтому
+    // натикавшее за время чтения (упавшая деталь, таймер сейфа) роли не играет.
+    if (!briefed) cb.current.onContext(<div className="label">Инструктаж · перед запуском</div>);
 
     let live = true;
     let handle: MinigameHandle | null = null;
@@ -52,9 +51,9 @@ export function MinigameScreen({
     launchMinigame({
       container,
       gameId,
-      muted,
+      muted: muted || !briefed,
       onProgress: (text, percent) => {
-        if (!live) return;
+        if (!live || !briefed) return;
         cb.current.onContext(
           <>
             <div className="label">{text}</div>
@@ -70,7 +69,13 @@ export function MinigameScreen({
         );
       },
       onFinished: (result) => {
-        if (live) cb.current.onFinished(result);
+        if (!live) return;
+        if (briefed) cb.current.onFinished(result);
+        // Превью доигралось само (rescue-catch без ввода теряет три жизни
+        // секунд за пятнадцать) — под инструктажем осталась бы пустота после
+        // fadeOut. Поднимаем заново; PREVIEW_RELAUNCH_CAP на случай бандла,
+        // который завершается прямо в init.
+        else if (previewRun < PREVIEW_RELAUNCH_CAP) setPreviewRun(previewRun + 1);
       },
     }).then(
       (h) => {
@@ -88,7 +93,7 @@ export function MinigameScreen({
       cb.current.onContext(null);
       handle?.destroy();
     };
-  }, [gameId, muted, briefed]);
+  }, [gameId, muted, briefed, previewRun]);
 
   return (
     <div className="minigame-host">
@@ -108,6 +113,9 @@ export function MinigameScreen({
     </div>
   );
 }
+
+/** Потолок перезапусков превью — страховка от бандла, падающего в init. */
+const PREVIEW_RELAUNCH_CAP = 20;
 
 const GLYPH: Record<TutorialStep['dir'], string> = {
   up: '▲',
