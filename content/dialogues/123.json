@@ -1,0 +1,30 @@
+{
+  "id": 123,
+  "title": "Подземка · провал",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "48",
+        "side": "right",
+        "text": "Я в тупике на третьем уровне. Связь рвётся.",
+        "next": "n2",
+        "choices": []
+      },
+      "n2": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Стой на месте, перестраиваю маршрут.",
+        "next": "n3",
+        "choices": []
+      },
+      "n3": {
+        "speaker": "48",
+        "side": "right",
+        "text": "Стою. У меня всё равно нет вариантов.",
+        "next": null,
+        "choices": []
+      }
+    }
+  }
+}

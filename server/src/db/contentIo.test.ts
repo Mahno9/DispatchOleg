@@ -107,9 +107,10 @@ describe('content dump/load', () => {
     const contentDir = tmpDir();
     dump(src, contentDir, assetsSrc);
 
-    // JSON-колонки лежат в файлах разложенными, а не экранированной строкой.
-    const dialogues = JSON.parse(fs.readFileSync(path.join(contentDir, 'dialogues.json'), 'utf8'));
-    expect(dialogues[0].nodes_json.nodes.a.text).toBe('Привет');
+    // Диалог на файл, имя файла — id; JSON-колонки разложены, а не экранированы строкой.
+    expect(fs.readdirSync(path.join(contentDir, 'dialogues')).sort()).toEqual(['1.json', '2.json']);
+    const d1 = JSON.parse(fs.readFileSync(path.join(contentDir, 'dialogues', '1.json'), 'utf8'));
+    expect(d1.nodes_json.nodes.a.text).toBe('Привет');
 
     const dst = freshDb();
     const assetsDst = tmpDir();
@@ -126,10 +127,58 @@ describe('content dump/load', () => {
     const b = tmpDir();
     dump(db, a, tmpDir());
     dump(db, b, tmpDir());
-    for (const f of fs.readdirSync(a).filter((f) => f.endsWith('.json')))
+    const files = (root: string) =>
+      fs
+        .readdirSync(root, { recursive: true, encoding: 'utf8' })
+        .filter((f) => f.endsWith('.json'))
+        .sort();
+    expect(files(a)).toEqual(files(b));
+    for (const f of files(a))
       expect(fs.readFileSync(path.join(a, f), 'utf8')).toBe(
         fs.readFileSync(path.join(b, f), 'utf8'),
       );
+  });
+
+  it('drops deleted dialogues from the dump instead of leaving stale files', () => {
+    const db = freshDb();
+    seed(db);
+    const contentDir = tmpDir();
+    dump(db, contentDir, tmpDir());
+
+    db.prepare('UPDATE games SET pre_dialogue_id = NULL WHERE pre_dialogue_id = 1').run();
+    db.prepare('UPDATE characters SET meta_dialogue_id = NULL WHERE meta_dialogue_id = 1').run();
+    db.prepare('DELETE FROM dialogues WHERE id = 1').run();
+    dump(db, contentDir, tmpDir());
+
+    expect(fs.readdirSync(path.join(contentDir, 'dialogues'))).toEqual(['2.json']);
+  });
+
+  it('refuses a botched merge with duplicate ids and leaves the db intact', () => {
+    const src = freshDb();
+    seed(src);
+    const contentDir = tmpDir();
+    dump(src, contentDir, tmpDir());
+
+    // Так выглядит «взяли оба» после мёржа: два файла с одним id.
+    const dupe = JSON.parse(
+      fs.readFileSync(path.join(contentDir, 'dialogues', '2.json'), 'utf8'),
+    ) as { title: string };
+    dupe.title = 'диалог коллеги';
+    fs.writeFileSync(
+      path.join(contentDir, 'dialogues', '2-theirs.json'),
+      JSON.stringify(dupe, null, 2),
+    );
+
+    const dst = freshDb();
+    dst
+      .prepare('INSERT INTO dialogues (id, title, nodes_json) VALUES (9, ?, ?)')
+      .run('старый', '{}');
+
+    expect(() => load(dst, contentDir, tmpDir())).toThrow(/UNIQUE constraint failed/);
+    // Транзакция откатилась: прежний контент на месте, полусостояния нет.
+    expect(dst.prepare('SELECT id, title FROM dialogues').all()).toEqual([
+      { id: 9, title: 'старый' },
+    ]);
   });
 
   it('leaves player progress alone', () => {

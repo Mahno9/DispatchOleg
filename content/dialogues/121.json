@@ -1,0 +1,30 @@
+{
+  "id": 121,
+  "title": "Подземка · ни одной стены",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "48",
+        "side": "right",
+        "text": "Ни одной стены. Тебе бы в проводники.",
+        "next": "n2",
+        "choices": []
+      },
+      "n2": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Мне бы в отпуск.",
+        "next": "n3",
+        "choices": []
+      },
+      "n3": {
+        "speaker": "48",
+        "side": "right",
+        "text": "Одно другому не мешает.",
+        "next": null,
+        "choices": []
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": 107,
+  "title": "Мета · Вектор",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "46",
+        "side": "right",
+        "text": "Я был на месте за девять секунд.",
+        "next": "n2",
+        "choices": []
+      },
+      "n2": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Вызов пришёл двенадцать секунд назад.",
+        "next": "n3",
+        "choices": []
+      },
+      "n3": {
+        "speaker": "46",
+        "side": "right",
+        "text": "Знаю. Три секунды я ждал, пока ты дочитаешь адрес.",
+        "next": null,
+        "choices": []
+      }
+    }
+  }
+}

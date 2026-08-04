@@ -1,0 +1,30 @@
+{
+  "id": 128,
+  "title": "Кухня · победа",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "44",
+        "side": "right",
+        "text": "Очередь ушла сытая. Даже Гранит сказал два слова.",
+        "next": "n2",
+        "choices": []
+      },
+      "n2": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Какие?",
+        "next": "n3",
+        "choices": []
+      },
+      "n3": {
+        "speaker": "44",
+        "side": "right",
+        "text": "«Стена держит». Я решила, что это комплимент супу.",
+        "next": null,
+        "choices": []
+      }
+    }
+  }
+}

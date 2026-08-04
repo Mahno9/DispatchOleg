@@ -1,0 +1,30 @@
+{
+  "id": 125,
+  "title": "Сейф ломбарда · победа",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "49",
+        "side": "right",
+        "text": "Открыл. Опись веду.",
+        "next": "n2",
+        "choices": []
+      },
+      "n2": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Что там?",
+        "next": "n3",
+        "choices": []
+      },
+      "n3": {
+        "speaker": "49",
+        "side": "right",
+        "text": "Три плазменных резака кустарной сборки и фотография Ночницы в рамке. Второе тревожнее.",
+        "next": null,
+        "choices": []
+      }
+    }
+  }
+}

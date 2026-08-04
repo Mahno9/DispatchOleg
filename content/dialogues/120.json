@@ -1,0 +1,37 @@
+{
+  "id": 120,
+  "title": "Подземка · до",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "48",
+        "side": "right",
+        "text": "Три уровня подземки. Ниже второго связь пропадает.",
+        "next": "n2",
+        "choices": []
+      },
+      "n2": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Веду по схеме. В стены не входим.",
+        "next": "n3",
+        "choices": []
+      },
+      "n3": {
+        "speaker": "48",
+        "side": "right",
+        "text": "Стены — вопрос вкуса.",
+        "next": "n4",
+        "choices": []
+      },
+      "n4": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Стены — вопрос сметы. Пошли.",
+        "next": null,
+        "choices": []
+      }
+    }
+  }
+}

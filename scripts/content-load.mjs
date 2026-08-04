@@ -15,7 +15,7 @@ if (!fs.existsSync(dbFile)) {
   process.exit(1);
 }
 // Без этой проверки пустой каталог просто вычистил бы весь контент.
-if (!fs.existsSync(path.join(contentDir, 'dialogues.json'))) {
+if (!fs.existsSync(path.join(contentDir, 'dialogues'))) {
   console.error(
     `нет выгрузки: ${contentDir} — сделайте npm run content:dump на инстансе-источнике`,
   );
