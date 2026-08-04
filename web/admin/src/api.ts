@@ -20,9 +20,21 @@ export interface Asset {
 export interface Minigame {
   id: string;
   title: string;
-  entryUrl: string;
+  /** null for system pseudo-minigames (onboarding) — there is no bundle. */
+  entryUrl: string | null;
   schemaUrl: string;
   defaultConfig?: Record<string, unknown>;
+}
+
+/**
+ * Player URL for an admin test run (`?test=onboarding | meta:<id> | game:<id>`).
+ * In dev the player lives on its own vite port; in prod both SPAs share the origin.
+ */
+export function playerTestUrl(test: string): string {
+  const origin = import.meta.env.DEV
+    ? `${window.location.protocol}//${window.location.hostname}:5173`
+    : '';
+  return `${origin}/?test=${encodeURIComponent(test)}`;
 }
 
 export interface Game {

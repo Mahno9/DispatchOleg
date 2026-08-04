@@ -3090,6 +3090,8 @@ select {
   padding: 8px 10px;
   max-height: 180px;
   overflow-y: auto;
+  /* внутри flex-колонки (модалка, панель) иначе схлопывается до нечитаемой полоски */
+  flex: none;
 }
 
 .dlg-error {
@@ -3151,10 +3153,6 @@ select {
 }
 
 /* dialogue node editor */
-.dlg-panel {
-  max-width: 1040px;
-}
-
 .dlg-tabs {
   padding: 10px 0;
   background: none;
@@ -3167,9 +3165,53 @@ select {
   align-items: flex-start;
 }
 
+/* Редактор живёт в модалке — граф тянется по высоте окна */
+.dlg-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dlg-modal-body .dlg-graph {
+  height: min(58vh, 620px);
+}
+
+.dlg-modal-body .dlg-textarea {
+  min-height: min(58vh, 620px);
+}
+
 .dlg-create-row {
   display: flex;
   gap: 6px;
+}
+
+/* Список диалогов: строка открывает редактор в модалке, кнопка справа — проигрыш */
+.dlg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 620px;
+}
+
+.dlg-list-row {
+  display: flex;
+  gap: 6px;
+}
+
+.dlg-list-row .minigames-row {
+  flex: 1;
+  min-width: 0;
+}
+
+.dlg-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dlg-title-row input {
+  flex: 1;
+  min-width: 0;
 }
 
 /* --- graph canvas --- */
@@ -3189,10 +3231,47 @@ select {
   overflow: hidden;
   touch-action: none;
   outline: none;
+  /* панорама/перетаскивание узлов не должны выделять подписи и кнопки */
+  user-select: none;
 }
 
 .dlg-graph:focus-visible {
   border-color: #16A69B;
+}
+
+/* Панорама/зум: внутренний слой держит систему координат 0..100%, transform его двигает */
+.dlg-graph-inner {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  cursor: grab;
+}
+
+.dlg-graph-nav {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  background: rgba(6, 35, 38, 0.9);
+  border: 1px solid #0A3435;
+  border-radius: 2px;
+}
+
+.dlg-graph-nav button {
+  font-size: 13px;
+  line-height: 1;
+  padding: 3px 8px;
+}
+
+.dlg-graph-zoom {
+  font-size: 11px;
+  color: #759C96;
+  min-width: 36px;
+  text-align: center;
 }
 
 .dlg-graph-edges {

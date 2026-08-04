@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import {
   api,
+  playerTestUrl,
   type Character,
   type Game,
   type GameInput,
   type Minigame,
 } from '../api';
-import { MinigameConfigModal, mergeTop, diffTop, type Cfg } from './MinigamesSection';
+import { MinigameConfigModal, TestRunOverlay, mergeTop, diffTop, type Cfg } from './MinigamesSection';
 import { showToast } from '../toast';
 
 type DialogueRef = { id: number; title: string };
@@ -146,6 +147,7 @@ export function GamesSection() {
   const [styleRows, setStyleRows] = useState<{ tag: string; id: number }[]>([]);
   const [qrGame, setQrGame] = useState<Game | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
+  const [testRun, setTestRun] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -404,6 +406,30 @@ export function GamesSection() {
               >
                 Конфиг мини-игры…
               </button>
+              {minigame?.entryUrl != null && (
+                <button
+                  title='Изолированный запуск мини-игры с настройками этой игры, без диалогов'
+                  onClick={() => setTestRun(true)}
+                >
+                  ▶ Тест
+                </button>
+              )}
+              <button
+                disabled={draft.id === NEW_ID && !draft.isTutorial}
+                title='Полный прогон в плеере: диалоги, мини-игра, мета — без QR и без записи прогресса'
+                onClick={() =>
+                  window.open(
+                    playerTestUrl(
+                      draft.isTutorial || draft.minigameId === 'onboarding'
+                        ? 'onboarding'
+                        : `game:${draft.id}`,
+                    ),
+                    '_blank',
+                  )
+                }
+              >
+                ▶ Тест в плеере
+              </button>
               <button disabled={draft.id === NEW_ID} onClick={() => setQrGame(draft)}>
                 QR-код
               </button>
@@ -421,6 +447,15 @@ export function GamesSection() {
       </div>
 
       {qrGame && <QrModal game={qrGame} onClose={() => setQrGame(null)} />}
+
+      {/* Same effective config the player loader builds: defaults ⊕ override. */}
+      {testRun && draft && minigame?.entryUrl != null && (
+        <TestRunOverlay
+          entryUrl={minigame.entryUrl}
+          config={mergeTop((minigame.defaultConfig ?? {}) as Cfg, (draft.config ?? {}) as Cfg)}
+          onClose={() => setTestRun(false)}
+        />
+      )}
 
       {configOpen && draft && minigame && (
         <MinigameConfigModal

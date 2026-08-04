@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   api,
+  playerTestUrl,
   type Character,
   type DialogueChoice,
   type DialogueDoc,
@@ -198,9 +199,19 @@ interface NodeFormProps {
   /** Возвращает false, если переименование отклонено (тогда поле откатывается). */
   onRename: (nextId: string) => boolean;
   onCreateNext: () => void;
+  onCreateChoiceNext: (index: number) => void;
 }
 
-function NodeForm({ id, node, ids, characters, onPatch, onRename, onCreateNext }: NodeFormProps) {
+function NodeForm({
+  id,
+  node,
+  ids,
+  characters,
+  onPatch,
+  onRename,
+  onCreateNext,
+  onCreateChoiceNext,
+}: NodeFormProps) {
   const choices = Array.isArray(node.choices) ? node.choices : [];
   const knownSpeaker =
     node.speaker === 'oleg' || characters.some((c) => String(c.id) === node.speaker);
@@ -310,6 +321,13 @@ function NodeForm({ id, node, ids, characters, onPatch, onRename, onCreateNext }
               ))}
             </select>
             <button
+              className='dlg-inline-btn'
+              title='Создать узел и связать с вариантом'
+              onClick={() => onCreateChoiceNext(i)}
+            >
+              +
+            </button>
+            <button
               className='poi-delete-btn'
               title='Удалить вариант'
               onClick={() => onPatch({ choices: choices.filter((_, j) => j !== i) })}
@@ -325,6 +343,31 @@ function NodeForm({ id, node, ids, characters, onPatch, onRename, onCreateNext }
           + вариант
         </button>
       </div>
+    </div>
+  );
+}
+
+function Report({ importErrors, report }: { importErrors: string[]; report: ValidationResult }) {
+  return (
+    <div className='dlg-report'>
+      {importErrors.map((m) => (
+        <p className='dlg-error' key={`imp-${m}`}>
+          ✕ импорт: {m}
+        </p>
+      ))}
+      {report.errors.map((m) => (
+        <p className='dlg-error' key={m}>
+          ✕ {m}
+        </p>
+      ))}
+      {report.warnings.map((m) => (
+        <p className='dlg-warn' key={m}>
+          ⚠ {m}
+        </p>
+      ))}
+      {report.errors.length === 0 && report.warnings.length === 0 && (
+        <p className='dlg-ok'>✓ Диалог корректен</p>
+      )}
     </div>
   );
 }
@@ -345,6 +388,10 @@ export function DialoguesSection() {
   const [text, setText] = useState('');
   const [newTitle, setNewTitle] = useState('');
   const [tab, setTab] = useState<'editor' | 'json'>('editor');
+  const [editorOpen, setEditorOpen] = useState(false);
+  /** Снимок последнего сохранённого состояния — по нему считается «есть правки». */
+  const [saved, setSaved] = useState({ text: '', title: '' });
+  const [confirmClose, setConfirmClose] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
@@ -370,12 +417,26 @@ export function DialoguesSection() {
     api.getCharacters().then(setCharacters).catch(() => undefined);
   }, []);
 
+  // Esc закрывает окно редактора — как модалка конфига мини-игры. Открытый
+  // вопрос про несохранённые правки перехватывает Esc первым (= «Отмена»).
+  useEffect(() => {
+    if (!editorOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (confirmClose) setConfirmClose(false);
+      else requestClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   function speakerLabel(speaker: string): string {
     if (speaker === 'oleg') return 'Олег';
     return characters.find((c) => String(c.id) === speaker)?.name ?? speaker;
   }
 
-  function load(nodes: unknown) {
+  /** Возвращает текст документа — вызывающий решает, считать ли его сохранённым. */
+  function load(nodes: unknown): string {
     // Auto-layout on open/import so every node has stable x/y from then on.
     const parsed = parseDoc(JSON.stringify(nodes ?? {}));
     const raw = parsed ? serialize(autoLayout(parsed)) : JSON.stringify(nodes ?? {}, null, 2);
@@ -383,6 +444,9 @@ export function DialoguesSection() {
     setImportErrors([]);
     setTab('editor');
     setSelected(parsed?.start ?? null);
+    // Редактирование живёт только в модалке: открыли диалог — открыли окно.
+    setEditorOpen(true);
+    return raw;
   }
 
   async function open(id: number) {
@@ -391,7 +455,7 @@ export function DialoguesSection() {
       const dialogue = await api.getDialogue(id);
       setCurrentId(dialogue.id);
       setTitle(dialogue.title);
-      load(dialogue.nodes);
+      setSaved({ text: load(dialogue.nodes), title: dialogue.title });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ошибка загрузки');
     }
@@ -406,7 +470,7 @@ export function DialoguesSection() {
       setList(await api.getDialogues());
       setCurrentId(created.id);
       setTitle(created.title);
-      load(created.nodes);
+      setSaved({ text: load(created.nodes), title: created.title });
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка создания', 'error');
     }
@@ -502,7 +566,11 @@ export function DialoguesSection() {
     return true;
   }
 
-  function createNext() {
+  /** Новый узел справа от текущего; `link` возвращает патч, привязывающий его к текущему. */
+  function createLinkedNode(
+    link: (newId: string, node: DialogueNode) => Partial<DialogueNode>,
+    dy = 0,
+  ) {
     if (!doc || !currentNodeId) return;
     const id = freeId(doc.nodes);
     updateDoc((d) => {
@@ -512,12 +580,32 @@ export function DialoguesSection() {
         ...d,
         nodes: {
           ...d.nodes,
-          [currentNodeId]: { ...node, next: id },
-          [id]: { ...BLANK_NODE, x: Math.min((node.x ?? 40) + 20, 98), y: node.y ?? 50 },
+          [currentNodeId]: { ...node, ...link(id, node) },
+          [id]: {
+            ...BLANK_NODE,
+            x: Math.min((node.x ?? 40) + 20, 98),
+            y: Math.max(3, Math.min((node.y ?? 50) + dy, 97)),
+          },
         },
       };
     });
     setSelected(id);
+  }
+
+  function createNext() {
+    createLinkedNode((id) => ({ next: id }));
+  }
+
+  function createChoiceNext(index: number) {
+    const choices = Array.isArray(currentNode?.choices) ? currentNode.choices : [];
+    createLinkedNode(
+      (id, node) => {
+        const cur = Array.isArray(node.choices) ? node.choices : [];
+        return { choices: cur.map((c, j) => (j === index ? { ...c, next: id } : c)) };
+      },
+      // разводим ветки по вертикали, чтобы новые узлы не легли друг на друга
+      (index - (choices.length - 1) / 2) * 12,
+    );
   }
 
   function patchNode(patch: Partial<DialogueNode>) {
@@ -539,22 +627,56 @@ export function DialoguesSection() {
 
   // --- persistence ---
 
-  async function save() {
-    if (currentId === null) return;
+  async function save(): Promise<boolean> {
+    if (currentId === null) return false;
     if (report.errors.length > 0 || !report.doc) {
       showToast('Есть ошибки — не сохранено', 'error');
-      return;
+      return false;
     }
     setSaving(true);
     try {
       await api.updateDialogue(currentId, { title, nodes: report.doc });
       setList(await api.getDialogues());
+      setSaved({ text, title });
       showToast('Сохранено');
+      return true;
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка сохранения', 'error');
+      return false;
     } finally {
       setSaving(false);
     }
+  }
+
+  const dirty = text !== saved.text || title !== saved.title;
+
+  /** Закрытие редактора: с правками — сперва спрашиваем, что с ними делать. */
+  function requestClose() {
+    if (dirty) setConfirmClose(true);
+    else setEditorOpen(false);
+  }
+
+  async function saveAndClose() {
+    // Не сохранилось (ошибки валидации, сеть) — окно вопроса остаётся, текст
+    // ошибки уже показан тостом.
+    if (!(await save())) return;
+    setConfirmClose(false);
+    setEditorOpen(false);
+  }
+
+  /**
+   * Проигрывание в плеере (?test=dialogue:<id>) — плеер тянет диалог с сервера,
+   * поэтому сначала сохраняем. Вкладку открываем синхронно, до await, иначе её
+   * съест блокировщик всплывающих окон.
+   */
+  async function playtest() {
+    if (currentId === null) return;
+    const win = window.open('', '_blank');
+    if (!(await save())) {
+      win?.close();
+      return;
+    }
+    if (win) win.location.href = playerTestUrl(`dialogue:${currentId}`);
   }
 
   async function remove() {
@@ -567,6 +689,7 @@ export function DialoguesSection() {
       setText('');
       setTitle('');
       setSelected(null);
+      setEditorOpen(false);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка удаления', 'error');
     }
@@ -615,126 +738,146 @@ export function DialoguesSection() {
       </div>
       {error && <p className='sf-asset-error'>{error}</p>}
 
-      <div className='two-pane'>
-        <div className='two-pane-list'>
-          {list.map((d) => (
+      <div className='dlg-list'>
+        {list.map((d) => (
+          <div className='dlg-list-row' key={d.id}>
             <button
-              key={d.id}
               className={`minigames-row${currentId === d.id ? ' minigames-row--active' : ''}`}
               onClick={() => void open(d.id)}
             >
               <span className='minigames-row-name'>{d.title}</span>
               <span className='minigames-row-game'>#{d.id}</span>
             </button>
-          ))}
-          {list.length === 0 && <p className='minigames-empty'>Диалогов пока нет.</p>}
-        </div>
+            <button
+              className='modal-test-btn'
+              title='Проиграть сохранённую версию в плеере'
+              onClick={() => window.open(playerTestUrl(`dialogue:${d.id}`), '_blank')}
+            >
+              ▶
+            </button>
+          </div>
+        ))}
+        {list.length === 0 && <p className='minigames-empty'>Диалогов пока нет.</p>}
+      </div>
 
-        {currentId !== null && (
-          <div className='two-pane-panel poi-edit-panel dlg-panel'>
-            <label className='poi-field-label'>Название</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} />
-
-            <div className='preview-tabs dlg-tabs'>
-              <button
-                className={`preview-tab-btn${tab === 'editor' ? ' preview-tab-btn--active' : ''}`}
-                onClick={openEditor}
-              >
-                Граф
-              </button>
-              <button
-                className={`preview-tab-btn${tab === 'json' ? ' preview-tab-btn--active' : ''}`}
-                onClick={() => setTab('json')}
-              >
-                JSON
+      {editorOpen && currentId !== null && (
+        <div className='modal-overlay' onClick={requestClose}>
+          <div className='modal-card modal-card--wide' onClick={(e) => e.stopPropagation()}>
+            <div className='modal-header'>
+              <span className='modal-title'>
+                {title || 'Диалог'} — редактор{dirty && ' •'}
+              </span>
+              <button className='modal-close' title='Закрыть' onClick={requestClose}>
+                ✕
               </button>
             </div>
 
-            {tab === 'json' ? (
-              <textarea
-                className='dlg-textarea'
-                spellCheck={false}
-                value={text}
-                onChange={(e) => {
-                  setText(e.target.value);
-                  setImportErrors([]);
-                }}
-              />
-            ) : doc ? (
-              <div className='dlg-editor'>
-                <div className='dlg-graph-pane'>
-                  <DialogueGraph
-                    doc={doc}
-                    selected={currentNodeId}
-                    reachable={reachable}
-                    speakerLabel={speakerLabel}
-                    onSelect={setSelected}
-                    onMove={moveNode}
-                    onConnect={connect}
-                    onCreateAt={addNode}
-                    onDelete={removeNode}
-                  />
-                  <p className='dlg-graph-hint'>
-                    Тяните узлы · порт справа — связь · двойной клик по полю — новый узел · Delete —
-                    удалить
-                  </p>
-                  <div className='dlg-node-actions'>
-                    <button onClick={() => addNode()}>+ узел</button>
-                    <button disabled={!currentNodeId} onClick={duplicateNode}>
-                      Дублировать
-                    </button>
-                    <button
-                      disabled={!currentNodeId || currentNodeId === doc?.start}
-                      onClick={() => currentNodeId && updateDoc((d) => ({ ...d, start: currentNodeId }))}
-                    >
-                      Сделать стартовым
-                    </button>
-                    <button className='poi-delete-btn' disabled={!currentNodeId} onClick={removeNode}>
-                      Удалить узел
-                    </button>
-                  </div>
-                </div>
-
-                {currentNodeId && currentNode ? (
-                  <NodeForm
-                    id={currentNodeId}
-                    node={currentNode}
-                    ids={ids}
-                    characters={characters}
-                    onPatch={patchNode}
-                    onRename={rename}
-                    onCreateNext={createNext}
-                  />
-                ) : (
-                  <p className='minigames-empty'>Выберите узел слева.</p>
-                )}
+            <div className='modal-body dlg-modal-body'>
+              <div className='dlg-title-row'>
+                <label className='poi-field-label'>Название</label>
+                <input value={title} onChange={(e) => setTitle(e.target.value)} />
+                <span className='dlg-graph-hint'>
+                  узлов: {ids.length} · старт: {doc?.start || '—'}
+                </span>
               </div>
-            ) : (
-              <p className='dlg-error'>Битый JSON — откройте вкладку «JSON» и исправьте.</p>
-            )}
 
-            <div className='dlg-report'>
-              {importErrors.map((m) => (
-                <p className='dlg-error' key={`imp-${m}`}>
-                  ✕ импорт: {m}
-                </p>
-              ))}
-              {report.errors.map((m) => (
-                <p className='dlg-error' key={m}>
-                  ✕ {m}
-                </p>
-              ))}
-              {report.warnings.map((m) => (
-                <p className='dlg-warn' key={m}>
-                  ⚠ {m}
-                </p>
-              ))}
-              {report.errors.length === 0 && report.warnings.length === 0 && (
-                <p className='dlg-ok'>✓ Диалог корректен</p>
+              <div className='preview-tabs dlg-tabs'>
+                <button
+                  className={`preview-tab-btn${tab === 'editor' ? ' preview-tab-btn--active' : ''}`}
+                  onClick={openEditor}
+                >
+                  Граф
+                </button>
+                <button
+                  className={`preview-tab-btn${tab === 'json' ? ' preview-tab-btn--active' : ''}`}
+                  onClick={() => setTab('json')}
+                >
+                  JSON
+                </button>
+              </div>
+
+              {tab === 'json' ? (
+                <textarea
+                  className='dlg-textarea'
+                  spellCheck={false}
+                  value={text}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    setImportErrors([]);
+                  }}
+                />
+              ) : doc ? (
+                <div className='dlg-editor'>
+                  <div className='dlg-graph-pane'>
+                    <DialogueGraph
+                      doc={doc}
+                      selected={currentNodeId}
+                      reachable={reachable}
+                      speakerLabel={speakerLabel}
+                      onSelect={setSelected}
+                      onMove={moveNode}
+                      onConnect={connect}
+                      onCreateAt={addNode}
+                      onDelete={removeNode}
+                    />
+                    <p className='dlg-graph-hint'>
+                      Тяните узлы · порт справа — связь · двойной клик по полю — новый узел · колесо
+                      — зум · тянуть фон — панорама · Delete — удалить
+                    </p>
+                    <div className='dlg-node-actions'>
+                      <button onClick={() => addNode()}>+ узел</button>
+                      <button disabled={!currentNodeId} onClick={duplicateNode}>
+                        Дублировать
+                      </button>
+                      <button
+                        disabled={!currentNodeId || currentNodeId === doc?.start}
+                        onClick={() =>
+                          currentNodeId && updateDoc((d) => ({ ...d, start: currentNodeId }))
+                        }
+                      >
+                        Сделать стартовым
+                      </button>
+                      <button
+                        className='poi-delete-btn'
+                        disabled={!currentNodeId}
+                        onClick={removeNode}
+                      >
+                        Удалить узел
+                      </button>
+                    </div>
+                  </div>
+
+                  {currentNodeId && currentNode ? (
+                    <NodeForm
+                      id={currentNodeId}
+                      node={currentNode}
+                      ids={ids}
+                      characters={characters}
+                      onPatch={patchNode}
+                      onRename={rename}
+                      onCreateNext={createNext}
+                      onCreateChoiceNext={createChoiceNext}
+                    />
+                  ) : (
+                    <p className='minigames-empty'>Выберите узел слева.</p>
+                  )}
+                </div>
+              ) : (
+                <p className='dlg-error'>Битый JSON — откройте вкладку «JSON» и исправьте.</p>
               )}
+
+              <Report importErrors={importErrors} report={report} />
             </div>
 
-            <div className='poi-panel-actions'>
+            <div className='modal-actions'>
+              <button
+                className='modal-test-btn'
+                disabled={saving || report.errors.length > 0}
+                title='Сохранить и проиграть диалог в плеере'
+                onClick={() => void playtest()}
+              >
+                ▶ Проиграть в плеере
+              </button>
               <button onClick={() => fileRef.current?.click()}>Импорт JSON</button>
               <input
                 ref={fileRef}
@@ -748,16 +891,59 @@ export function DialoguesSection() {
                 }}
               />
               <button onClick={exportJson}>Экспорт</button>
-              <button className='modal-save-primary' disabled={saving} onClick={() => void save()}>
-                Сохранить
-              </button>
               <button className='poi-delete-btn' onClick={() => void remove()}>
                 Удалить диалог
               </button>
+              <div className='modal-actions-spacer' />
+              <button
+                className='modal-save-primary'
+                disabled={saving || !dirty}
+                onClick={() => void save()}
+              >
+                Сохранить
+              </button>
+              <button onClick={requestClose}>Закрыть</button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Сосед оверлея редактора, а не потомок — клик по нему не должен всплыть
+          в onClick оверлея и закрыть окно за спиной у вопроса. */}
+      {confirmClose && (
+        <div className='modal-overlay' onClick={() => setConfirmClose(false)}>
+          <div className='modal-card' onClick={(e) => e.stopPropagation()}>
+            <div className='modal-header'>
+              <span className='modal-title'>Несохранённые изменения</span>
+            </div>
+            <div className='modal-body'>
+              <p>
+                В диалоге «{title}» есть несохранённые правки. Сохранить их перед закрытием?
+              </p>
+            </div>
+            <div className='modal-actions'>
+              <div className='modal-actions-spacer' />
+              <button
+                className='modal-save-primary'
+                disabled={saving}
+                onClick={() => void saveAndClose()}
+              >
+                Сохранить и закрыть
+              </button>
+              <button
+                className='poi-delete-btn'
+                onClick={() => {
+                  setConfirmClose(false);
+                  setEditorOpen(false);
+                }}
+              >
+                Закрыть без сохранения
+              </button>
+              <button onClick={() => setConfirmClose(false)}>Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

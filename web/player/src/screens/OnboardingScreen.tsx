@@ -16,6 +16,7 @@ import {
 } from '../camera/camera';
 import { isDispatchCode } from '../camera/QrScanner';
 import { localState } from '../state/localState';
+import { testTarget } from '../testMode';
 import { ScanView } from '../ui/ScanView';
 
 // ---------------------------------------------------------------------------
@@ -252,6 +253,12 @@ function NameEntry({ onRegistered }: { onRegistered: (onboarded: boolean) => voi
 
   async function submit() {
     if (hint || pending) return;
+    // Test run: no real registration — a DB player per test would be junk.
+    // Empty userId also keeps sync off; the tutorial QR verify still passes.
+    if (testTarget) {
+      localState.setProfile({ userId: '', name: name.trim() });
+      return onRegistered(false);
+    }
     setPending(true);
     setError(null);
     try {

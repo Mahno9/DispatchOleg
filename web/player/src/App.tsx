@@ -12,6 +12,7 @@ import { MinigameScreen } from './screens/MinigameScreen';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { QrScanScreen } from './screens/QrScanScreen';
 import { VictoryScreen } from './screens/VictoryScreen';
+import { testTarget } from './testMode';
 
 type Screen = 'onboarding' | 'meta' | 'qr-scan' | 'launch' | 'dialogue' | 'minigame' | 'victory';
 
@@ -47,7 +48,11 @@ export function App() {
   const camera = useSyncExternalStore(subscribeCamera, cameraSnapshot);
   const clock = useClock();
 
-  const [screen, setScreen] = useState<Screen>(state.onboarded ? 'meta' : 'onboarding');
+  const [screen, setScreen] = useState<Screen>(() => {
+    if (testTarget?.kind === 'game') return 'launch';
+    if (testTarget?.kind === 'dialogue') return 'dialogue';
+    return state.onboarded ? 'meta' : 'onboarding';
+  });
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGame, setSelectedGame] = useState<VerifiedGame | null>(null);
   const [onboardStatus, setOnboardStatus] = useState('');
@@ -56,7 +61,10 @@ export function App() {
 
   // -- game chain: config is fetched once per run, then pre → game → post --
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
-  const [dialogue, setDialogue] = useState<DialogueStep | null>(null);
+  // ?test=dialogue:<id> — сразу сцена, без игры вокруг; по концу уходит на мету.
+  const [dialogue, setDialogue] = useState<DialogueStep | null>(() =>
+    testTarget?.kind === 'dialogue' ? { id: testTarget.dialogueId, then: 'meta' } : null,
+  );
   /** Slot 2 rented out to the dialogue scene / the running minigame. */
   const [slotContext, setSlotContext] = useState<ReactNode>(null);
 
@@ -76,6 +84,37 @@ export function App() {
     setSlotContext(null);
     setScreen('meta');
   }, []);
+
+  // pre-dialogue → minigame → post-dialogue, entered from a QR scan or a test run.
+  const startGame = useCallback((game: VerifiedGame) => {
+    setSelectedGame(game);
+    setScreen('launch');
+    api.getGameConfig(game.id).then(
+      (config) => {
+        setGameConfig(config);
+        if (config.preDialogueId === null) return setScreen('minigame');
+        setDialogue({ id: config.preDialogueId, then: 'minigame' });
+        setScreen('dialogue');
+      },
+      (err: unknown) => {
+        // The loader fetches the config too — let it report the failure.
+        console.error('[app] failed to load game config', err);
+        setScreen('minigame');
+      },
+    );
+  }, []);
+
+  // ?test=game:<id> — straight into the chain, no QR.
+  useEffect(() => {
+    const target = testTarget;
+    if (target?.kind !== 'game' || games.length === 0) return;
+    const game = games.find((g) => g.id === target.gameId);
+    if (!game) {
+      console.error(`[app] test game #${target.gameId} not found`);
+      return endChain();
+    }
+    startGame(game);
+  }, [games, startGame, endChain]);
 
   useEffect(() => {
     api.getGames().then(
@@ -114,6 +153,8 @@ export function App() {
   // The ending fires once per completed run. Falling short of a full clear —
   // an admin reset, a new game added — arms it again for the next time.
   useEffect(() => {
+    // Test mode must not touch the terminal's real "ending seen" flag.
+    if (testTarget) return;
     if (!allWon) return localStorage.removeItem(VICTORY_SEEN_KEY);
     // Only the meta screen may be interrupted: a dialogue or a running minigame
     // gets to finish, and lands back on the meta, where this fires.
@@ -130,7 +171,13 @@ export function App() {
     case 'onboarding':
       workarea = (
         <OnboardingScreen
-          config={tutorialConfig}
+          // Test run: the emergency skip lever is forced on, so the scan step
+          // passes without a printed QR (a real scan still works too).
+          config={
+            testTarget?.kind === 'onboarding'
+              ? { ...tutorialConfig, allowSkipScan: true }
+              : tutorialConfig
+          }
           onStatus={setOnboardStatus}
           onDone={finishOnboarding}
         />
@@ -143,6 +190,7 @@ export function App() {
         <MetaScreen
           games={games}
           results={state.gameResults}
+          forceStageId={testTarget?.kind === 'meta' ? testTarget.stageId : null}
           // Meta chatter: no game, no results — the dialogue just leads back
           // here. The id comes with the click: a stage placement may point the
           // same character at a different dialogue than their default one.
@@ -183,23 +231,7 @@ export function App() {
       workarea = (
         <QrScanScreen
           userId={state.profile.userId}
-          onVerified={(game) => {
-            setSelectedGame(game);
-            setScreen('launch');
-            api.getGameConfig(game.id).then(
-              (config) => {
-                setGameConfig(config);
-                if (config.preDialogueId === null) return setScreen('minigame');
-                setDialogue({ id: config.preDialogueId, then: 'minigame' });
-                setScreen('dialogue');
-              },
-              (err: unknown) => {
-                // The loader fetches the config too — let it report the failure.
-                console.error('[app] failed to load game config', err);
-                setScreen('minigame');
-              },
-            );
-          }}
+          onVerified={startGame}
           onBack={() => setScreen('meta')}
         />
       );
@@ -298,6 +330,12 @@ export function App() {
         <span className="terminal-title">CALL OF DOODY</span>
         <span>{clock}</span>
         <span className="terminal-bar-spacer" />
+        {testTarget && (
+          <span className="status status-offline">
+            <i className="marker" />
+            ТЕСТ-РЕЖИМ
+          </span>
+        )}
         <span>{state.profile.name || 'ГОСТЬ'}</span>
         <span className={`status ${online ? 'status-active' : 'status-offline'}`}>
           <i className="marker" />

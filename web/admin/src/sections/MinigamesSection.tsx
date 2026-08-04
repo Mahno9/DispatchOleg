@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type Minigame } from '../api';
+import { api, playerTestUrl, type Minigame } from '../api';
 import { SchemaForm, type Schema } from '../schema-form/SchemaForm';
 import { showToast } from '../toast';
 
@@ -58,7 +58,7 @@ interface GameModule {
 // Test-run overlay — isolated fullscreen launch of a bundle, no meta around it
 // ---------------------------------------------------------------------------
 
-function TestRunOverlay({
+export function TestRunOverlay({
   entryUrl,
   config,
   onClose,
@@ -247,9 +247,20 @@ export function MinigameConfigModal({
           </div>
 
           <div className='modal-actions'>
-            <button className='modal-test-btn' disabled={loading} onClick={() => setTestRun(true)}>
-              ▶ Запустить в тестовом режиме
-            </button>
+            {minigame.entryUrl !== null ? (
+              <button className='modal-test-btn' disabled={loading} onClick={() => setTestRun(true)}>
+                ▶ Запустить в тестовом режиме
+              </button>
+            ) : (
+              // System pseudo-minigame (onboarding): no bundle to run in place —
+              // the scenario lives in the player, so the test opens there.
+              <button
+                className='modal-test-btn'
+                onClick={() => window.open(playerTestUrl('onboarding'), '_blank')}
+              >
+                ▶ Тест обучалки в плеере
+              </button>
+            )}
             <div className='modal-actions-spacer' />
             <button onClick={() => void handleSave(false)} disabled={saving || loading}>
               Сохранить
@@ -268,7 +279,7 @@ export function MinigameConfigModal({
 
       {/* Sibling of the backdrop, not a child — so clicks inside the game don't
           bubble to the modal-overlay onClose and close everything. */}
-      {testRun && (
+      {testRun && minigame.entryUrl !== null && (
         <TestRunOverlay
           entryUrl={minigame.entryUrl}
           config={config}

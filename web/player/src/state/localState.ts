@@ -22,6 +22,8 @@ export interface ClientState {
   removedGames?: Record<string, number>;
 }
 
+import { testTarget } from '../testMode';
+
 const STORAGE_KEY = 'dispatch_state';
 
 function createInitialState(): ClientState {
@@ -59,6 +61,14 @@ class LocalStateStore {
   private readonly listeners = new Set<() => void>();
 
   private read(): ClientState {
+    // Test mode: fresh in-memory state; userId stays '' so syncNow() no-ops.
+    // Onboarding is only "not passed" when the onboarding itself is under test.
+    if (testTarget) {
+      const state = createInitialState();
+      state.onboarded = testTarget.kind !== 'onboarding';
+      state.profile.name = 'ТЕСТ';
+      return state;
+    }
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -72,6 +82,7 @@ class LocalStateStore {
   }
 
   private save(): void {
+    if (testTarget) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
     } catch {

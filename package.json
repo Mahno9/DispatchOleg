@@ -16,6 +16,10 @@
     "dev:admin": "npm run dev -w web/admin",
     "build": "npm run build --workspaces --if-present && node scripts/sync-minigames.mjs",
     "test": "npm run test --workspaces --if-present",
+    "seed": "node scripts/seed-content.mjs",
+    "check:content": "node scripts/check-content.mjs",
+    "content:dump": "node scripts/content-dump.mjs",
+    "content:load": "node scripts/content-load.mjs && npm run check:content",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

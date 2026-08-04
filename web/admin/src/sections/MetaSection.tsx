@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   api,
+  playerTestUrl,
   type Character,
   type Game,
   type MetaStage,
@@ -582,6 +583,17 @@ export function MetaSection() {
             </div>
 
             <div className='poi-panel-actions'>
+              <button
+                disabled={draft.id === NEW_ID}
+                title={
+                  draft.id === NEW_ID
+                    ? 'Сначала сохраните этап'
+                    : 'Живой мета-экран в плеере с этим этапом, независимо от условия появления'
+                }
+                onClick={() => window.open(playerTestUrl(`meta:${draft.id}`), '_blank')}
+              >
+                ▶ Превью в плеере
+              </button>
               <button
                 className='modal-save-primary'
                 disabled={saving}

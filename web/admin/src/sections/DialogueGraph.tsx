@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { DialogueDoc, DialogueNode } from '../api';
 
 // ---------------------------------------------------------------------------
@@ -98,6 +98,10 @@ interface GraphProps {
 }
 
 type Drag = { id: string; clientX: number; clientY: number; ox: number; oy: number; w: number; h: number };
+type Pan = { clientX: number; clientY: number; tx: number; ty: number };
+
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 3;
 
 export function DialogueGraph({
   doc,
@@ -110,10 +114,45 @@ export function DialogueGraph({
   onCreateAt,
   onDelete,
 }: GraphProps) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
   const boxRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  const panRef = useRef<Pan | null>(null);
   // live link being dragged from an output port: source id + cursor position (%)
   const [link, setLink] = useState<{ from: string; x: number; y: number } | null>(null);
+  // Viewport: the inner box keeps the 0..100% coordinate system, the transform pans/zooms it.
+  const [view, setView] = useState({ k: 1, tx: 0, ty: 0 });
+
+  /** Zoom keeping the canvas-local point (cx, cy) in place. */
+  function zoomAt(factor: number, cx: number, cy: number) {
+    setView((v) => {
+      const k = clamp(v.k * factor, MIN_ZOOM, MAX_ZOOM);
+      return { k, tx: cx - ((cx - v.tx) / v.k) * k, ty: cy - ((cy - v.ty) / v.k) * k };
+    });
+  }
+
+  // Non-passive listener: React's onWheel can't preventDefault, and without it the
+  // wheel scrolls the modal body instead of zooming.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      e.preventDefault();
+      const rect = el!.getBoundingClientRect();
+      zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - rect.left, e.clientY - rect.top);
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  function zoomFromCenter(factor: number) {
+    const el = wrapRef.current;
+    zoomAt(factor, (el?.clientWidth ?? 0) / 2, (el?.clientHeight ?? 0) / 2);
+  }
+
+  /** True when the pointer is over empty canvas (background or edge layer), not a node. */
+  const onBackground = (target: EventTarget) =>
+    target === boxRef.current || (target as Element).tagName === 'svg';
 
   const pos = (id: string): { x: number; y: number } => {
     const n = doc.nodes[id];
@@ -139,7 +178,11 @@ export function DialogueGraph({
       const p = pos(id);
       const cx = rect.left + (p.x / 100) * rect.width;
       const cy = rect.top + (p.y / 100) * rect.height;
-      if (Math.abs(clientX - cx) <= NODE_W / 2 && Math.abs(clientY - cy) <= NODE_H / 2) return id;
+      // Node boxes scale with the viewport, the constants don't.
+      const hit =
+        Math.abs(clientX - cx) <= (NODE_W * view.k) / 2 &&
+        Math.abs(clientY - cy) <= (NODE_H * view.k) / 2;
+      if (hit) return id;
     }
     return null;
   }
@@ -152,25 +195,49 @@ export function DialogueGraph({
     onSelect(id);
     e.currentTarget.setPointerCapture(e.pointerId);
     const p = pos(id);
+    const rect = el.getBoundingClientRect(); // transformed size → deltas map 1:1 at any zoom
     dragRef.current = {
       id,
       clientX: e.clientX,
       clientY: e.clientY,
       ox: p.x,
       oy: p.y,
-      w: el.clientWidth || 1,
-      h: el.clientHeight || 1,
+      w: rect.width || 1,
+      h: rect.height || 1,
     };
   }
 
   function moveDrag(e: React.PointerEvent) {
     const d = dragRef.current;
-    if (!d) return;
-    onMove(
-      d.id,
-      r1(clamp(d.ox + ((e.clientX - d.clientX) / d.w) * 100, 2, 98)),
-      r1(clamp(d.oy + ((e.clientY - d.clientY) / d.h) * 100, 3, 97)),
-    );
+    if (d) {
+      onMove(
+        d.id,
+        r1(clamp(d.ox + ((e.clientX - d.clientX) / d.w) * 100, 2, 98)),
+        r1(clamp(d.oy + ((e.clientY - d.clientY) / d.h) * 100, 3, 97)),
+      );
+      return;
+    }
+    const p = panRef.current;
+    if (p) {
+      setView((v) => ({
+        ...v,
+        tx: p.tx + (e.clientX - p.clientX),
+        ty: p.ty + (e.clientY - p.clientY),
+      }));
+    }
+  }
+
+  // --- canvas pan -----------------------------------------------------------
+
+  function startPan(e: React.PointerEvent) {
+    if (!onBackground(e.target)) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    panRef.current = { clientX: e.clientX, clientY: e.clientY, tx: view.tx, ty: view.ty };
+  }
+
+  function endPointer() {
+    dragRef.current = null;
+    panRef.current = null;
   }
 
   // --- link drag ------------------------------------------------------------
@@ -203,13 +270,14 @@ export function DialogueGraph({
   return (
     <div
       className='dlg-graph'
-      ref={boxRef}
+      ref={wrapRef}
       tabIndex={0}
+      onPointerDown={startPan}
       onPointerMove={moveDrag}
-      onPointerUp={() => (dragRef.current = null)}
-      onPointerCancel={() => (dragRef.current = null)}
+      onPointerUp={endPointer}
+      onPointerCancel={endPointer}
       onDoubleClick={(e) => {
-        if (e.target !== e.currentTarget && (e.target as Element).tagName !== 'svg') return;
+        if (!onBackground(e.target)) return;
         const p = percentAt(e.clientX, e.clientY);
         onCreateAt(r1(clamp(p.x, 2, 98)), r1(clamp(p.y, 3, 97)));
       }}
@@ -220,79 +288,98 @@ export function DialogueGraph({
         }
       }}
     >
-      <svg className='dlg-graph-edges'>
-        {edges.map((e, i) => {
-          const a = pos(e.from);
-          const b = pos(e.to);
+      <div className='dlg-graph-nav'>
+        <button title='Отдалить' onClick={() => zoomFromCenter(1 / 1.25)}>
+          −
+        </button>
+        <span className='dlg-graph-zoom'>{Math.round(view.k * 100)}%</span>
+        <button title='Приблизить' onClick={() => zoomFromCenter(1.25)}>
+          +
+        </button>
+        <button title='Сбросить вид' onClick={() => setView({ k: 1, tx: 0, ty: 0 })}>
+          ⟲
+        </button>
+      </div>
+
+      <div
+        className='dlg-graph-inner'
+        ref={boxRef}
+        style={{ transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.k})` }}
+      >
+        <svg className='dlg-graph-edges'>
+          {edges.map((e, i) => {
+            const a = pos(e.from);
+            const b = pos(e.to);
+            return (
+              <g key={`${e.from}-${e.to}-${i}`}>
+                <line
+                  x1={`${a.x}%`}
+                  y1={`${a.y}%`}
+                  x2={`${b.x}%`}
+                  y2={`${b.y}%`}
+                  className={e.label === null ? 'dlg-edge' : 'dlg-edge dlg-edge--choice'}
+                />
+                {e.label !== null && (
+                  <text className='dlg-edge-label' x={`${(a.x + b.x) / 2}%`} y={`${(a.y + b.y) / 2}%`}>
+                    {e.label.length > 20 ? `${e.label.slice(0, 20)}…` : e.label || '(вариант)'}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+          {link && (
+            <line
+              className='dlg-edge dlg-edge--live'
+              x1={`${pos(link.from).x}%`}
+              y1={`${pos(link.from).y}%`}
+              x2={`${link.x}%`}
+              y2={`${link.y}%`}
+            />
+          )}
+        </svg>
+
+        {Object.entries(doc.nodes).map(([id, node]) => {
+          const p = pos(id);
+          const cls = [
+            'dlg-gnode',
+            id === doc.start ? 'dlg-gnode--start' : '',
+            reachable.has(id) ? '' : 'dlg-gnode--orphan',
+            id === selected ? 'dlg-gnode--sel' : '',
+          ]
+            .filter(Boolean)
+            .join(' ');
           return (
-            <g key={`${e.from}-${e.to}-${i}`}>
-              <line
-                x1={`${a.x}%`}
-                y1={`${a.y}%`}
-                x2={`${b.x}%`}
-                y2={`${b.y}%`}
-                className={e.label === null ? 'dlg-edge' : 'dlg-edge dlg-edge--choice'}
+            <div
+              key={id}
+              className={cls}
+              style={{ left: `${p.x}%`, top: `${p.y}%` }}
+              onPointerDown={(e) => startDrag(e, id)}
+              title={node?.text ?? ''}
+            >
+              <span className='dlg-gnode-id'>
+                {id === doc.start && '▶ '}
+                {!reachable.has(id) && '⚠ '}
+                {id}
+              </span>
+              <span className='dlg-gnode-text'>
+                {speakerLabel(node?.speaker ?? '')}: {(node?.text ?? '').slice(0, 34) || '—'}
+              </span>
+              <span
+                className='dlg-gnode-port'
+                title='Тянуть на другой узел, чтобы связать'
+                onPointerDown={(e) => startLink(e, id)}
+                onPointerMove={moveLink}
+                onPointerUp={endLink}
+                onPointerCancel={() => setLink(null)}
               />
-              {e.label !== null && (
-                <text className='dlg-edge-label' x={`${(a.x + b.x) / 2}%`} y={`${(a.y + b.y) / 2}%`}>
-                  {e.label.length > 20 ? `${e.label.slice(0, 20)}…` : e.label || '(вариант)'}
-                </text>
-              )}
-            </g>
+            </div>
           );
         })}
-        {link && (
-          <line
-            className='dlg-edge dlg-edge--live'
-            x1={`${pos(link.from).x}%`}
-            y1={`${pos(link.from).y}%`}
-            x2={`${link.x}%`}
-            y2={`${link.y}%`}
-          />
+
+        {Object.keys(doc.nodes).length === 0 && (
+          <p className='dlg-graph-empty'>Двойной клик по полю — новый узел.</p>
         )}
-      </svg>
-
-      {Object.entries(doc.nodes).map(([id, node]) => {
-        const p = pos(id);
-        const cls = [
-          'dlg-gnode',
-          id === doc.start ? 'dlg-gnode--start' : '',
-          reachable.has(id) ? '' : 'dlg-gnode--orphan',
-          id === selected ? 'dlg-gnode--sel' : '',
-        ]
-          .filter(Boolean)
-          .join(' ');
-        return (
-          <div
-            key={id}
-            className={cls}
-            style={{ left: `${p.x}%`, top: `${p.y}%` }}
-            onPointerDown={(e) => startDrag(e, id)}
-            title={node?.text ?? ''}
-          >
-            <span className='dlg-gnode-id'>
-              {id === doc.start && '▶ '}
-              {!reachable.has(id) && '⚠ '}
-              {id}
-            </span>
-            <span className='dlg-gnode-text'>
-              {speakerLabel(node?.speaker ?? '')}: {(node?.text ?? '').slice(0, 34) || '—'}
-            </span>
-            <span
-              className='dlg-gnode-port'
-              title='Тянуть на другой узел, чтобы связать'
-              onPointerDown={(e) => startLink(e, id)}
-              onPointerMove={moveLink}
-              onPointerUp={endLink}
-              onPointerCancel={() => setLink(null)}
-            />
-          </div>
-        );
-      })}
-
-      {Object.keys(doc.nodes).length === 0 && (
-        <p className='dlg-graph-empty'>Двойной клик по полю — новый узел.</p>
-      )}
+      </div>
     </div>
   );
 }

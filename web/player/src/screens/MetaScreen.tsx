@@ -19,6 +19,8 @@ interface MetaScreenProps {
   results: Record<string, GameResult>;
   /** Click on a character — App plays the given dialogue and comes back here. */
   onCharacter: (pick: MetaCharacterPick) => void;
+  /** Admin test mode: show this stage regardless of triggers. */
+  forceStageId?: number | null;
 }
 
 /** True when every prerequisite game has been won. Mirrors the server check. */
@@ -45,7 +47,7 @@ const SIDES = ['left', 'right'] as const;
  * and its hand-placed cast. Otherwise the scene falls back to the built-in
  * two-column arrangement by `metaPosition`.
  */
-export function MetaScreen({ games, results, onCharacter }: MetaScreenProps) {
+export function MetaScreen({ games, results, onCharacter, forceStageId = null }: MetaScreenProps) {
   const playable = games.filter((g) => !g.isTutorial);
   // The full roster: a stage may place a character who has no meta chatter of
   // their own, so the cast cannot be pre-filtered to metaDialogueId !== null.
@@ -75,10 +77,10 @@ export function MetaScreen({ games, results, onCharacter }: MetaScreenProps) {
   }, []);
 
   const playableIds = useMemo(() => games.filter((g) => !g.isTutorial).map((g) => g.id), [games]);
-  const stage = useMemo(
-    () => resolveStage(stages, results, playableIds),
-    [stages, results, playableIds],
-  );
+  const stage = useMemo(() => {
+    if (forceStageId !== null) return stages.find((s) => s.id === forceStageId) ?? null;
+    return resolveStage(stages, results, playableIds);
+  }, [stages, results, playableIds, forceStageId]);
 
   const chatty = cast.filter((c): c is MetaCharacter => c.metaDialogueId !== null);
   const byId = new Map(cast.map((c) => [c.id, c]));
