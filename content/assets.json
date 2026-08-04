@@ -1,0 +1,119 @@
+[
+  {
+    "id": "seed-civ-cadet",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "civ-cadet.svg",
+    "size_bytes": 513,
+    "created_at": 1785838553444
+  },
+  {
+    "id": "seed-civ-cook",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "civ-cook.svg",
+    "size_bytes": 534,
+    "created_at": 1785838553445
+  },
+  {
+    "id": "seed-civ-dispatcher",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "civ-dispatcher.svg",
+    "size_bytes": 640,
+    "created_at": 1785838553446
+  },
+  {
+    "id": "seed-civ-granny",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "civ-granny.svg",
+    "size_bytes": 661,
+    "created_at": 1785838553446
+  },
+  {
+    "id": "seed-civ-mechanic",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "civ-mechanic.svg",
+    "size_bytes": 611,
+    "created_at": 1785838553447
+  },
+  {
+    "id": "seed-civ-medic",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "civ-medic.svg",
+    "size_bytes": 662,
+    "created_at": 1785838553448
+  },
+  {
+    "id": "seed-hero-granit",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "hero-granit.svg",
+    "size_bytes": 428,
+    "created_at": 1785838553449
+  },
+  {
+    "id": "seed-hero-impulse",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "hero-impulse.svg",
+    "size_bytes": 407,
+    "created_at": 1785838553449
+  },
+  {
+    "id": "seed-hero-k9",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "hero-k9.svg",
+    "size_bytes": 633,
+    "created_at": 1785838553450
+  },
+  {
+    "id": "seed-hero-nochnitsa",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "hero-nochnitsa.svg",
+    "size_bytes": 423,
+    "created_at": 1785838553451
+  },
+  {
+    "id": "seed-hero-phantom",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "hero-phantom.svg",
+    "size_bytes": 657,
+    "created_at": 1785838553452
+  },
+  {
+    "id": "seed-hero-pyrolina",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "hero-pyrolina.svg",
+    "size_bytes": 443,
+    "created_at": 1785838553452
+  },
+  {
+    "id": "seed-hero-vector",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "hero-vector.svg",
+    "size_bytes": 451,
+    "created_at": 1785838553453
+  }
+]

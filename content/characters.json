@@ -1,0 +1,93 @@
+[
+  {
+    "id": 40,
+    "name": "Марина Соболь",
+    "portrait_asset": "/assets-store/seed-civ-dispatcher.svg",
+    "meta_dialogue_id": 101,
+    "meta_position": "left"
+  },
+  {
+    "id": 41,
+    "name": "Тимур Асланов",
+    "portrait_asset": "/assets-store/seed-civ-cadet.svg",
+    "meta_dialogue_id": 102,
+    "meta_position": "left"
+  },
+  {
+    "id": 42,
+    "name": "Вера Дробыш",
+    "portrait_asset": "/assets-store/seed-civ-medic.svg",
+    "meta_dialogue_id": 103,
+    "meta_position": "left"
+  },
+  {
+    "id": 43,
+    "name": "Костя Гриб",
+    "portrait_asset": "/assets-store/seed-civ-mechanic.svg",
+    "meta_dialogue_id": 104,
+    "meta_position": "left"
+  },
+  {
+    "id": 44,
+    "name": "Лида Мороз",
+    "portrait_asset": "/assets-store/seed-civ-cook.svg",
+    "meta_dialogue_id": 105,
+    "meta_position": "right"
+  },
+  {
+    "id": 45,
+    "name": "Зинаида Петровна",
+    "portrait_asset": "/assets-store/seed-civ-granny.svg",
+    "meta_dialogue_id": 106,
+    "meta_position": "right"
+  },
+  {
+    "id": 46,
+    "name": "Вектор",
+    "portrait_asset": "/assets-store/seed-hero-vector.svg",
+    "meta_dialogue_id": 107,
+    "meta_position": "right"
+  },
+  {
+    "id": 47,
+    "name": "Пиролина",
+    "portrait_asset": "/assets-store/seed-hero-pyrolina.svg",
+    "meta_dialogue_id": 108,
+    "meta_position": "right"
+  },
+  {
+    "id": 48,
+    "name": "Фантом",
+    "portrait_asset": "/assets-store/seed-hero-phantom.svg",
+    "meta_dialogue_id": 109,
+    "meta_position": "right"
+  },
+  {
+    "id": 49,
+    "name": "Импульс",
+    "portrait_asset": "/assets-store/seed-hero-impulse.svg",
+    "meta_dialogue_id": null,
+    "meta_position": "right"
+  },
+  {
+    "id": 50,
+    "name": "Гранит",
+    "portrait_asset": "/assets-store/seed-hero-granit.svg",
+    "meta_dialogue_id": 110,
+    "meta_position": "right"
+  },
+  {
+    "id": 51,
+    "name": "К-9",
+    "portrait_asset": "/assets-store/seed-hero-k9.svg",
+    "meta_dialogue_id": 111,
+    "meta_position": "left"
+  },
+  {
+    "id": 52,
+    "name": "Ночница",
+    "portrait_asset": "/assets-store/seed-hero-nochnitsa.svg",
+    "meta_dialogue_id": 112,
+    "meta_position": "right"
+  }
+]

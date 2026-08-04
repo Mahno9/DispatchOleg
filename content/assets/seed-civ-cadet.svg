@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160" fill="#16a69b">
+  <g opacity=".62">
+    <path d="M60 30c-15 0-24 11-24 26s9 26 24 26 24-11 24-26-9-26-24-26z" />
+
+    <path d="M36 48c0-16 10-26 24-26s24 10 24 26z" />
+
+    <path d="M82 40c13 0 22 4 26 10-8 6-20 8-28 8z" />
+
+    <circle cx="35" cy="58" r="9" />
+
+    <rect x="33" y="40" width="6" height="16" />
+
+    <path d="M53 76h14v22H53z" />
+
+    <path d="M60 90c-20 0-32 16-36 70h72c-4-54-16-70-36-70z" />
+  </g>
+</svg>

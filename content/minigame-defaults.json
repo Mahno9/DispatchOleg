@@ -1,0 +1,76 @@
+[
+  {
+    "minigame_id": "rescue-catch",
+    "config_json": {
+      "controlVariant": "bidirectional",
+      "rescueTarget": 20,
+      "lives": 3,
+      "spawnIntervalStart": 2.5,
+      "spawnIntervalMin": 0.9,
+      "fallTime": 1.8,
+      "hangTime": 1,
+      "maxAirborne": 2,
+      "inversionInterval": 5,
+      "inversionWarnTime": 1,
+      "stepDelay": 0.25,
+      "pointsPerCatch": 100,
+      "streakStep": 3,
+      "maxMultiplier": 4
+    },
+    "updated_at": 1785785608121
+  },
+  {
+    "minigame_id": "safe-crack",
+    "config_json": {
+      "title": "СЕЙФ",
+      "timeLimitSeconds": 0,
+      "maxAttempts": 0,
+      "errorPenalty": 10,
+      "locks": [
+        {
+          "question": "Сколько патрульных машин в ночную смену?",
+          "widget": "shuffle-keyboard",
+          "answer": "две",
+          "points": 50,
+          "params": {
+            "targetWord": "два"
+          }
+        },
+        {
+          "question": "Номер дела о краже в порту",
+          "widget": "mega-slider",
+          "answer": "123",
+          "points": 80,
+          "params": {
+            "min": 0,
+            "max": 10000,
+            "driftAmount": 1,
+            "driftIntervalMs": 800
+          }
+        },
+        {
+          "question": "Код замка архива",
+          "widget": "rotary-dial",
+          "answer": "321",
+          "points": 70,
+          "params": {
+            "digits": 3,
+            "dialFullTurnDegrees": 300
+          }
+        },
+        {
+          "question": "Сколько секунд длится сигнал тревоги?",
+          "widget": "hold-button",
+          "answer": "1",
+          "points": 100,
+          "params": {
+            "targetSeconds": 5,
+            "toleranceMs": 300,
+            "gaugeLagMs": 400
+          }
+        }
+      ]
+    },
+    "updated_at": 1785725215110
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "key": "final_victory_text",
+    "value_json": "ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ. СМЕНА ЗАКРЫТА. СПАСИБО, ОПЕРАТОР."
+  },
+  {
+    "key": "sync_interval_s",
+    "value_json": 30
+  },
+  {
+    "key": "ui_click_sound_url",
+    "value_json": null
+  }
+]

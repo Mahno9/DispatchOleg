@@ -1,0 +1,558 @@
+[
+  {
+    "id": 1,
+    "title": "Обучение",
+    "minigame_id": "onboarding",
+    "config_json": {},
+    "character_id": null,
+    "pre_dialogue_id": null,
+    "post_win_dialogue_id": null,
+    "post_lose_dialogue_id": null,
+    "style_dialogues_json": {},
+    "required_game_ids_json": [],
+    "sort_order": 0,
+    "is_tutorial": 1
+  },
+  {
+    "id": 20,
+    "title": "Разбор ночной смены",
+    "minigame_id": "task-sort",
+    "config_json": {
+      "playerName": "Олег",
+      "attempts": 2,
+      "winThresholdPercent": 100,
+      "tasks": [
+        {
+          "text": "Кайдзю-краб класса B перекрыл Восточный мост и рвёт клешнями несущие опоры — снять полосу движения и вести героя на перехват до обрушения пролёта.",
+          "assignee": "Олег",
+          "done": false,
+          "priority": 1
+        },
+        {
+          "text": "Пожар на 14-м этаже дома по Ленина, 40: лифты заблокированы, на этаже люди — вести Пиролину на поглощение огня, лестницу держать свободной.",
+          "assignee": "Олег",
+          "done": false,
+          "priority": 1
+        },
+        {
+          "text": "Обрушение перекрытия в старом депо: под плитой двое рабочих, слышен стук — нужен Гранит на подъём и Вера на приём пострадавших.",
+          "assignee": "Олег",
+          "done": false,
+          "priority": 1
+        },
+        {
+          "text": "Утечка на Химпроме: облако сносит ветром на жилой сектор — герой в герметичном костюме плюс оповещение по трём кварталам.",
+          "assignee": "Марина",
+          "done": false,
+          "priority": 1
+        },
+        {
+          "text": "Ограбление ломбарда на Заводской: у налётчика кустарная плазменная пушка, заложников нет — вести Импульса, витрина уже списана.",
+          "assignee": "Олег",
+          "done": false,
+          "priority": 2
+        },
+        {
+          "text": "В фонтане на Центральной дымится объект, похожий на исследовательский зонд — оцепить, вызвать техгруппу, зевак не подпускать.",
+          "assignee": "Марина",
+          "done": false,
+          "priority": 2
+        },
+        {
+          "text": "Робот-курьер сошёл с маршрута и третий раз таранит витрины на Пушкина — отключить дистанционно, при отказе канала — физически.",
+          "assignee": "Тимур",
+          "done": false,
+          "priority": 3
+        },
+        {
+          "text": "Прорыв теплотрассы затапливает паркинг ТЦ «Орбита», кипяток дошёл до порогов машин — эвакуация транспорта и перекрытие ветки.",
+          "assignee": "Олег",
+          "done": false,
+          "priority": 3
+        },
+        {
+          "text": "Свести график ночных патрулей на следующую неделю и согласовать подмену с Мариной до конца смены.",
+          "assignee": "Тимур",
+          "done": false,
+          "priority": 3
+        },
+        {
+          "text": "Кот Зинаиды Петровны снова на тополе во дворе Садовой, 12 — она звонит четвёртый раз за неделю и обещает пирожки.",
+          "assignee": "Тимур",
+          "done": false,
+          "priority": 4
+        },
+        {
+          "text": "Костюм Импульса не вернулся из химчистки — уточнить сроки по накладной, запасной комплект уже выдан со склада.",
+          "assignee": "Тимур",
+          "done": false,
+          "priority": 4
+        },
+        {
+          "text": "Заявка от жильцов Тополиной, 7: голубь-мутант отобрал шаурму на остановке, пострадавший требует компенсацию и «чтобы по телевизору».",
+          "assignee": "Марина",
+          "done": false,
+          "priority": 4
+        },
+        {
+          "text": "Заменить залипающую третью кнопку на пульте диспетчера — Костя просил не бить по ней до замены.",
+          "assignee": "Марина",
+          "done": true,
+          "priority": 4
+        },
+        {
+          "text": "Передать в архив сводку за прошлую смену — подписана, отсканирована, лежит в лотке «исходящие».",
+          "assignee": "Олег",
+          "done": true,
+          "priority": 4
+        }
+      ]
+    },
+    "character_id": 40,
+    "pre_dialogue_id": 113,
+    "post_win_dialogue_id": 114,
+    "post_lose_dialogue_id": 116,
+    "style_dialogues_json": {
+      "flawless": 115
+    },
+    "required_game_ids_json": [],
+    "sort_order": 10,
+    "is_tutorial": 0
+  },
+  {
+    "id": 21,
+    "title": "Восточный мост",
+    "minigame_id": "rescue-catch",
+    "config_json": {
+      "controlVariant": "bidirectional",
+      "rescueTarget": 12,
+      "lives": 3,
+      "spawnIntervalStart": 2.6,
+      "spawnIntervalMin": 1,
+      "fallTime": 1.9,
+      "hangTime": 1.1,
+      "maxAirborne": 2,
+      "pointsPerCatch": 100,
+      "streakStep": 3,
+      "maxMultiplier": 4
+    },
+    "character_id": 47,
+    "pre_dialogue_id": 117,
+    "post_win_dialogue_id": 118,
+    "post_lose_dialogue_id": 119,
+    "style_dialogues_json": {},
+    "required_game_ids_json": [
+      20
+    ],
+    "sort_order": 20,
+    "is_tutorial": 0
+  },
+  {
+    "id": 22,
+    "title": "Три уровня подземки",
+    "minigame_id": "three-mazes",
+    "config_json": {
+      "screamerImage": "/assets-store/seed-hero-phantom.svg",
+      "screamerDurationMs": 900,
+      "followSpeed": 560,
+      "bounceSpeed": 420,
+      "breakAngleDeg": 40,
+      "breakerThreshold": 1,
+      "mazes": [
+        {
+          "generatorParams": {
+            "type": "square",
+            "size": 7,
+            "breakableDensity": 0.2,
+            "seed": 2201
+          },
+          "walls": [],
+          "scale": 1,
+          "scorePerMaze": 100
+        },
+        {
+          "generatorParams": {
+            "type": "hex",
+            "size": 7,
+            "breakableDensity": 0.15,
+            "seed": 2202
+          },
+          "walls": [],
+          "scale": 1,
+          "scorePerMaze": 120
+        },
+        {
+          "generatorParams": {
+            "type": "circular",
+            "size": 5,
+            "breakableDensity": 0.1,
+            "seed": 2203
+          },
+          "walls": [],
+          "scale": 1,
+          "scorePerMaze": 160
+        }
+      ]
+    },
+    "character_id": 48,
+    "pre_dialogue_id": 120,
+    "post_win_dialogue_id": 121,
+    "post_lose_dialogue_id": 123,
+    "style_dialogues_json": {
+      "ghost": 121,
+      "breaker": 122
+    },
+    "required_game_ids_json": [
+      21
+    ],
+    "sort_order": 30,
+    "is_tutorial": 0
+  },
+  {
+    "id": 23,
+    "title": "Сейф ломбарда на Заводской",
+    "minigame_id": "safe-crack",
+    "config_json": {
+      "title": "ЛОМБАРД «ЗАВОДСКАЯ, 6»",
+      "timeLimitSeconds": 240,
+      "maxAttempts": 6,
+      "errorPenalty": 15,
+      "prizeImage": "/assets-store/seed-hero-nochnitsa.svg",
+      "locks": [
+        {
+          "question": "Владелец записал слово-ключ на обороте квитанции. Наберите его.",
+          "widget": "shuffle-keyboard",
+          "answer": "залог",
+          "points": 50,
+          "params": {
+            "targetWord": "залог",
+            "shuffleEveryKey": true
+          }
+        },
+        {
+          "question": "Номер дела о краже в порту",
+          "widget": "mega-slider",
+          "answer": "4471",
+          "points": 80,
+          "params": {
+            "min": 0,
+            "max": 10000,
+            "driftAmount": 2,
+            "driftIntervalMs": 700
+          }
+        },
+        {
+          "question": "Сколько дней сейф не открывали?",
+          "widget": "number-as-words",
+          "answer": "365",
+          "points": 70,
+          "params": {
+            "slots": 3,
+            "maxNumber": 999
+          }
+        },
+        {
+          "question": "Фамилия оценщика из журнала приёмки",
+          "widget": "haystack-dropdown",
+          "answer": "Дробыш",
+          "points": 60,
+          "params": {
+            "options": [
+              "Абрамцев",
+              "Гриб",
+              "Дробыш",
+              "Асланов",
+              "Соболь",
+              "Мороз",
+              "Зверев",
+              "Пилипенко",
+              "Ковтун",
+              "Растопчин"
+            ]
+          }
+        },
+        {
+          "question": "Выставьте номер ячейки на счётчике",
+          "widget": "plus-minus",
+          "answer": "42",
+          "points": 60,
+          "params": {
+            "startMin": 0,
+            "startMax": 100,
+            "swapEveryNClicks": 4
+          }
+        },
+        {
+          "question": "Держите ригель, пока не сработает механизм",
+          "widget": "hold-button",
+          "answer": "",
+          "points": 100,
+          "params": {
+            "targetSeconds": 6,
+            "toleranceMs": 350,
+            "gaugeLagMs": 500
+          }
+        }
+      ]
+    },
+    "character_id": 49,
+    "pre_dialogue_id": 124,
+    "post_win_dialogue_id": 125,
+    "post_lose_dialogue_id": 126,
+    "style_dialogues_json": {},
+    "required_game_ids_json": [
+      20
+    ],
+    "sort_order": 40,
+    "is_tutorial": 0
+  },
+  {
+    "id": 24,
+    "title": "Кухня для героев",
+    "minigame_id": "cooking-orders",
+    "config_json": {
+      "fillRatePerSec": 1.4,
+      "doseTolerancePct": 40,
+      "cookTolerancePct": 12,
+      "failsAllowed": 3,
+      "pointsPerStep": 10,
+      "pointsPerOrder": 50,
+      "ingredients": [
+        {
+          "id": "stardust",
+          "name": "Звёздная пыль",
+          "image": "",
+          "unitName": "щепотка"
+        },
+        {
+          "id": "honey",
+          "name": "Мёд",
+          "image": "",
+          "unitName": "ложка"
+        },
+        {
+          "id": "hero-milk",
+          "name": "Молоко героя",
+          "image": "",
+          "unitName": "мерка"
+        },
+        {
+          "id": "cinnamon",
+          "name": "Корица",
+          "image": "",
+          "unitName": "щепотка"
+        },
+        {
+          "id": "dragon-coal",
+          "name": "Уголёк дракона",
+          "image": "",
+          "unitName": "уголёк"
+        },
+        {
+          "id": "sugar",
+          "name": "Сахар",
+          "image": "",
+          "unitName": "ложка"
+        },
+        {
+          "id": "moon-mint",
+          "name": "Лунная мята",
+          "image": "",
+          "unitName": "листок"
+        },
+        {
+          "id": "iron-bolt",
+          "name": "Железный болт",
+          "image": "",
+          "unitName": "болт"
+        },
+        {
+          "id": "ash",
+          "name": "Остывшая зола",
+          "image": "",
+          "unitName": "щепотка"
+        },
+        {
+          "id": "machine-oil",
+          "name": "Машинное масло",
+          "image": "",
+          "unitName": "капля"
+        }
+      ],
+      "characters": [
+        {
+          "name": "Вера",
+          "portrait": "/assets-store/seed-civ-medic.svg",
+          "orderName": "Какао для ночного дежурства",
+          "cookSeconds": 6,
+          "steps": [
+            {
+              "ingredientId": "hero-milk",
+              "amount": 3
+            },
+            {
+              "ingredientId": "sugar",
+              "amount": 2
+            },
+            {
+              "ingredientId": "cinnamon",
+              "amount": 1
+            }
+          ]
+        },
+        {
+          "name": "Пиролина",
+          "portrait": "/assets-store/seed-hero-pyrolina.svg",
+          "orderName": "Уголь на второе",
+          "cookSeconds": 8,
+          "steps": [
+            {
+              "ingredientId": "dragon-coal",
+              "amount": 0
+            },
+            {
+              "ingredientId": "ash",
+              "amount": 2
+            },
+            {
+              "ingredientId": "honey",
+              "amount": 4
+            },
+            {
+              "ingredientId": "moon-mint",
+              "amount": 0
+            }
+          ]
+        },
+        {
+          "name": "К-9",
+          "portrait": "/assets-store/seed-hero-k9.svg",
+          "orderName": "Суп для робота-напарника",
+          "cookSeconds": 10,
+          "steps": [
+            {
+              "ingredientId": "iron-bolt",
+              "amount": 0
+            },
+            {
+              "ingredientId": "machine-oil",
+              "amount": 2
+            },
+            {
+              "ingredientId": "hero-milk",
+              "amount": 2
+            },
+            {
+              "ingredientId": "stardust",
+              "amount": 3
+            }
+          ]
+        },
+        {
+          "name": "Гранит",
+          "portrait": "/assets-store/seed-hero-granit.svg",
+          "orderName": "Порция без затей",
+          "cookSeconds": 12,
+          "steps": [
+            {
+              "ingredientId": "hero-milk",
+              "amount": 5
+            },
+            {
+              "ingredientId": "sugar",
+              "amount": 5
+            },
+            {
+              "ingredientId": "iron-bolt",
+              "amount": 0
+            }
+          ]
+        },
+        {
+          "name": "Ночница",
+          "portrait": "/assets-store/seed-hero-nochnitsa.svg",
+          "orderName": "Настой лунной мяты",
+          "cookSeconds": 7,
+          "steps": [
+            {
+              "ingredientId": "moon-mint",
+              "amount": 0
+            },
+            {
+              "ingredientId": "stardust",
+              "amount": 2
+            },
+            {
+              "ingredientId": "honey",
+              "amount": 1
+            },
+            {
+              "ingredientId": "cinnamon",
+              "amount": 2
+            }
+          ]
+        }
+      ]
+    },
+    "character_id": 44,
+    "pre_dialogue_id": 127,
+    "post_win_dialogue_id": 128,
+    "post_lose_dialogue_id": 129,
+    "style_dialogues_json": {},
+    "required_game_ids_json": [],
+    "sort_order": 50,
+    "is_tutorial": 0
+  },
+  {
+    "id": 25,
+    "title": "Пробоина в отсеке",
+    "minigame_id": "tetris-fill",
+    "config_json": {
+      "shape": {
+        "width": 8,
+        "height": 6,
+        "rows": [
+          "..####..",
+          ".######.",
+          "########",
+          "########",
+          ".######.",
+          "..####.."
+        ]
+      },
+      "scoreThresholds": [
+        {
+          "maxSeconds": 45,
+          "points": 300
+        },
+        {
+          "maxSeconds": 120,
+          "points": 150
+        },
+        {
+          "maxSeconds": 300,
+          "points": 0
+        }
+      ],
+      "errorPenalty": 5,
+      "hintAfterErrors": 3,
+      "randomizeRotation": true,
+      "fallIntervalMs": 750,
+      "softDropFactor": 6,
+      "lockDelayMs": 500,
+      "spawnColumn": "center"
+    },
+    "character_id": 50,
+    "pre_dialogue_id": 130,
+    "post_win_dialogue_id": 131,
+    "post_lose_dialogue_id": 133,
+    "style_dialogues_json": {
+      "precise": 132
+    },
+    "required_game_ids_json": [
+      22
+    ],
+    "sort_order": 60,
+    "is_tutorial": 0
+  }
+]
