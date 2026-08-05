@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 160" width="120" height="160" fill="#16a69b">
-  <g opacity=".62">
-    <polygon points="52 28 60 2 74 8 70 30" />
-
-    <path fill-rule="evenodd" d="M60 20c-20 0-31 14-31 34v38h62V54c0-20-11-34-31-34Zm-24 32h48v14H36Z" />
-
-    <path fill-rule="evenodd" d="M60 90c-26 0-44 18-48 70h96c-4-52-22-70-48-70Zm10 16-26 32h15l-7 22 27-33H62Z" />
-  </g>
-</svg>

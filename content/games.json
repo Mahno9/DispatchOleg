@@ -108,10 +108,10 @@
         }
       ]
     },
-    "character_id": 40,
-    "pre_dialogue_id": 113,
-    "post_win_dialogue_id": 114,
-    "post_lose_dialogue_id": 116,
+    "character_id": null,
+    "pre_dialogue_id": null,
+    "post_win_dialogue_id": null,
+    "post_lose_dialogue_id": null,
     "style_dialogues_json": {
       "flawless": 115
     },
@@ -136,10 +136,10 @@
       "streakStep": 3,
       "maxMultiplier": 4
     },
-    "character_id": 47,
-    "pre_dialogue_id": 117,
-    "post_win_dialogue_id": 118,
-    "post_lose_dialogue_id": 119,
+    "character_id": null,
+    "pre_dialogue_id": null,
+    "post_win_dialogue_id": null,
+    "post_lose_dialogue_id": null,
     "style_dialogues_json": {},
     "required_game_ids_json": [
       20
@@ -194,10 +194,10 @@
         }
       ]
     },
-    "character_id": 48,
-    "pre_dialogue_id": 120,
-    "post_win_dialogue_id": 121,
-    "post_lose_dialogue_id": 123,
+    "character_id": null,
+    "pre_dialogue_id": null,
+    "post_win_dialogue_id": null,
+    "post_lose_dialogue_id": null,
     "style_dialogues_json": {
       "ghost": 121,
       "breaker": 122
@@ -295,10 +295,10 @@
         }
       ]
     },
-    "character_id": 49,
-    "pre_dialogue_id": 124,
-    "post_win_dialogue_id": 125,
-    "post_lose_dialogue_id": 126,
+    "character_id": null,
+    "pre_dialogue_id": null,
+    "post_win_dialogue_id": null,
+    "post_lose_dialogue_id": null,
     "style_dialogues_json": {},
     "required_game_ids_json": [
       20
@@ -311,193 +311,220 @@
     "title": "Кухня для героев",
     "minigame_id": "cooking-orders",
     "config_json": {
-      "fillRatePerSec": 1.4,
-      "doseTolerancePct": 40,
-      "cookTolerancePct": 12,
-      "failsAllowed": 3,
-      "pointsPerStep": 10,
-      "pointsPerOrder": 50,
       "ingredients": [
         {
-          "id": "stardust",
-          "name": "Звёздная пыль",
+          "id": "sup",
+          "name": "суп",
           "image": "",
-          "unitName": "щепотка"
+          "unitName": "штук"
         },
         {
-          "id": "honey",
-          "name": "Мёд",
+          "id": "luk",
+          "name": "лук",
           "image": "",
           "unitName": "ложка"
         },
         {
-          "id": "hero-milk",
-          "name": "Молоко героя",
-          "image": "",
-          "unitName": "мерка"
-        },
-        {
-          "id": "cinnamon",
-          "name": "Корица",
-          "image": "",
-          "unitName": "щепотка"
-        },
-        {
-          "id": "dragon-coal",
-          "name": "Уголёк дракона",
-          "image": "",
-          "unitName": "уголёк"
-        },
-        {
-          "id": "sugar",
-          "name": "Сахар",
+          "id": "perec",
+          "name": "красный и чёрный перец",
           "image": "",
           "unitName": "ложка"
         },
         {
-          "id": "moon-mint",
-          "name": "Лунная мята",
+          "id": "muka",
+          "name": "мука",
           "image": "",
-          "unitName": "листок"
+          "unitName": "стакан"
         },
         {
-          "id": "iron-bolt",
-          "name": "Железный болт",
+          "id": "pasta",
+          "name": "паста (томатная)",
           "image": "",
-          "unitName": "болт"
+          "unitName": "банка"
         },
         {
-          "id": "ash",
-          "name": "Остывшая зола",
+          "id": "mayo",
+          "name": "майонез",
           "image": "",
-          "unitName": "щепотка"
+          "unitName": "ведро"
         },
         {
-          "id": "machine-oil",
-          "name": "Машинное масло",
+          "id": "piza",
+          "name": "пица",
           "image": "",
-          "unitName": "капля"
+          "unitName": "охапка"
+        },
+        {
+          "id": "sir",
+          "name": "сыр",
+          "image": "",
+          "unitName": "штука"
+        },
+        {
+          "id": "pomidor",
+          "name": "помидор",
+          "image": "",
+          "unitName": "штука"
+        },
+        {
+          "id": "ogurec",
+          "name": "огурец",
+          "image": "",
+          "unitName": "пакет"
+        },
+        {
+          "id": "perec_bolg",
+          "name": "перец из болгарии",
+          "image": "",
+          "unitName": "ложка"
+        },
+        {
+          "id": "chesnok",
+          "name": "чеснок (для аромата)",
+          "image": "",
+          "unitName": "ложка"
+        },
+        {
+          "id": "plv",
+          "name": "паста лависта",
+          "image": "",
+          "unitName": "ресторан"
+        },
+        {
+          "id": "kopch",
+          "name": "копчение",
+          "image": "",
+          "unitName": "ложка"
+        },
+        {
+          "id": "hleb",
+          "name": "хлеб",
+          "image": "",
+          "unitName": "кусочек"
+        },
+        {
+          "id": "yaco",
+          "name": "яйцо",
+          "image": "",
+          "unitName": "штука"
         }
       ],
       "characters": [
         {
-          "name": "Вера",
-          "portrait": "/assets-store/seed-civ-medic.svg",
-          "orderName": "Какао для ночного дежурства",
-          "cookSeconds": 6,
+          "name": "Фламбэ",
+          "portrait": "",
+          "orderName": "Жареный батин суп",
+          "cookSeconds": 20,
           "steps": [
             {
-              "ingredientId": "hero-milk",
+              "ingredientId": "sup",
+              "amount": 1
+            },
+            {
+              "ingredientId": "luk",
+              "amount": 10
+            },
+            {
+              "ingredientId": "perec",
               "amount": 3
             },
             {
-              "ingredientId": "sugar",
-              "amount": 2
+              "ingredientId": "muka",
+              "amount": 1
             },
             {
-              "ingredientId": "cinnamon",
+              "ingredientId": "pasta",
+              "amount": 5
+            },
+            {
+              "ingredientId": "mayo",
               "amount": 1
             }
           ]
         },
         {
-          "name": "Пиролина",
-          "portrait": "/assets-store/seed-hero-pyrolina.svg",
-          "orderName": "Уголь на второе",
-          "cookSeconds": 8,
-          "steps": [
-            {
-              "ingredientId": "dragon-coal",
-              "amount": 0
-            },
-            {
-              "ingredientId": "ash",
-              "amount": 2
-            },
-            {
-              "ingredientId": "honey",
-              "amount": 4
-            },
-            {
-              "ingredientId": "moon-mint",
-              "amount": 0
-            }
-          ]
-        },
-        {
-          "name": "К-9",
-          "portrait": "/assets-store/seed-hero-k9.svg",
-          "orderName": "Суп для робота-напарника",
-          "cookSeconds": 10,
-          "steps": [
-            {
-              "ingredientId": "iron-bolt",
-              "amount": 0
-            },
-            {
-              "ingredientId": "machine-oil",
-              "amount": 2
-            },
-            {
-              "ingredientId": "hero-milk",
-              "amount": 2
-            },
-            {
-              "ingredientId": "stardust",
-              "amount": 3
-            }
-          ]
-        },
-        {
-          "name": "Гранит",
-          "portrait": "/assets-store/seed-hero-granit.svg",
-          "orderName": "Порция без затей",
+          "name": "Фламбэ",
+          "portrait": "",
+          "orderName": "Пица 4 сыра мазерати",
           "cookSeconds": 12,
           "steps": [
             {
-              "ingredientId": "hero-milk",
-              "amount": 5
+              "ingredientId": "piza",
+              "amount": 1
             },
             {
-              "ingredientId": "sugar",
-              "amount": 5
-            },
-            {
-              "ingredientId": "iron-bolt",
-              "amount": 0
+              "ingredientId": "sir",
+              "amount": 4
             }
           ]
         },
         {
-          "name": "Ночница",
-          "portrait": "/assets-store/seed-hero-nochnitsa.svg",
-          "orderName": "Настой лунной мяты",
-          "cookSeconds": 7,
+          "name": "Фламбэ",
+          "portrait": "",
+          "orderName": "Гаспачо из пасты лависты",
+          "cookSeconds": 6,
           "steps": [
             {
-              "ingredientId": "moon-mint",
-              "amount": 0
-            },
-            {
-              "ingredientId": "stardust",
-              "amount": 2
-            },
-            {
-              "ingredientId": "honey",
+              "ingredientId": "pomidor",
               "amount": 1
             },
             {
-              "ingredientId": "cinnamon",
-              "amount": 2
+              "ingredientId": "ogurec",
+              "amount": 4
+            },
+            {
+              "ingredientId": "perec_bolg",
+              "amount": 4
+            },
+            {
+              "ingredientId": "chesnok",
+              "amount": 10
+            },
+            {
+              "ingredientId": "plv",
+              "amount": 1
+            }
+          ]
+        },
+        {
+          "name": "Фламбэ",
+          "portrait": "",
+          "orderName": "семдвич с копченым айоли",
+          "cookSeconds": 2,
+          "steps": [
+            {
+              "ingredientId": "mayo",
+              "amount": 10
+            },
+            {
+              "ingredientId": "kopch",
+              "amount": 1
+            },
+            {
+              "ingredientId": "hleb",
+              "amount": 1
+            }
+          ]
+        },
+        {
+          "name": "Фламбэ",
+          "portrait": "",
+          "orderName": "Сырая иячьница",
+          "cookSeconds": 1,
+          "steps": [
+            {
+              "ingredientId": "yaco",
+              "amount": 1
             }
           ]
         }
-      ]
+      ],
+      "fillRatePerSec": 1.4
     },
-    "character_id": 44,
-    "pre_dialogue_id": 127,
-    "post_win_dialogue_id": 128,
-    "post_lose_dialogue_id": 129,
+    "character_id": 53,
+    "pre_dialogue_id": 134,
+    "post_win_dialogue_id": null,
+    "post_lose_dialogue_id": null,
     "style_dialogues_json": {},
     "required_game_ids_json": [],
     "sort_order": 50,
@@ -542,10 +569,10 @@
       "lockDelayMs": 500,
       "spawnColumn": "center"
     },
-    "character_id": 50,
-    "pre_dialogue_id": 130,
-    "post_win_dialogue_id": 131,
-    "post_lose_dialogue_id": 133,
+    "character_id": null,
+    "pre_dialogue_id": null,
+    "post_win_dialogue_id": null,
+    "post_lose_dialogue_id": null,
     "style_dialogues_json": {
       "precise": 132
     },

@@ -1,7 +1,7 @@
 [
   {
-    "id": 1,
-    "title": "123",
+    "id": 18,
+    "title": "Штаб-квартира",
     "sort_order": 0,
     "background_json": {
       "fit": "cover",
@@ -11,219 +11,65 @@
         "y": 0
       }
     },
-    "characters_json": [],
-    "trigger_json": {
-      "type": "wonCount",
-      "value": 0
-    }
-  },
-  {
-    "id": 14,
-    "title": "Смена принята",
-    "sort_order": 10,
-    "background_json": {
-      "fit": "cover",
-      "scale": 1,
-      "offset": {
-        "x": 0,
-        "y": 0
-      }
-    },
     "characters_json": [
       {
-        "characterId": 40,
-        "x": 22,
-        "y": 62,
+        "characterId": 53,
+        "x": 45.09560600828729,
+        "y": 73.18878560126582,
         "scale": 1
       },
       {
-        "characterId": 41,
-        "x": 40,
-        "y": 66,
-        "scale": 0.9
+        "characterId": 54,
+        "x": 15.51601346685083,
+        "y": 17.033722310126578,
+        "scale": 1
       },
       {
-        "characterId": 42,
-        "x": 76,
-        "y": 60,
+        "characterId": 55,
+        "x": 7.445614640883981,
+        "y": 16.886867088607588,
+        "scale": 1
+      },
+      {
+        "characterId": 56,
+        "x": 73.31880179558011,
+        "y": 61.2920292721519,
+        "scale": 1
+      },
+      {
+        "characterId": 57,
+        "x": 56.867230662983424,
+        "y": 46.763498813291136,
+        "scale": 1
+      },
+      {
+        "characterId": 58,
+        "x": 91.00213656767956,
+        "y": 19.285007911392405,
+        "scale": 1
+      },
+      {
+        "characterId": 59,
+        "x": 7.740741540055251,
+        "y": 69.67192444620252,
+        "scale": 1
+      },
+      {
+        "characterId": 60,
+        "x": 72.08973584254144,
+        "y": 18.289903085443036,
+        "scale": 1
+      },
+      {
+        "characterId": 61,
+        "x": 23.10730317679558,
+        "y": 58.45381724683544,
         "scale": 1
       }
     ],
     "trigger_json": {
       "type": "wonCount",
       "value": 0
-    }
-  },
-  {
-    "id": 15,
-    "title": "Город на связи",
-    "sort_order": 20,
-    "background_json": {
-      "fit": "cover",
-      "scale": 1,
-      "offset": {
-        "x": 0,
-        "y": 0
-      }
-    },
-    "characters_json": [
-      {
-        "characterId": 40,
-        "x": 16,
-        "y": 64,
-        "scale": 0.9
-      },
-      {
-        "characterId": 41,
-        "x": 32,
-        "y": 68,
-        "scale": 0.85
-      },
-      {
-        "characterId": 47,
-        "x": 55,
-        "y": 58,
-        "scale": 1.1
-      },
-      {
-        "characterId": 48,
-        "x": 74,
-        "y": 62,
-        "scale": 1
-      },
-      {
-        "characterId": 43,
-        "x": 90,
-        "y": 66,
-        "scale": 0.9
-      }
-    ],
-    "trigger_json": {
-      "type": "wonCount",
-      "value": 2
-    }
-  },
-  {
-    "id": 16,
-    "title": "Полный расчёт",
-    "sort_order": 30,
-    "background_json": {
-      "fit": "cover",
-      "scale": 1,
-      "offset": {
-        "x": 0,
-        "y": 0
-      }
-    },
-    "characters_json": [
-      {
-        "characterId": 41,
-        "x": 12,
-        "y": 68,
-        "scale": 0.8
-      },
-      {
-        "characterId": 42,
-        "x": 26,
-        "y": 64,
-        "scale": 0.9
-      },
-      {
-        "characterId": 49,
-        "x": 42,
-        "y": 58,
-        "scale": 1
-      },
-      {
-        "characterId": 50,
-        "x": 60,
-        "y": 54,
-        "scale": 1.25
-      },
-      {
-        "characterId": 51,
-        "x": 74,
-        "y": 70,
-        "scale": 0.8
-      },
-      {
-        "characterId": 44,
-        "x": 88,
-        "y": 62,
-        "scale": 0.9
-      }
-    ],
-    "trigger_json": {
-      "type": "wonCount",
-      "value": 4
-    }
-  },
-  {
-    "id": 17,
-    "title": "Ночь длинная",
-    "sort_order": 40,
-    "background_json": {
-      "fit": "cover",
-      "scale": 1,
-      "offset": {
-        "x": 0,
-        "y": 0
-      }
-    },
-    "characters_json": [
-      {
-        "characterId": 45,
-        "x": 10,
-        "y": 70,
-        "scale": 0.85
-      },
-      {
-        "characterId": 44,
-        "x": 24,
-        "y": 66,
-        "scale": 0.9
-      },
-      {
-        "characterId": 46,
-        "x": 38,
-        "y": 58,
-        "scale": 1.05
-      },
-      {
-        "characterId": 47,
-        "x": 52,
-        "y": 56,
-        "scale": 1.05
-      },
-      {
-        "characterId": 50,
-        "x": 66,
-        "y": 54,
-        "scale": 1.25
-      },
-      {
-        "characterId": 52,
-        "x": 82,
-        "y": 50,
-        "scale": 1.15
-      },
-      {
-        "characterId": 51,
-        "x": 94,
-        "y": 70,
-        "scale": 0.8
-      }
-    ],
-    "trigger_json": {
-      "type": "games",
-      "ids": [
-        20,
-        21,
-        22,
-        23,
-        24,
-        25
-      ]
     }
   }
 ]

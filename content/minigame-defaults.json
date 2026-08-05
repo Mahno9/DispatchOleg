@@ -1,5 +1,77 @@
 [
   {
+    "minigame_id": "cooking-orders",
+    "config_json": {
+      "ingredients": [
+        {
+          "id": "stardust",
+          "name": "Звёздная пыль",
+          "image": "",
+          "unitName": "щепотка"
+        },
+        {
+          "id": "honey",
+          "name": "Мёд",
+          "image": "",
+          "unitName": "ложка"
+        },
+        {
+          "id": "hero-milk",
+          "name": "Молоко героя",
+          "image": "",
+          "unitName": "мерка"
+        },
+        {
+          "id": "cinnamon",
+          "name": "Корица",
+          "image": "",
+          "unitName": "щепотка"
+        },
+        {
+          "id": "dragon-coal",
+          "name": "Уголёк дракона",
+          "image": "",
+          "unitName": "уголёк"
+        },
+        {
+          "id": "sugar",
+          "name": "Сахар",
+          "image": "",
+          "unitName": "ложка"
+        },
+        {
+          "id": "moon-mint",
+          "name": "Лунная мята",
+          "image": "",
+          "unitName": "листок"
+        },
+        {
+          "id": "iron-bolt",
+          "name": "Железный болт",
+          "image": "",
+          "unitName": "болт"
+        }
+      ],
+      "characters": [
+        {
+          "name": "Фламбэ",
+          "portrait": "",
+          "orderName": "",
+          "cookSeconds": 6,
+          "steps": []
+        }
+      ],
+      "fillRatePerSec": 1.5,
+      "doseTolerancePct": 40,
+      "cookTolerancePct": 12,
+      "failsAllowed": 3,
+      "pointsPerStep": 10,
+      "pointsPerOrder": 50,
+      "spoilAnimationMs": 1000
+    },
+    "updated_at": 1785886194914
+  },
+  {
     "minigame_id": "rescue-catch",
     "config_json": {
       "controlVariant": "bidirectional",
