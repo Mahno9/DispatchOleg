@@ -112,9 +112,7 @@
     "pre_dialogue_id": null,
     "post_win_dialogue_id": null,
     "post_lose_dialogue_id": null,
-    "style_dialogues_json": {
-      "flawless": 115
-    },
+    "style_dialogues_json": {},
     "required_game_ids_json": [],
     "sort_order": 10,
     "is_tutorial": 0
@@ -152,12 +150,9 @@
     "title": "Три уровня подземки",
     "minigame_id": "three-mazes",
     "config_json": {
-      "screamerImage": "/assets-store/seed-hero-phantom.svg",
       "screamerDurationMs": 900,
       "followSpeed": 560,
       "bounceSpeed": 420,
-      "breakAngleDeg": 40,
-      "breakerThreshold": 1,
       "mazes": [
         {
           "generatorParams": {
@@ -192,16 +187,14 @@
           "scale": 1,
           "scorePerMaze": 160
         }
-      ]
+      ],
+      "screamerImage": ""
     },
     "character_id": null,
     "pre_dialogue_id": null,
     "post_win_dialogue_id": null,
     "post_lose_dialogue_id": null,
-    "style_dialogues_json": {
-      "ghost": 121,
-      "breaker": 122
-    },
+    "style_dialogues_json": {},
     "required_game_ids_json": [
       21
     ],
@@ -217,7 +210,6 @@
       "timeLimitSeconds": 240,
       "maxAttempts": 6,
       "errorPenalty": 15,
-      "prizeImage": "/assets-store/seed-hero-nochnitsa.svg",
       "locks": [
         {
           "question": "Владелец записал слово-ключ на обороте квитанции. Наберите его.",
@@ -293,7 +285,8 @@
             "gaugeLagMs": 500
           }
         }
-      ]
+      ],
+      "prizeImage": ""
     },
     "character_id": null,
     "pre_dialogue_id": null,
@@ -573,9 +566,7 @@
     "pre_dialogue_id": null,
     "post_win_dialogue_id": null,
     "post_lose_dialogue_id": null,
-    "style_dialogues_json": {
-      "precise": 132
-    },
+    "style_dialogues_json": {},
     "required_game_ids_json": [
       22
     ],
