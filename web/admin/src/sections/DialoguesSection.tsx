@@ -6,10 +6,17 @@ import {
   type DialogueChoice,
   type DialogueDoc,
   type DialogueNode,
+  type DialogueUsage,
 } from '../api';
 import { showToast } from '../toast';
 import { Segmented } from '../ui/Segmented';
 import { DialogueGraph, autoLayout } from './DialogueGraph';
+
+const USAGE_KIND: Record<DialogueUsage['kind'], string> = {
+  game: 'игра',
+  character: 'персонаж',
+  metaStage: 'этап меты',
+};
 
 // ---------------------------------------------------------------------------
 // Graph helpers — docs/dialogue-system.md §1, §4
@@ -681,7 +688,21 @@ export function DialoguesSection() {
 
   async function remove() {
     if (currentId === null) return;
-    if (!window.confirm(`Удалить диалог «${title}»?`)) return;
+    // Сперва спрашиваем сервер, кто на диалог ссылается: молчаливое удаление
+    // оставляло битые ссылки в играх и на мете — всплывали они уже в check-content,
+    // после выгрузки контента в гит.
+    let usage: DialogueUsage[];
+    try {
+      usage = await api.getDialogueUsage(currentId);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Не удалось проверить использование', 'error');
+      return;
+    }
+    const used = usage
+      .map((u) => `• ${USAGE_KIND[u.kind]} «${u.title}» (#${u.id}) — ${u.field}`)
+      .join('\n');
+    const warn = used === '' ? '' : `\n\nОн используется:\n${used}\n\nЭти ссылки будут сняты.`;
+    if (!window.confirm(`Удалить диалог «${title}»?${warn}`)) return;
     try {
       await api.deleteDialogue(currentId);
       setList(await api.getDialogues());

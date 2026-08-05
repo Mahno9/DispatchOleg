@@ -92,6 +92,14 @@ export interface Dialogue {
   nodes: unknown;
 }
 
+/** Одна точка использования диалога — показывается в подтверждении удаления. */
+export interface DialogueUsage {
+  kind: 'game' | 'character' | 'metaStage';
+  id: number;
+  title: string;
+  field: string;
+}
+
 // --- Мета-этапы -------------------------------------------------------------
 
 export interface MetaStageBackground {
@@ -218,6 +226,7 @@ export const api = {
     }),
   updateDialogue: (id: number, body: { title?: string; nodes?: unknown }) =>
     request<Dialogue>(`/api/admin/dialogues/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  getDialogueUsage: (id: number) => request<DialogueUsage[]>(`/api/admin/dialogues/${id}/usage`),
   deleteDialogue: (id: number) =>
     request<{ ok: true }>(`/api/admin/dialogues/${id}`, { method: 'DELETE' }),
 
