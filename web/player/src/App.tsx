@@ -207,16 +207,12 @@ export function App() {
             {unlocked}
           </div>
           <div className="seg-bar">
-            {playable.map((game) => {
-              const done = state.gameResults[String(game.id)]?.won;
-              const open = isUnlocked(game, state.gameResults);
-              return (
-                <i
-                  key={game.id}
-                  className={`seg ${done ? 'seg-done' : open ? 'seg-open' : ''}`}
-                />
-              );
-            })}
+            {playable.map((game) => (
+              <i
+                key={game.id}
+                className={`seg ${state.gameResults[String(game.id)]?.won ? 'seg-done' : ''}`}
+              />
+            ))}
           </div>
         </>
       );

@@ -651,11 +651,6 @@ h3 {
   border: 1px solid var(--line-dim);
 }
 
-.seg-open {
-  border-color: var(--amber);
-  background: rgba(233, 169, 40, 0.18);
-}
-
 .seg-done {
   border-color: var(--glow);
   background: var(--teal);
