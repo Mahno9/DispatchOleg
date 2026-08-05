@@ -396,7 +396,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
 
   // --- state ---
   const startedAt = performance.now();
-  let hintOn = hintAfterErrors <= 0;
+  const hintOn = (): boolean => state.pieceErrors >= hintAfterErrors;
   let cell = 24;
   let painted = 0;
   let nextTurns = randomizeRotation ? Math.floor(rng() * 4) : 0;
@@ -549,10 +549,8 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
           flash(snap);
           nextTurns = snap.turns; // same piece comes back in the same orientation
         }
-        if (!hintOn && state.errors >= hintAfterErrors) {
-          hintOn = true;
-          play(config.sounds?.hint);
-        }
+        // сработало ровно на пороге — подсказка только что зажглась
+        if (hintAfterErrors > 0 && state.pieceErrors === hintAfterErrors) play(config.sounds?.hint);
       } else {
         win();
         return;
@@ -560,7 +558,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     }
     updateBar();
     if (!state.active) spawn(state, nextTurns);
-    setHint(hintOn);
+    setHint(hintOn());
   }
 
   let lastFrame = 0;
@@ -687,7 +685,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   relayout();
   updateBar();
   reportProgress();
-  setHint(hintOn);
+  setHint(hintOn());
   root.focus({ preventScroll: true });
   rafId = requestAnimationFrame(tick);
 

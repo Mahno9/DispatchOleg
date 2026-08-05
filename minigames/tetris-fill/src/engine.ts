@@ -303,6 +303,8 @@ export interface FallState {
   current: number;
   active: Active | null;
   errors: number;
+  /** Errors on the piece being dealt now; reset once it is placed (drives the hint). */
+  pieceErrors: number;
   fallTimer: number;
   lockTimer: number;
   softDrop: boolean;
@@ -377,6 +379,7 @@ export function createFallState(shape: Shape, rules: FallRules): FallState {
     current: 0,
     active: null,
     errors: 0,
+    pieceErrors: 0,
     fallTimer: 0,
     lockTimer: 0,
     softDrop: false,
@@ -469,6 +472,7 @@ function commit(state: FallState, out: FallEvent[]): void {
   for (const c of piece.cells) state.locked[c.y * state.width + c.x] = 1;
   state.active = null;
   state.current++;
+  state.pieceErrors = 0;
   state.fallTimer = 0;
   state.lockTimer = 0;
   out.push('placed');
@@ -480,6 +484,7 @@ function commit(state: FallState, out: FallEvent[]): void {
 
 function reject(state: FallState, out: FallEvent[]): void {
   state.errors++;
+  state.pieceErrors++;
   state.active = null;
   state.fallTimer = 0;
   state.lockTimer = 0;

@@ -397,6 +397,23 @@ describe('hardDrop', () => {
   });
 });
 
+describe('pieceErrors', () => {
+  it('counts errors of the current piece only and resets once it is placed', () => {
+    const s = fallOf(['.....', '.....', '.....', '.##..']);
+
+    spawn(s, 0);
+    (s.active as Active).x = 3;
+    expect(hardDrop(s)).toEqual(['rejected']); // легла не туда
+    expect(s.pieceErrors).toBe(1);
+
+    spawn(s, 0);
+    (s.active as Active).x = 1;
+    expect(hardDrop(s)).toEqual(['placed', 'won']);
+    expect(s.pieceErrors).toBe(0); // подсказка гаснет вместе со счётчиком
+    expect(s.errors).toBe(1); // суммарные ошибки остаются
+  });
+});
+
 describe('winnability', () => {
   /** Steers every piece onto its target and hard-drops it. */
   function solve(rows: string[]): FallState {
