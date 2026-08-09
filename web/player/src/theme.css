@@ -1202,11 +1202,43 @@ h3 {
   text-transform: none;
 }
 
-/* Slot 2 during a dialogue: the typewriter line. */
+/* Slot 2 during a dialogue: the typewriter line. The whole slot is a click
+   target — tapping the text advances the line, same as tapping the scene. */
+.dialogue-context {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* Name and line hug the side their speaker stands on. */
+.dialogue-context-right {
+  text-align: right;
+}
+
+/* Speaker name: louder than a plain .label, and it sits under its own portrait. */
+.dialogue-name {
+  font-size: 0.95rem;
+  color: var(--glow);
+  text-shadow: var(--halo);
+}
+
 .dialogue-line {
   font-size: 1.15rem;
   line-height: 1.35;
   color: var(--text);
+}
+
+/* Keeps its box, shows nothing: the not-yet-typed tail and the spent cursor. */
+.dialogue-hidden {
+  visibility: hidden;
+}
+
+.dialogue-cursor {
+  background: var(--glow);
+  animation: blink 1s steps(1, end) infinite;
 }
 
 @keyframes portrait-in {

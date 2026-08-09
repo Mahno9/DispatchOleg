@@ -140,13 +140,22 @@ export function DialogueScene({ doc, cast, partner, onContext, onFinish }: Dialo
     const speaker = node?.side === 'left' ? sides.left : sides.right;
     const name = speaker === OLEG ? 'Олег' : (speaker !== null && cast[speaker]?.name) || '';
     cb.current.onContext(
-      <>
-        <div className="label">{name}</div>
+      <div
+        className={`dialogue-context${node?.side === 'right' ? ' dialogue-context-right' : ''}`}
+        onClick={onSceneClick}
+      >
+        <div className="label dialogue-name">{name}</div>
         <p className="dialogue-line">
           {text.slice(0, shown)}
-          {!done && <i className="boot-cursor" />}
+          {/* The untyped tail stays in the DOM, just invisible: the line holds its
+              final layout from the first character instead of crawling as it types
+              (unreadable once right-aligned). The cursor is a background-filled
+              NBSP, not .boot-cursor's inline-block — an atomic inline would add a
+              break opportunity mid-word and reflow the text around it. */}
+          <span className={`dialogue-cursor${done ? ' dialogue-hidden' : ''}`}>{' '}</span>
+          <span className="dialogue-hidden">{text.slice(shown)}</span>
         </p>
-      </>,
+      </div>,
     );
   }, [text, shown, done, node, sides, cast]);
 
