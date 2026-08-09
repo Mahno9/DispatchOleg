@@ -81,7 +81,9 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
   // дорезолвливается уже ПОСЛЕ того, как второй смонтировал игру, и чистка
   // общего контейнера стирала живую игру — чёрный экран через раз.
   const host = document.createElement('div');
-  host.style.cssText = 'position:absolute;inset:0';
+  // Длинные свойства вместо `inset`: узел обязан повторить контейнер пиксель в
+  // пиксель, а не схлопнуться по содержимому, — от размера зависит вся вёрстка игры.
+  host.style.cssText = 'position:absolute;top:0;right:0;bottom:0;left:0';
   container.appendChild(host);
 
   function finish(result: MinigameResult | null): void {
