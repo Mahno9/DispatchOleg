@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import schema from '../schema.json';
 import {
+  PROBE_MAX_MS,
+  PROBE_MIN_MS,
+  PROBE_TICK_MS,
   evaluate,
   isOwnActive,
   maxScoreFor,
   normalizeTasks,
+  probeTicks,
   shuffle,
   styleTagFor,
   type Mistake,
@@ -208,5 +212,16 @@ describe('helpers', () => {
     expect(normalizeTasks(undefined)).toEqual([]);
     expect(normalizeTasks('nope')).toEqual([]);
     expect(normalizeTasks([])).toEqual([]);
+  });
+
+  // Задержка — вся суть механики: короче 500 мс её можно «промазать» курсором,
+  // длиннее 1200 мс разбор смены превращается в ожидание.
+  it('probeTicks keeps the priority query inside 500…1200 ms', () => {
+    for (const r of [0, 0.25, 0.5, 0.75, 1, -3, 42]) {
+      const ms = probeTicks(r) * PROBE_TICK_MS;
+      expect(ms).toBeGreaterThanOrEqual(PROBE_MIN_MS - PROBE_TICK_MS / 2);
+      expect(ms).toBeLessThanOrEqual(PROBE_MAX_MS + PROBE_TICK_MS / 2);
+    }
+    expect(probeTicks(0)).toBeLessThan(probeTicks(1));
   });
 });

@@ -56,6 +56,14 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
   let handle: MinigameHandle | null = null;
   let settled = false;
 
+  // Каждый запуск живёт в собственном узле, а не прямо в общем контейнере.
+  // Под StrictMode эффект монтируется дважды: отменённый первый запуск
+  // дорезолвливается уже ПОСЛЕ того, как второй смонтировал игру, и чистка
+  // общего контейнера стирала живую игру — чёрный экран через раз.
+  const host = document.createElement('div');
+  host.style.cssText = 'position:absolute;inset:0';
+  container.appendChild(host);
+
   function finish(result: MinigameResult | null): void {
     if (settled) {
       console.warn('[minigameLoader] callback fired twice, ignoring');
@@ -72,7 +80,7 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
       console.error('[minigameLoader] destroy failed', err);
     }
     handle = null;
-    container.replaceChildren();
+    host.remove();
     if (!settled) finish(null);
   }
 
@@ -90,7 +98,7 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
       muted,
     };
 
-    handle = mod.init(container, config, {
+    handle = mod.init(host, config, {
       onComplete: (result) => finish(result),
       onExit: () => finish(null),
       onProgress: (text, percent) => onProgress?.(text, percent),
@@ -107,7 +115,7 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
     };
   } catch (err) {
     console.error('[minigameLoader] failed to launch minigame', err);
-    container.replaceChildren();
+    host.remove();
     throw err;
   }
 }

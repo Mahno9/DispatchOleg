@@ -35,6 +35,23 @@ export interface Evaluation {
 export const PLACEMENT_POINTS = 10;
 export const PAIR_POINTS = 5;
 
+/**
+ * «Запрос приоритета» на карточке: пока крутится спиннер, поле не читается.
+ * Задержка нужна не для красоты — без неё игрок проводит курсором по стопке и
+ * получает все приоритеты даром, будто их и не прятали.
+ */
+export const PROBE_MIN_MS = 500;
+export const PROBE_MAX_MS = 1200;
+/** Шаг спиннера; он же квант задержки — таймер на карточке ровно один. */
+export const PROBE_TICK_MS = 90;
+
+/** Сколько шагов спиннера крутить. `random` — из `Math.random()`, 0…1. */
+export function probeTicks(random: number): number {
+  const span = PROBE_MAX_MS - PROBE_MIN_MS;
+  const ms = PROBE_MIN_MS + Math.min(1, Math.max(0, random)) * span;
+  return Math.max(1, Math.round(ms / PROBE_TICK_MS));
+}
+
 /** Case-insensitive, whitespace-tolerant name key. */
 function nameKey(value: unknown): string {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';

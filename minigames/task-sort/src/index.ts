@@ -1,7 +1,9 @@
 import {
+  PROBE_TICK_MS,
   evaluate,
   maxScoreFor,
   normalizeTasks,
+  probeTicks,
   shuffle,
   styleTagFor,
   type Task,
@@ -43,6 +45,7 @@ const DRAG_THRESHOLD = 5;
 const RETURN_MS = 160;
 const SCAN_MS = 400;
 const DEAL_STEP_MS = 40;
+const SPINNER = ['|', '/', '—', '\\'];
 
 // ---------------------------------------------------------------------------
 // Styles — scoped under .ts-root, no global rules
@@ -271,6 +274,21 @@ const STYLES = `
   padding: 2px 4px;
 }
 .${PREFIX}card__id { font-size: 11px; color: #759C96; }
+/* Приоритет намеренно тихий: он должен читаться, но не кричать вместо текста. */
+.${PREFIX}card__prio {
+  display: inline-block;
+  min-width: 20px;
+  text-align: center;
+  color: #C8A878;
+}
+/* Не запрошен — заштрихованная плашка «поле не подгружено», как ручка драга. */
+.${PREFIX}card__prio--hidden {
+  height: 9px;
+  vertical-align: -1px;
+  background: repeating-linear-gradient(-45deg, #C8A878 0 1px, transparent 1px 4px);
+  opacity: 0.5;
+}
+.${PREFIX}card__prio--probe { color: #E9A928; }
 .${PREFIX}card__actions { display: flex; gap: 2px; }
 .${PREFIX}card__actions .${PREFIX}sq { width: 22px; height: 20px; font-size: 11px; }
 .${PREFIX}card__grip {
@@ -426,6 +444,11 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   let queue: string[] = [];
   let archive: string[] = [];
   const timers = new Set<ReturnType<typeof setTimeout>>();
+  // Приоритет, уже подгруженный игроком. Протухает, как только карточку
+  // сдвинули: держать его до конца смены значило бы «запросил один раз и
+  // разложил на память», а интерфейс диспетчерской должен мешать.
+  const revealed = new Set<string>();
+  const probes = new Set<ReturnType<typeof setInterval>>();
   let rafId = 0;
 
   function later(fn: () => void, ms: number): void {
@@ -545,7 +568,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
 
   zonesEl.append(
     buildZone('inbox', 'Входящие'),
-    buildZone('queue', `Очередь · ${playerName}`, '↑ срочное   ·   ↓ может подождать'),
+    buildZone('queue', `Очередь · ${playerName}`, '↑ P1 срочное   ·   ↓ P4 подождёт   ·   навести = запросить'),
     buildZone('archive', 'Архив // шреддер'),
   );
 
@@ -578,6 +601,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     const target = arrOf(zone);
     target.splice(index === undefined ? target.length : Math.max(0, Math.min(target.length, index)), 0, id);
     mistakeIds.delete(id); // "touched" clears the ALERT stripe
+    revealed.delete(id); // перемещённая карточка теряет приоритет — запрашивать заново
     play(zone === 'archive' ? config.sounds?.shred : config.sounds?.drop);
     reportProgress();
     render();
@@ -587,8 +611,11 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     const i = queue.indexOf(id);
     const j = i + delta;
     if (i < 0 || j < 0 || j >= queue.length) return;
+    const other = queue[j]!; // вторая карточка пары — она тоже сдвинулась
     [queue[i], queue[j]] = [queue[j]!, queue[i]!];
     mistakeIds.delete(id);
+    revealed.delete(id);
+    revealed.delete(other); // сдвинули обе — обе и протухают
     play(config.sounds?.drop);
     render();
   }
@@ -621,6 +648,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     card.dataset.id = task.id;
     card.tabIndex = 0;
     card.title = task.text;
+    // Приоритет в label не пишем: он раскрывается запросом, в том числе для скринридера.
     card.setAttribute('aria-label', `${task.done ? 'Выполнено' : 'Активно'}, ${task.assignee}: ${task.text}`);
     if (task.done) card.classList.add(`${PREFIX}card--done`);
     if (mistakeIds.has(task.id)) card.classList.add(`${PREFIX}card--alert`);
@@ -649,7 +677,56 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
 
     const foot = el('div', `${PREFIX}card__foot`);
     const ticket = el('span', `${PREFIX}card__id ${PREFIX}mono`);
-    ticket.textContent = `TK-${String(417 + Number(task.id.slice(1)) * 13).padStart(4, '0')}`;
+    ticket.textContent = `TK-${String(417 + Number(task.id.slice(1)) * 13).padStart(4, '0')} · `;
+    // Слот стоит на КАЖДОЙ карточке, включая чужие и выполненные: пустое место
+    // само стало бы подсказкой «эту в архив».
+    const prio = el('span', `${PREFIX}card__prio`);
+    ticket.appendChild(prio);
+
+    // Запрос приоритета: наведение (или фокус) на карточку, спиннер, потом число.
+    let probe: ReturnType<typeof setInterval> | null = null;
+
+    function paintPrio(): void {
+      const known = revealed.has(task.id);
+      prio.className = `${PREFIX}card__prio${known ? '' : ` ${PREFIX}card__prio--hidden`}`;
+      prio.textContent = known ? `P${task.priority}` : '';
+      prio.setAttribute('aria-label', known ? `приоритет ${task.priority}` : 'приоритет не запрошен');
+    }
+
+    function stopProbe(): void {
+      if (!probe) return;
+      clearInterval(probe);
+      probes.delete(probe);
+      probe = null;
+      paintPrio();
+    }
+
+    function startProbe(): void {
+      if (probe || revealed.has(task.id) || phase === 'deal') return;
+      // Уход курсора до конца обрывает запрос — иначе достаточно мазнуть по
+      // стопке и вернуться за готовыми ответами.
+      let tick = 0;
+      const need = probeTicks(Math.random());
+      prio.className = `${PREFIX}card__prio ${PREFIX}card__prio--probe`;
+      prio.textContent = SPINNER[0]!;
+      prio.setAttribute('aria-label', 'приоритет запрашивается');
+      probe = setInterval(() => {
+        tick++;
+        if (tick >= need) {
+          revealed.add(task.id);
+          stopProbe();
+          return;
+        }
+        prio.textContent = SPINNER[tick % SPINNER.length]!;
+      }, PROBE_TICK_MS);
+      probes.add(probe);
+    }
+
+    paintPrio();
+    card.addEventListener('pointerenter', startProbe);
+    card.addEventListener('pointerleave', stopProbe);
+    card.addEventListener('focus', startProbe);
+    card.addEventListener('blur', stopProbe);
     const actions = el('div', `${PREFIX}card__actions`);
     if (zone === 'queue') {
       actions.append(
@@ -692,6 +769,10 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   let dealing = true;
 
   function render(): void {
+    // Карточки пересоздаются целиком, поэтому запрос приоритета на старом узле
+    // надо оборвать: иначе он дотикает в отрыве от DOM и раскроет поле сам.
+    for (const p of probes) clearInterval(p);
+    probes.clear();
     for (const zone of ['inbox', 'queue', 'archive'] as Zone[]) {
       const body = bodies[zone];
       body.innerHTML = '';
@@ -1010,6 +1091,8 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       cleanupDrag();
       for (const t of timers) clearTimeout(t);
       timers.clear();
+      for (const p of probes) clearInterval(p);
+      probes.clear();
       if (rafId) cancelAnimationFrame(rafId);
       for (const audio of audioCache.values()) {
         audio.pause();
