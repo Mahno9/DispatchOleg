@@ -142,7 +142,7 @@ export function init(
   container: HTMLElement,
   config: GameConfig,
   callbacks: Callbacks,
-): { destroy: () => void } {
+): { destroy: () => void; setPaused: (paused: boolean) => void } {
   const styleEl = document.createElement('style');
   styleEl.textContent = STYLES;
   container.appendChild(styleEl);
@@ -170,7 +170,8 @@ export function init(
   const codeToIndex = new Map<string, number>(keys.map((k, i) => [`Key${k}`, i]));
 
   let anim = 0; // free-running clock for pulses, seconds
-  let paused = false;
+  let paused = false; // фокус потерян — со своим оверлеем
+  let held = false; // заморозка платформой на время инструктажа — без оверлея
   let finished = false;
   let outroAt = 0; // performance.now() when the outro ends
   let raf = 0;
@@ -350,7 +351,7 @@ export function init(
     state.cfg.controlVariant === 'inverted' || state.cfg.controlVariant === 'bidirectional';
 
   function live(): boolean {
-    return !paused && !finished && state.status === 'running';
+    return !paused && !held && !finished && state.status === 'running';
   }
 
   function onKeyDown(e: KeyboardEvent): void {
@@ -409,18 +410,31 @@ export function init(
   }
 
   // --- pause -------------------------------------------------------------
+  /** Общий хвост обеих заморозок: фокус (`paused`) и инструктаж (`held`). */
+  function syncFrozen(): void {
+    if (paused || held) {
+      void audioCtx.suspend().catch(() => {});
+      if (music) music.pause();
+      return;
+    }
+    last = performance.now(); // critical: no multi-second dt on the first frame
+    void audioCtx.resume().catch(() => {});
+    if (music && !muted) void music.play().catch(() => {});
+  }
   function pause(): void {
     if (paused) return;
     paused = true;
-    void audioCtx.suspend().catch(() => {});
-    if (music) music.pause();
+    syncFrozen();
   }
   function resume(): void {
     if (!paused) return;
     paused = false;
-    last = performance.now(); // critical: no multi-second dt on the first frame
-    void audioCtx.resume().catch(() => {});
-    if (music && !muted) void music.play().catch(() => {});
+    syncFrozen();
+  }
+  function setPaused(value: boolean): void {
+    if (held === value) return;
+    held = value;
+    syncFrozen();
   }
   const onVisibility = (): void => (document.hidden ? pause() : resume());
   window.addEventListener('blur', pause);
@@ -850,7 +864,7 @@ export function init(
     raf = requestAnimationFrame(loop);
     const dt = Math.min((t - last) / 1000, 0.1); // clamp lag / background tabs
     last = t;
-    if (!paused) {
+    if (!paused && !held) {
       anim += dt;
       if (state.status === 'running') {
         state = update(state, dt);
@@ -893,5 +907,5 @@ export function init(
     container.innerHTML = '';
   }
 
-  return { destroy };
+  return { destroy, setPaused };
 }

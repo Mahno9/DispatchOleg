@@ -27,11 +27,14 @@ interface MinigameModule {
       onExit: () => void;
       onProgress: (text: string, percent?: number) => void;
     },
-  ) => { destroy: () => void };
+  ) => { destroy: () => void; setPaused?: (paused: boolean) => void };
 }
 
 export interface MinigameHandle {
   destroy: () => void;
+  /** Заморозить/разморозить игру, не разрушая её (minigame_contract.md).
+   *  Нет у игр без собственных часов — вызывать через `?.`. */
+  setPaused?: (paused: boolean) => void;
 }
 
 let minigamesCache: Minigame[] | null = null;
@@ -92,7 +95,16 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
       onExit: () => finish(null),
       onProgress: (text, percent) => onProgress?.(text, percent),
     });
-    return { destroy };
+    return {
+      destroy,
+      setPaused: (paused) => {
+        try {
+          handle?.setPaused?.(paused);
+        } catch (err) {
+          console.error('[minigameLoader] setPaused failed', err);
+        }
+      },
+    };
   } catch (err) {
     console.error('[minigameLoader] failed to launch minigame', err);
     container.replaceChildren();

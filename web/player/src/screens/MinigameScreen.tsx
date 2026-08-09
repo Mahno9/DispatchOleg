@@ -30,31 +30,33 @@ export function MinigameScreen({
   const steps = TUTORIALS[minigameId] ?? [];
   // Игра без инструктажа стартует сразу, как и раньше.
   const [briefed, setBriefed] = useState(steps.length === 0);
-  const [previewRun, setPreviewRun] = useState(0);
 
   const cb = useRef({ onContext, onFinished });
   cb.current = { onContext, onFinished };
+
+  // Инструктаж лежит ПОВЕРХ смонтированной игры — иначе стрелки указывают в
+  // пустоту. Но игра под ним заморожена (handle.setPaused, minigame_contract.md):
+  // бандл поднимается сразу, а тикать начинает только по «Понятно».
+  // Refs, потому что бандл догружается асинхронно: к моменту resolve инструктаж
+  // может быть уже закрыт, а прогресс — уже прийти.
+  const handleRef = useRef<MinigameHandle | null>(null);
+  const briefedRef = useRef(briefed);
+  briefedRef.current = briefed;
+  const progressRef = useRef<ReactNode>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Инструктаж идёт ПОВЕРХ живой игры — иначе стрелки указывают в пустоту.
-    // Этот прогон одноразовый: звук выключен, результат и прогресс игнорируются,
-    // а по «Понятно» эффект перезапускается и бандл поднимается с нуля. Поэтому
-    // натикавшее за время чтения (упавшая деталь, таймер сейфа) роли не играет.
-    if (!briefed) cb.current.onContext(<div className="label">Инструктаж · перед запуском</div>);
-
     let live = true;
-    let handle: MinigameHandle | null = null;
 
     launchMinigame({
       container,
       gameId,
-      muted: muted || !briefed,
+      muted,
       onProgress: (text, percent) => {
-        if (!live || !briefed) return;
-        cb.current.onContext(
+        if (!live) return;
+        progressRef.current = (
           <>
             <div className="label">{text}</div>
             {percent !== undefined && (
@@ -65,23 +67,23 @@ export function MinigameScreen({
                 />
               </div>
             )}
-          </>,
+          </>
         );
+        // Под инструктажем слот занят его подписью; строка игры доедет по «Понятно».
+        if (briefedRef.current) cb.current.onContext(progressRef.current);
       },
       onFinished: (result) => {
-        if (!live) return;
-        if (briefed) cb.current.onFinished(result);
-        // Превью доигралось само (rescue-catch без ввода теряет три жизни
-        // секунд за пятнадцать) — под инструктажем осталась бы пустота после
-        // fadeOut. Поднимаем заново; PREVIEW_RELAUNCH_CAP на случай бандла,
-        // который завершается прямо в init.
-        else if (previewRun < PREVIEW_RELAUNCH_CAP) setPreviewRun(previewRun + 1);
+        if (live) cb.current.onFinished(result);
       },
     }).then(
       (h) => {
-        handle = h;
         // Unmounted while the bundle was still loading (StrictMode included).
-        if (!live) h.destroy();
+        if (!live) {
+          h.destroy();
+          return;
+        }
+        handleRef.current = h;
+        h.setPaused?.(!briefedRef.current);
       },
       (err: unknown) => {
         if (live) setError(err instanceof Error ? err.message : String(err));
@@ -91,9 +93,17 @@ export function MinigameScreen({
     return () => {
       live = false;
       cb.current.onContext(null);
-      handle?.destroy();
+      handleRef.current?.destroy();
+      handleRef.current = null;
     };
-  }, [gameId, muted, briefed, previewRun]);
+  }, [gameId, muted]);
+
+  useEffect(() => {
+    handleRef.current?.setPaused?.(!briefed);
+    cb.current.onContext(
+      briefed ? progressRef.current : <div className="label">Инструктаж · перед запуском</div>,
+    );
+  }, [briefed]);
 
   return (
     <div className="minigame-host">
@@ -113,9 +123,6 @@ export function MinigameScreen({
     </div>
   );
 }
-
-/** Потолок перезапусков превью — страховка от бандла, падающего в init. */
-const PREVIEW_RELAUNCH_CAP = 20;
 
 const GLYPH: Record<TutorialStep['dir'], string> = {
   up: '▲',

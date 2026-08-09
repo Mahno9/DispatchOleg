@@ -214,7 +214,7 @@ export function init(
   container: HTMLElement,
   config: GameConfig,
   callbacks: Callbacks,
-): { destroy: () => void } {
+): { destroy: () => void; setPaused: (paused: boolean) => void } {
   const styleEl = document.createElement('style');
   styleEl.textContent = STYLES;
   container.appendChild(styleEl);
@@ -352,7 +352,8 @@ export function init(
   const earned: number[] = [];
   let shards: { x: number; y: number; vx: number; vy: number; born: number }[] = [];
   let deadline = 0; // end of SCREAMER / FINISH flash
-  let paused = false;
+  let paused = false; // фокус потерян — со своим оверлеем «П А У З А»
+  let held = false; // заморозка платформой на время инструктажа — без оверлея
   let skipPhysics = false;
   let finished = false;
   let rafId: number | null = null;
@@ -477,7 +478,12 @@ export function init(
   }
   function onFocus(): void {
     paused = false;
-    syncAmbient(phase === 'ACTIVE');
+    syncAmbient(!held && phase === 'ACTIVE');
+  }
+  function setPaused(value: boolean): void {
+    if (held === value) return;
+    held = value;
+    syncAmbient(!held && !paused && phase === 'ACTIVE');
   }
   function onVisibility(): void {
     if (document.hidden) onBlur();
@@ -766,7 +772,7 @@ export function init(
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
     if (!finished) {
-      if (paused) {
+      if (paused || held) {
         // physics frozen; dt is reset next frame by `last = now`
       } else if (skipPhysics) {
         skipPhysics = false;
@@ -815,5 +821,5 @@ export function init(
     container.innerHTML = '';
   }
 
-  return { destroy };
+  return { destroy, setPaused };
 }

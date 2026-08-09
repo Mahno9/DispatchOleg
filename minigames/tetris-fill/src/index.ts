@@ -271,7 +271,7 @@ const intOr = (v: unknown, fallback: number, min: number, max: number): number =
   return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : fallback;
 };
 
-export function init(container: HTMLElement, config: GameConfig, callbacks: Callbacks): { destroy: () => void } {
+export function init(container: HTMLElement, config: GameConfig, callbacks: Callbacks): { destroy: () => void; setPaused: (paused: boolean) => void } {
   const styleEl = el('style');
   styleEl.textContent = STYLES;
   container.appendChild(styleEl);
@@ -373,7 +373,8 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     });
     box.append(status, text, exitBtn);
     root.appendChild(box);
-    return { destroy: baseDestroy };
+    // Битый силуэт: на экране только панель ошибки, замораживать нечего.
+    return { destroy: baseDestroy, setPaused: () => {} };
   }
 
   const shape = config.shape as Shape;
@@ -395,7 +396,11 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   const total = state.pieces.length;
 
   // --- state ---
-  const startedAt = performance.now();
+  // Заморозка на время инструктажа: деталь не падает, ввод не принимается,
+  // а прочитанное время не попадает в счёт — startedAt сдвигается на паузу.
+  let held = false;
+  let heldAt = 0;
+  let startedAt = performance.now();
   const hintOn = (): boolean => state.pieceErrors >= hintAfterErrors;
   let cell = 24;
   let painted = 0;
@@ -566,7 +571,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     rafId = requestAnimationFrame(tick);
     const dt = lastFrame ? now - lastFrame : 0;
     lastFrame = now;
-    if (finished) return;
+    if (finished || held) return;
     const a = state.active;
     const snap: Active | null = a ? { shape: a.shape, x: a.x, y: a.y, turns: a.turns } : null;
     handle(update(state, dt), snap);
@@ -575,14 +580,14 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
 
   function doHardDrop(): void {
     const a = state.active;
-    if (finished || !a) return;
+    if (finished || held || !a) return;
     const snap: Active = { shape: a.shape, x: a.x, y: landingY(state), turns: a.turns };
     handle(hardDrop(state), snap);
     renderActive();
   }
 
   function doRotate(): void {
-    if (finished) return;
+    if (finished || held) return;
     if (rotateActive(state)) {
       play(config.sounds?.rotate);
       shapeKey = '';
@@ -591,7 +596,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   }
 
   function doMove(dx: -1 | 1): void {
-    if (finished) return;
+    if (finished || held) return;
     if (move(state, dx)) renderActive();
   }
 
@@ -637,7 +642,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   );
 
   root.addEventListener('keydown', (e) => {
-    if (finished) return;
+    if (finished || held) return;
     const k = e.key;
     if (k === 'ArrowLeft') doMove(-1);
     else if (k === 'ArrowRight') doMove(1);
@@ -693,6 +698,17 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     destroy(): void {
       observer.disconnect();
       baseDestroy();
+    },
+    setPaused(value: boolean): void {
+      if (held === value) return;
+      held = value;
+      if (held) {
+        heldAt = performance.now();
+        stopRepeat();
+        setSoftDrop(state, false);
+      } else {
+        startedAt += performance.now() - heldAt;
+      }
     },
   };
 }

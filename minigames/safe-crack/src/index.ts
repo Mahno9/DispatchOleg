@@ -43,7 +43,7 @@ function clock(seconds: number): string {
   return `${mm}:${ss}`;
 }
 
-export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Callbacks): { destroy: () => void } {
+export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Callbacks): { destroy: () => void; setPaused: (paused: boolean) => void } {
   const config: Config = normalizeConfig(rawConfig);
   const total = config.locks.length;
   let state: State = createState(config);
@@ -61,6 +61,7 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
   let widget: LockWidget | undefined;
   let muted = rawConfig.muted === true;
   let finished = false;
+  let held = false; // заморозка платформой на время инструктажа
 
   function later(fn: () => void, ms: number): void {
     const id = setTimeout(() => {
@@ -268,6 +269,7 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
   // --- таймер ---------------------------------------------------------------
   function startTicker(): void {
     stopTicker();
+    if (held) return; // лимит времени не течёт под инструктажем
     ticker = setInterval(() => dispatch({ type: 'TICK', deltaSeconds: TICK_MS / 1000 }), TICK_MS);
   }
 
@@ -278,7 +280,7 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
 
   // --- мост FSM ↔ DOM -------------------------------------------------------
   function dispatch(event: Event): void {
-    if (finished) return;
+    if (finished || held) return;
     const before = state;
     state = reduce(state, event, config);
     if (state === before) return;
@@ -335,6 +337,24 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
   callbacks.onProgress?.(`Замок 0/${total}`, 0);
 
   return {
+    /**
+     * Инструктаж платформы: таймер стоит, ввод не доходит до FSM, физика
+     * виджета замерла. `reset()` на разморозке — это то же, что делает виджет
+     * при монтировании: пауза бывает только до первого хода игрока, терять
+     * нечего (minigame_contract.md, «Пауза»).
+     */
+    setPaused(value: boolean): void {
+      if (held === value) return;
+      held = value;
+      if (held) {
+        stopTicker();
+        widget?.freeze?.();
+      } else {
+        widget?.reset();
+        if (state.phase === 'lock') startTicker();
+      }
+    },
+
     destroy(): void {
       stopTicker();
       for (const id of timers) clearTimeout(id);
