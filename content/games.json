@@ -134,8 +134,8 @@
       "streakStep": 3,
       "maxMultiplier": 4
     },
-    "character_id": null,
-    "pre_dialogue_id": null,
+    "character_id": 55,
+    "pre_dialogue_id": 137,
     "post_win_dialogue_id": null,
     "post_lose_dialogue_id": null,
     "style_dialogues_json": {},
