@@ -601,7 +601,6 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     const target = arrOf(zone);
     target.splice(index === undefined ? target.length : Math.max(0, Math.min(target.length, index)), 0, id);
     mistakeIds.delete(id); // "touched" clears the ALERT stripe
-    revealed.delete(id); // перемещённая карточка теряет приоритет — запрашивать заново
     play(zone === 'archive' ? config.sounds?.shred : config.sounds?.drop);
     reportProgress();
     render();
@@ -611,11 +610,8 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     const i = queue.indexOf(id);
     const j = i + delta;
     if (i < 0 || j < 0 || j >= queue.length) return;
-    const other = queue[j]!; // вторая карточка пары — она тоже сдвинулась
     [queue[i], queue[j]] = [queue[j]!, queue[i]!];
     mistakeIds.delete(id);
-    revealed.delete(id);
-    revealed.delete(other); // сдвинули обе — обе и протухают
     play(config.sounds?.drop);
     render();
   }
