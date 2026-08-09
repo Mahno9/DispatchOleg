@@ -278,7 +278,7 @@ export function App() {
 
     case 'minigame':
       // Slot 2 is fed by the game's onProgress; slot 3 stays platform-owned —
-      // the minigame cannot write to either (docs/platform.md §3.4).
+      // the minigame cannot write to either (docs/platform.md §3.6).
       workarea = selectedGame && (
         <MinigameScreen
           gameId={selectedGame.id}
