@@ -108,8 +108,8 @@
         }
       ]
     },
-    "character_id": null,
-    "pre_dialogue_id": null,
+    "character_id": 62,
+    "pre_dialogue_id": 138,
     "post_win_dialogue_id": null,
     "post_lose_dialogue_id": null,
     "style_dialogues_json": {},
