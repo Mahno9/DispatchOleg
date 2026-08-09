@@ -1,4 +1,24 @@
 import { api, type Minigame } from '../api';
+import { localState } from '../state/localState';
+
+/** Имя игрока, если он ещё не представился, — герой по умолчанию. */
+export const DEFAULT_PLAYER_NAME = 'Олег';
+
+/**
+ * Подстановка `{player}` во все строки конфига мини-игры: в админке пишут
+ * ключевое слово, игрок видит своё имя. Рекурсивно, потому что подставлять надо
+ * не только в верхние поля (`playerName`), но и внутрь массивов вроде
+ * `tasks[].assignee` — иначе задача «моя» только для того, кого зовут Олегом.
+ */
+export function fillPlaceholders<T>(value: T, playerName: string): T {
+  if (typeof value === 'string') return value.replaceAll('{player}', playerName) as T;
+  if (Array.isArray(value)) return value.map((v) => fillPlaceholders(v, playerName)) as T;
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, fillPlaceholders(v, playerName)]),
+    ) as T;
+  return value;
+}
 
 export interface MinigameResult {
   score: number;
@@ -92,11 +112,14 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
     const mod = (await import(/* @vite-ignore */ meta.entryUrl)) as MinigameModule;
 
     // Effective config = game defaults ⊕ per-game override (top-level keys).
-    const config: Record<string, unknown> = {
-      ...(meta.defaultConfig ?? {}),
-      ...gameConfig.config,
-      muted,
-    };
+    const config: Record<string, unknown> = fillPlaceholders(
+      {
+        ...(meta.defaultConfig ?? {}),
+        ...gameConfig.config,
+        muted,
+      },
+      localState.getSnapshot().profile.name || DEFAULT_PLAYER_NAME,
+    );
 
     handle = mod.init(host, config, {
       onComplete: (result) => finish(result),
