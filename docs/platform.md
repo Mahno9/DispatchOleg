@@ -256,6 +256,7 @@ SQLite, миграции последовательные (как `server/src/db
 | `portrait_asset` | TEXT (URL) | |
 | `meta_dialogue_id` | INTEGER, FK → dialogues.id, nullable | Диалог по клику на мете |
 | `meta_position` | JSON `{x, y}` или enum слотов | Позиция персонажа на мета-сцене |
+| `description` | TEXT, по умолчанию `''` | Сводка для игрока: всплывает по наведению на портрет (в диалоге и на мете). Пустая — подсказки нет |
 
 ### `dialogues`
 | Поле | Тип | Описание |

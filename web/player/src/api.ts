@@ -7,6 +7,8 @@ export interface Character {
   metaDialogueId: number | null;
   /** Slot name on the meta scene (server stores it as an opaque string). */
   metaPosition: string;
+  /** Who the player is talking to. Empty — the portrait carries no info affordance. */
+  description: string;
 }
 
 /** Meta-screen game entry (GET /api/games — no config, that comes at launch). */

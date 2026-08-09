@@ -4,62 +4,79 @@
     "name": "Генадий Фламбэ (без зуба)",
     "portrait_asset": "/assets-store/rJBYLkjgSU.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Пирокинез. В строю дольше, чем существует ваш отдел. Спорит перед каждым вылетом, но вылетает всегда. Не поправляйте его имя."
   },
   {
     "id": 54,
     "name": "Блонде Блейзер Гальюновна",
     "portrait_asset": "/assets-store/zRU2R8ekcX.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Ослепляющая вспышка. Работает через пиар-отдел. Согласует формулировки, ракурс и освещение — иногда быстрее, чем доедет."
   },
   {
     "id": 55,
     "name": "Хуёво Видия",
     "portrait_asset": "/assets-store/bfzcPC6nSy.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Невидимость. Работает безупречно, но её и так никто не замечает. Убедитесь, что поздоровались."
   },
   {
     "id": 56,
     "name": "Малевола Красноватая",
     "portrait_asset": "/assets-store/OQ7I0Oh4A8.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Бывшая злодейка на условно-досрочном. Отрабатывает часы. Единственная, кто прочитал регламент целиком, и она вам об этом напомнит."
   },
   {
     "id": 57,
     "name": "Громила Жёсткий",
     "portrait_asset": "/assets-store/F4m-YtIgMJ.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Суперсила. Поднимает автобус, ломает дверные ручки. Извиняется больше, чем воюет."
   },
   {
     "id": 58,
     "name": "Чейз Альбертович",
     "portrait_asset": "/assets-store/ms1gG2ok6a.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Диспетчер на пенсии. Не на смене, но на линии. Рассказывает случаи из практики."
   },
   {
     "id": 59,
     "name": "Коуп Иум",
     "portrait_asset": "/assets-store/KRJU8YLFm6.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Самоклонирование. Каждая следующая копия хуже предыдущей. Он с этим не согласен."
   },
   {
     "id": 60,
     "name": "Просто Гален",
     "portrait_asset": "/assets-store/wEpj0r0I_x.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Полевой медик. Ставит диагнозы всем в эфире, включая вас. Обычно попадает."
   },
   {
     "id": 61,
     "name": "Феномачо Средний",
     "portrait_asset": "/assets-store/pntUBTSH_W.svg",
     "meta_dialogue_id": null,
-    "meta_position": "right"
+    "meta_position": "right",
+    "description": "Полёт, сила, неуязвимость — полный комплект. Соглашается на всё, делает медленно. Не упоминайте Блонде Блейзер."
+  },
+  {
+    "id": 62,
+    "name": "Замзам",
+    "portrait_asset": "/assets-store/T1JryVcOwv.svg",
+    "meta_dialogue_id": null,
+    "meta_position": "right",
+    "description": "Заместитель заместителя мэра по чрезвычайным чудесам. Не выезжает. Уточняет формулировки."
   }
 ]

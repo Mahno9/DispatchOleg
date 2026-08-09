@@ -12,6 +12,7 @@ const blank: Character = {
   portraitAsset: null,
   metaDialogueId: null,
   metaPosition: 'left',
+  description: '',
 };
 
 export function CharactersSection() {
@@ -108,6 +109,13 @@ export function CharactersSection() {
 
             <label className='poi-field-label'>Имя</label>
             <input value={draft.name} onChange={(e) => patch({ name: e.target.value })} />
+
+            <label className='poi-field-label'>Описание (всплывает у игрока по наведению на портрет)</label>
+            <textarea
+              rows={4}
+              value={draft.description}
+              onChange={(e) => patch({ description: e.target.value })}
+            />
 
             <label className='poi-field-label'>Портрет</label>
             <div className='char-portrait-row'>

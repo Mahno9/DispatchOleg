@@ -46,7 +46,11 @@ export function DialogueScreen({
           Object.fromEntries(
             characters.map((c) => [
               String(c.id),
-              { name: c.name, portraitAsset: c.portraitAsset } satisfies SceneCharacter,
+              {
+                name: c.name,
+                portraitAsset: c.portraitAsset,
+                description: c.description,
+              } satisfies SceneCharacter,
             ]),
           ),
         );

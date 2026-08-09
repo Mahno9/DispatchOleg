@@ -37,13 +37,18 @@ button:disabled {
 }
 
 input,
-select {
+select,
+textarea {
   font: inherit;
   padding: 8px 12px;
   border: 1px solid #0A3435;
   border-radius: 2px;
   background: #030B0C;
   color: #D3DED5;
+}
+
+textarea {
+  resize: vertical;
 }
 
 /* login */

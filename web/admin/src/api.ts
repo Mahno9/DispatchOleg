@@ -61,6 +61,8 @@ export interface Character {
   portraitAsset: string | null;
   metaDialogueId: number | null;
   metaPosition: string;
+  /** Сводка для игрока: всплывает по наведению на портрет. Пустая — не показывается. */
+  description: string;
 }
 
 export type CharacterInput = Partial<Omit<Character, 'id'>>;

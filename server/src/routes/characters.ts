@@ -13,9 +13,11 @@ const bodyProps = {
   portraitAsset: { type: ['string', 'null'] },
   metaDialogueId: { type: ['integer', 'null'] },
   metaPosition: { type: 'string' },
+  description: { type: 'string' },
 } as const;
 
-function pickInput(body: CharacterInput): CharacterInput {
+/** Отсекает всё, чего нет в `bodyProps`: тело запроса не должно писать чужие колонки. */
+export function pickInput(body: CharacterInput): CharacterInput {
   const input: CharacterInput = {};
   for (const key of Object.keys(bodyProps) as (keyof CharacterInput)[]) {
     if (key in body) (input as Record<string, unknown>)[key] = body[key];

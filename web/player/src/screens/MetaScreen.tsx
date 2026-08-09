@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { api, type Character, type Game, type MetaStage, type MetaStageCharacter } from '../api';
+import { CharacterInfo } from '../dialogue/CharacterInfo';
 import { silhouetteFor } from '../dialogue/Silhouettes';
 import type { GameResult } from '../state/localState';
 import { bgStyle, resolveStage } from './metaStage';
@@ -139,6 +140,8 @@ export function MetaScreen({ games, results, onCharacter, forceStageId = null }:
                         </span>
                       </span>
                       <span className="status meta-char-name">{c.name}</span>
+                      {/* Outside the frame: it clips overflow, the note is wider. */}
+                      <CharacterInfo description={c.description} />
                     </button>
                   ))}
               </div>
@@ -192,6 +195,7 @@ function PlacedCharacter({
         )}
       </span>
       <span className="status meta-char-name">{character.name}</span>
+      <CharacterInfo description={character.description} />
     </>
   );
 

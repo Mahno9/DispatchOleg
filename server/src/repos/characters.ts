@@ -6,6 +6,7 @@ interface CharacterRow {
   portrait_asset: string | null;
   meta_dialogue_id: number | null;
   meta_position: string;
+  description: string;
 }
 
 export interface CharacterDto {
@@ -15,6 +16,8 @@ export interface CharacterDto {
   /** Set → the character stands on the meta screen and is clickable */
   metaDialogueId: number | null;
   metaPosition: string;
+  /** Сводка для игрока: показывается по наведению на портрет. Пустая — не показывается. */
+  description: string;
 }
 
 export interface CharacterInput {
@@ -22,6 +25,7 @@ export interface CharacterInput {
   portraitAsset?: string | null;
   metaDialogueId?: number | null;
   metaPosition?: string;
+  description?: string;
 }
 
 function rowToDto(row: CharacterRow): CharacterDto {
@@ -31,6 +35,7 @@ function rowToDto(row: CharacterRow): CharacterDto {
     portraitAsset: row.portrait_asset,
     metaDialogueId: row.meta_dialogue_id,
     metaPosition: row.meta_position,
+    description: row.description,
   };
 }
 
@@ -40,6 +45,7 @@ function toColumns(input: CharacterInput): [string, unknown][] {
   if (input.portraitAsset !== undefined) out.push(['portrait_asset', input.portraitAsset]);
   if (input.metaDialogueId !== undefined) out.push(['meta_dialogue_id', input.metaDialogueId]);
   if (input.metaPosition !== undefined) out.push(['meta_position', input.metaPosition]);
+  if (input.description !== undefined) out.push(['description', input.description]);
   return out;
 }
 

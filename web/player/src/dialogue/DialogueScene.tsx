@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from '../camera/camera';
+import { CharacterInfo } from './CharacterInfo';
 import { silhouetteFor } from './Silhouettes';
 import { OLEG, advance, type DialogueDoc } from './engine';
 
@@ -7,6 +8,7 @@ import { OLEG, advance, type DialogueDoc } from './engine';
 export interface SceneCharacter {
   name: string;
   portraitAsset: string | null;
+  description: string;
 }
 
 interface DialogueSceneProps {
@@ -75,6 +77,9 @@ function Portrait({ id, side, speaking, cast }: PortraitProps) {
       <figcaption className={`status ${speaking ? 'status-active' : 'status-idle'}`}>
         {name}
       </figcaption>
+      {/* Outside .portrait-frame on purpose: the listener's frame is dimmed by a
+          filter, and the note must stay readable there too. */}
+      <CharacterInfo description={character?.description ?? ''} pinnable />
     </figure>
   );
 }

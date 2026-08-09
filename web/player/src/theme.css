@@ -549,6 +549,7 @@ h3 {
 }
 
 .meta-char {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1040,12 +1041,17 @@ h3 {
   min-height: 0;
 }
 
+/* position/width: the info affordance anchors to the portrait, not to the whole
+   grid column — without the cap the ⓘ would drift away from a 340px frame. */
 .portrait {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  width: min(100%, 340px);
   min-height: 0;
+  margin: 0 auto;
   animation: portrait-in 180ms steps(6, end) both;
 }
 
@@ -1075,16 +1081,94 @@ h3 {
   box-shadow: var(--halo);
 }
 
-/* The listener stays in frame, just dimmed (docs/dialogue-system.md §2). */
-.portrait-muted .portrait-frame {
-  filter: brightness(0.45) saturate(0.5);
-}
-
 .portrait-media {
   width: 100%;
   height: 100%;
   object-fit: cover;
   filter: saturate(0.6) contrast(1.1);
+}
+
+/* The listener stays in frame, just dimmed (docs/dialogue-system.md §2). The
+   filter sits on the media, not on the frame: the description overlay lives in
+   the same frame and must stay readable on the dimmed side too. */
+.portrait-muted .portrait-media {
+  filter: saturate(0.3) contrast(1.1) brightness(0.45);
+}
+
+.portrait-muted .avatar-silhouette {
+  filter: brightness(0.45) saturate(0.5);
+}
+
+/* ---------------------------------------------------------------------------
+   Character description (characters.description) — the ⓘ badge and the note it
+   reveals. Shared by the dialogue portraits and the meta-screen cast; the
+   enclosing figure (.portrait / .meta-char) is the hover target.
+   --------------------------------------------------------------------------- */
+
+.char-info-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1;
+  color: var(--teal);
+  background: rgba(3, 11, 12, 0.75);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity var(--t) linear;
+}
+
+/* ponytail: note is centred on the figure and .meta-stage clips overflow — a
+   character parked hard against the stage edge loses a sliver of it. Flip the
+   anchor by side if that ever shows up in practice. */
+.char-info-note {
+  position: absolute;
+  bottom: 10%;
+  left: 50%;
+  z-index: 2;
+  width: max-content;
+  max-width: min(240px, 42vw);
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text);
+  text-align: left;
+  background: rgba(3, 11, 12, 0.92);
+  border: 1px solid var(--line);
+  clip-path: var(--cut-sm);
+  transform: translateX(-50%);
+  opacity: 0;
+  /* Never a click target: in the dialogue a click advances the scene, on the
+     meta screen it opens the dialogue — the note must swallow neither. */
+  pointer-events: none;
+  transition: opacity var(--t) linear;
+}
+
+.portrait:hover .char-info-dot,
+.portrait:focus-within .char-info-dot,
+.meta-char:hover .char-info-dot,
+.meta-char:focus-visible .char-info-dot {
+  opacity: 1;
+}
+
+.portrait:hover .char-info-note,
+.portrait:focus-within .char-info-note,
+.meta-char:hover .char-info-note,
+.meta-char:focus-visible .char-info-note,
+.char-info-note--pinned {
+  opacity: 1;
 }
 
 /* Hero silhouette (Silhouettes.tsx) until a portrait asset / camera shows up. */
