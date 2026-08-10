@@ -307,8 +307,8 @@
       ],
       "screamerImage": ""
     },
-    "character_id": null,
-    "pre_dialogue_id": null,
+    "character_id": 58,
+    "pre_dialogue_id": 139,
     "post_win_dialogue_id": null,
     "post_lose_dialogue_id": null,
     "style_dialogues_json": {},
