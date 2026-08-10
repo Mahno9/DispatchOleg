@@ -4,6 +4,8 @@ import {
   type DotState,
   type Maze,
   type MazeType,
+  type PatrolParams,
+  type PatrolState,
   type PhysicsParams,
   type Pt,
   type Wall,
@@ -13,6 +15,9 @@ import {
   computeStyleTag,
   distancePointSegment,
   generateMaze,
+  makePatrol,
+  patrolCatches,
+  stepPatrol,
   stepPhysics,
 } from './engine.js';
 
@@ -36,6 +41,7 @@ interface GeneratorParamsRaw {
   size?: number;
   breakableDensity?: number;
   seed?: number;
+  patrols?: number;
 }
 
 interface MazeConfig {
@@ -43,6 +49,7 @@ interface MazeConfig {
   walls?: Wall[];
   start?: Pt;
   finish?: Pt;
+  patrols?: Pt[];
   scale?: number;
   scorePerMaze?: number;
 }
@@ -58,6 +65,10 @@ interface GameConfig {
   breakMinSpeedRatio?: number;
   breakerThreshold?: number;
   penaltyPerReset?: number;
+  patrolLightRadius?: number;
+  patrolSpeed?: number;
+  patrolSearchMs?: number;
+  patrolCatchSpeedRatio?: number;
   mazes?: MazeConfig[];
   sounds?: {
     wallBreak?: SoundVal;
@@ -160,6 +171,7 @@ interface RtMaze {
   walls: Wall[];
   start: Pt;
   finish: Pt;
+  patrols: Pt[];
   scale: number;
   score: number;
   breakableGroups: number;
@@ -175,6 +187,9 @@ function normalizeMaze(raw: MazeConfig, index: number): RtMaze {
   let walls = Array.isArray(raw.walls) ? raw.walls.filter(isFiniteWall) : [];
   let start = raw.start;
   let finish = raw.finish;
+  let patrols = Array.isArray(raw.patrols)
+    ? raw.patrols.filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
+    : [];
   if (walls.length === 0) {
     // Not generated in the admin yet — reproduce it from the (deterministic)
     // generator params so the game is playable straight out of the form.
@@ -187,10 +202,12 @@ function normalizeMaze(raw: MazeConfig, index: number): RtMaze {
       size: Math.round(num(g.size, 8, 3, 20)),
       breakableDensity: num(g.breakableDensity, 0.15, 0, 1),
       seed: Math.floor(num(g.seed, 1 + index * 7919, -2147483648, 2147483647)),
+      patrols: Math.round(num(g.patrols, 0, 0, 3)),
     });
     walls = maze.walls;
     start = maze.start;
     finish = maze.finish;
+    patrols = maze.patrols ?? [];
   }
   const groups = new Set<number>();
   walls.forEach((w, i) => {
@@ -200,6 +217,7 @@ function normalizeMaze(raw: MazeConfig, index: number): RtMaze {
     walls,
     start: start ?? { x: 0.5, y: 0.5 },
     finish: finish ?? { x: 0.5, y: 0.5 },
+    patrols,
     scale: num(raw.scale, 1, 0.3, 3),
     score: Math.round(num(raw.scorePerMaze, 100, 0, 1e6)),
     breakableGroups: groups.size,
@@ -236,6 +254,14 @@ export function init(
     breakAngleDeg: Math.round(num(config.breakAngleDeg, 40, 5, 89)),
     breakMinSpeedRatio: num(config.breakMinSpeedRatio, 0.55, 0, 1),
   };
+  const patrolParams: PatrolParams = {
+    lightRadius: Math.round(num(config.patrolLightRadius, 56, 20, 200)),
+    speed: Math.round(num(config.patrolSpeed, 260, 50, 2000)),
+    searchMs: Math.round(num(config.patrolSearchMs, 2500, 0, 10000)),
+    orbitRadius: 7,
+    orbitPeriodS: 4,
+  };
+  const patrolCatchSpeed = num(config.patrolCatchSpeedRatio, 0.35, 0, 1) * params.followSpeed;
   const screamerMs = Math.round(num(config.screamerDurationMs, 1200, 300, 4000));
   const breakerThreshold = Math.round(num(config.breakerThreshold, 1, 1, 1e6));
   const penaltyPerReset = Math.round(num(config.penaltyPerReset, 50, 0, 1e6));
@@ -351,6 +377,7 @@ export function init(
   let resets = 0;
   const earned: number[] = [];
   let shards: { x: number; y: number; vx: number; vy: number; born: number }[] = [];
+  let patrols: PatrolState[] = [];
   let deadline = 0; // end of SCREAMER / FINISH flash
   let paused = false; // фокус потерян — со своим оверлеем «П А У З А»
   let held = false; // заморозка платформой на время инструктажа — без оверлея
@@ -379,6 +406,10 @@ export function init(
     });
   }
 
+  function resetPatrols(): void {
+    patrols = (mz?.patrols ?? []).map((p, i) => makePatrol(toPx(p), i));
+  }
+
   function applyLayout(): void {
     const prev = { side, ox, oy };
     const next = layout();
@@ -392,6 +423,11 @@ export function init(
     };
     remap(target);
     if (dot) remap(dot);
+    for (const p of patrols) {
+      remap(p); // PatrolState carries its own x/y
+      remap(p.post);
+      remap(p.target);
+    }
     rebuildWalls();
     skipPhysics = true; // one physics-free frame so remapping cannot fake a touch
   }
@@ -412,6 +448,7 @@ export function init(
     wallsBrokenCurrent = 0;
     shards = [];
     applyLayout();
+    resetPatrols();
     progress();
     syncAmbient(false);
   }
@@ -453,6 +490,10 @@ export function init(
     brokenGroups.add(hit.group as number);
     wallsBrokenCurrent++;
     rebuildWalls();
+    for (const p of patrols) {
+      p.mode = 'ALERT';
+      p.target = { x: col.cx, y: col.cy }; // a second breach simply re-aims them
+    }
     for (let i = 0; i < 5; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 60 + Math.random() * 140;
@@ -516,6 +557,7 @@ export function init(
         dot = null;
         phase = 'FROZEN';
         rebuildWalls();
+        resetPatrols();
         progress();
       }
       return;
@@ -527,6 +569,9 @@ export function init(
       }
       return;
     }
+    // Lights circle while frozen too — the danger is visible before the start.
+    patrols = patrols.map((p) => stepPatrol(p, dt, patrolParams));
+
     if (phase === 'FROZEN') {
       if (pointerInside && Math.hypot(target.x - startPx.x, target.y - startPx.y) <= ZONE_RADIUS) {
         // Materialize at the cursor (no spring jerk), unless that spot already
@@ -556,6 +601,14 @@ export function init(
         screamer(now);
       }
       return;
+    }
+    // ponytail: caught check once per frame, not per substep — light is >=20px
+    // wide and the dot moves at most followSpeed*0.05 per frame, so no tunneling.
+    for (const p of patrols) {
+      if (patrolCatches(p.x, p.y, dot, patrolParams.lightRadius, patrolCatchSpeed)) {
+        screamer(now);
+        return;
+      }
     }
     if (Math.hypot(dot.x - finishPx.x, dot.y - finishPx.y) <= ZONE_RADIUS) finishMaze(now);
   }
@@ -657,6 +710,56 @@ export function init(
       const startPx = toPx(mz.start);
       const finishPx = toPx(mz.finish);
       drawWalls(now);
+
+      // searchlights: status colour + label, plus a noise meter when the dot is inside
+      const hud = {
+        IDLE: { rgb: '211,222,213', color: C.dot, alpha: 0.13, label: 'ДОЗОР' },
+        ALERT: { rgb: '240,113,62', color: C.alarm, alpha: 0.25, label: 'ТРЕВОГА' },
+        SEARCH: { rgb: '240,113,62', color: C.alarm, alpha: 0.25, label: 'ОБЫСК' },
+        RETURN: { rgb: '117,156,150', color: C.muted, alpha: 0.12, label: 'ОТБОЙ' },
+      };
+      const r = patrolParams.lightRadius;
+      for (const p of patrols) {
+        const h = hud[p.mode];
+        // noise: how close the dot's speed is to the catch threshold, 0 when outside the light
+        const t =
+          dot && Math.hypot(dot.x - p.x, dot.y - p.y) <= r
+            ? Math.min(1, Math.hypot(dot.vx, dot.vy) / patrolCatchSpeed)
+            : 0;
+        const loud = t >= 0.6;
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        g.addColorStop(0, `rgba(${h.rgb},${(h.alpha + t * 0.15).toFixed(3)})`);
+        g.addColorStop(0.6, `rgba(${h.rgb},${(h.alpha * 0.45).toFixed(3)})`);
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = h.color;
+        ctx.globalAlpha = 0.55;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        if (t > 0) {
+          ctx.strokeStyle = loud ? C.alarm : C.breakable;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, -Math.PI / 2, -Math.PI / 2 + t * Math.PI * 2);
+          ctx.stroke();
+          ctx.lineWidth = 1;
+        }
+        ctx.fillStyle = loud ? C.alarm : h.color;
+        ctx.globalAlpha = loud ? 0.9 : 0.8;
+        ctx.font = `700 11px 'Barlow Condensed', system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(loud ? 'СЛЫШУ!' : h.label, p.x, p.y + 1);
+        ctx.globalAlpha = 1;
+      }
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
 
       // shards of freshly broken walls
       ctx.strokeStyle = C.breakable;
@@ -785,6 +888,7 @@ export function init(
 
   // --- start ---
   applyLayout();
+  resetPatrols();
   if (mazes.length === 0) {
     // Broken config: never hang, finish immediately (spec 6.7).
     timerId = window.setTimeout(complete, 0);
@@ -818,6 +922,7 @@ export function init(
     screamerImg = null;
     activeWalls = [];
     shards = [];
+    patrols = [];
     container.innerHTML = '';
   }
 

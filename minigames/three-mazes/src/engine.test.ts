@@ -3,7 +3,10 @@ import {
   BREAK_MIN_TREE_DIST,
   DOT_RADIUS,
   type MazeType,
+  type PatrolParams,
+  type PatrolState,
   type PhysicsParams,
+  type Pt,
   type Wall,
   applyBounce,
   classifyHit,
@@ -12,10 +15,14 @@ import {
   distancePointSegment,
   generateMaze,
   generateMazeDetailed,
+  makePatrol,
   minClearance,
+  patrolCatches,
+  placePatrolPosts,
   raycast,
   relaxFactor,
   solvePath,
+  stepPatrol,
   stepPhysics,
 } from './engine.js';
 
@@ -296,5 +303,148 @@ describe('generateMaze', () => {
           expect(Math.min(front, back)).toBeGreaterThanOrEqual(need);
         }
       }
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('patrol posts', () => {
+  it('patrols do not perturb walls, start or finish', () => {
+    for (const type of TYPES)
+      for (const size of SIZES)
+        for (const seed of SEEDS) {
+          const p = { type, size, breakableDensity: 0.3, seed };
+          const plain = generateMazeDetailed(p).maze;
+          const withPatrols = generateMazeDetailed({ ...p, patrols: 2 }).maze;
+          expect(withPatrols.walls).toEqual(plain.walls);
+          expect(withPatrols.start).toEqual(plain.start);
+          expect(withPatrols.finish).toEqual(plain.finish);
+        }
+  });
+
+  it('is deterministic and places exactly the requested number of posts', () => {
+    for (const type of TYPES) {
+      const p = { type, size: 8, breakableDensity: 0.3, seed: 4242, patrols: 2 };
+      expect(JSON.stringify(generateMazeDetailed(p))).toBe(JSON.stringify(generateMazeDetailed(p)));
+      expect(generateMaze(p).patrols).toHaveLength(2);
+    }
+  });
+
+  it('no patrols field without patrols or with patrols = 0', () => {
+    for (const type of TYPES) {
+      const p = { type, size: 8, breakableDensity: 0.3, seed: 4242 };
+      expect(generateMaze(p).patrols).toBeUndefined();
+      expect(generateMaze({ ...p, patrols: 0 }).patrols).toBeUndefined();
+    }
+  });
+
+  it('every post sits on the honest route, far from start and finish', () => {
+    for (const type of TYPES)
+      for (const seed of SEEDS)
+        for (const count of [1, 2, 3]) {
+          const m = generateMaze({ type, size: 10, breakableDensity: 0.3, seed, patrols: count });
+          const path = solvePath(m) as Pt[];
+          for (const post of m.patrols as Pt[]) {
+            expect(Math.hypot(post.x - m.start.x, post.y - m.start.y)).toBeGreaterThan(0.08);
+            expect(Math.hypot(post.x - m.finish.x, post.y - m.finish.y)).toBeGreaterThan(0.08);
+            const near = Math.min(...path.map((q) => Math.hypot(post.x - q.x, post.y - q.y)));
+            expect(near).toBeLessThan(0.01);
+          }
+        }
+  });
+
+  it('returns nothing for a maze with no path or a non-positive count', () => {
+    const sealed = { walls: [wall(0.5, 0, 0.5, 1)], start: { x: 0.2, y: 0.5 }, finish: { x: 0.8, y: 0.5 } };
+    expect(placePatrolPosts(sealed, 2)).toEqual([]);
+    expect(placePatrolPosts(generateMaze({ type: 'square', size: 8, breakableDensity: 0, seed: 1 }), 0)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('stepPatrol', () => {
+  const PP: PatrolParams = {
+    lightRadius: 40,
+    speed: 100,
+    searchMs: 1000,
+    orbitRadius: 8,
+    orbitPeriodS: 3,
+  };
+  const post: Pt = { x: 100, y: 100 };
+  const dt = 1 / 60;
+  const fromPost = (s: PatrolState): number => Math.hypot(s.x - post.x, s.y - post.y);
+
+  it('idles on an orbit around its post', () => {
+    let s = makePatrol(post, 0);
+    for (let i = 0; i < 300; i++) {
+      s = stepPatrol(s, dt, PP);
+      expect(s.mode).toBe('IDLE');
+      expect(fromPost(s)).toBeLessThanOrEqual(PP.orbitRadius + 1e-6);
+    }
+  });
+
+  it('phase offset makes two patrols orbit apart', () => {
+    const a = stepPatrol(makePatrol(post, 0), dt, PP);
+    const b = stepPatrol(makePatrol(post, 1), dt, PP);
+    expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(1);
+  });
+
+  it('does not mutate its input', () => {
+    const s = makePatrol(post, 1);
+    const before = structuredClone(s);
+    stepPatrol(s, dt, PP);
+    expect(s).toEqual(before);
+  });
+
+  it('alerts to the target, then searches, then returns home', () => {
+    const target: Pt = { x: 300, y: 100 }; // D = 200 -> 2s at speed 100
+    let s: PatrolState = { ...makePatrol(post, 0), mode: 'ALERT', target };
+    let steps = 0;
+    while (s.mode === 'ALERT' && steps < 1000) {
+      s = stepPatrol(s, dt, PP);
+      steps++;
+    }
+    expect(s.mode).toBe('SEARCH');
+    expect(steps).toBeGreaterThanOrEqual(Math.round(2 / dt) - 2);
+    expect(steps).toBeLessThanOrEqual(Math.round(2 / dt) + 2);
+    expect(s.searchMsLeft).toBe(PP.searchMs);
+    expect(Math.hypot(s.x - target.x, s.y - target.y)).toBeLessThanOrEqual(1e-6);
+
+    let search = 0;
+    while (s.mode === 'SEARCH' && search < 1000) {
+      s = stepPatrol(s, dt, PP);
+      search++;
+      expect(Math.hypot(s.x - target.x, s.y - target.y)).toBeCloseTo(PP.orbitRadius, 6);
+    }
+    expect(s.mode).toBe('RETURN');
+    expect(search).toBeGreaterThanOrEqual(Math.round(PP.searchMs / 1000 / dt) - 2);
+    expect(search).toBeLessThanOrEqual(Math.round(PP.searchMs / 1000 / dt) + 2);
+
+    let back = 0;
+    while (s.mode === 'RETURN' && back < 1000) {
+      s = stepPatrol(s, dt, PP);
+      back++;
+    }
+    expect(s.mode).toBe('IDLE');
+    expect(fromPost(s)).toBeLessThanOrEqual(PP.orbitRadius + 1e-6);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('patrolCatches', () => {
+  const dot = (x: number, y: number, speed: number) => ({ x, y, vx: speed, vy: 0, relaxMs: 0 });
+
+  it('catches a fast dot inside the light', () => {
+    expect(patrolCatches(0, 0, dot(10, 0, 200), 40, 60)).toBe(true);
+  });
+  it('ignores a slow dot inside the light', () => {
+    expect(patrolCatches(0, 0, dot(10, 0, 59), 40, 60)).toBe(false);
+  });
+  it('ignores a fast dot outside the light', () => {
+    expect(patrolCatches(0, 0, dot(41, 0, 200), 40, 60)).toBe(false);
+  });
+  it('exactly on the radius and exactly at the speed threshold counts', () => {
+    expect(patrolCatches(0, 0, dot(40, 0, 60), 40, 60)).toBe(true);
   });
 });

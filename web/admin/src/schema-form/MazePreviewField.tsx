@@ -11,6 +11,7 @@ interface Params {
   size: number;
   breakableDensity: number;
   seed: number;
+  patrols: number;
 }
 
 interface Wall {
@@ -22,7 +23,12 @@ interface Wall {
 }
 
 interface Details {
-  maze: { walls: Wall[]; start: { x: number; y: number }; finish: { x: number; y: number } };
+  maze: {
+    walls: Wall[];
+    start: { x: number; y: number };
+    finish: { x: number; y: number };
+    patrols?: { x: number; y: number }[];
+  };
   routeSteps: number;
   breakableTreeDist: number[];
 }
@@ -51,6 +57,7 @@ function toParams(value: unknown): Params {
     size: Math.max(3, Math.min(20, Math.round(Number(o.size)) || 8)),
     breakableDensity: Math.max(0, Math.min(1, Number(o.breakableDensity) || 0)),
     seed: Math.round(Number(o.seed)) || 0,
+    patrols: Math.max(0, Math.min(3, Math.round(Number(o.patrols)) || 0)),
   };
 }
 
@@ -94,6 +101,7 @@ function draw(canvas: HTMLCanvasElement, d: Details): void {
   };
   dot(d.maze.start, '#16A69B');
   dot(d.maze.finish, '#E9A928');
+  for (const p of d.maze.patrols ?? []) dot(p, '#F0713E');
 }
 
 interface Props {
@@ -104,10 +112,12 @@ interface Props {
 export function MazePreviewField({ value, onChange }: Props) {
   const params = toParams(value);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [stats, setStats] = useState<{ steps: number; walls: number; breakable: number } | null>(null);
+  const [stats, setStats] = useState<{ steps: number; walls: number; breakable: number; patrols: number } | null>(
+    null,
+  );
   const [failed, setFailed] = useState(false);
 
-  const { type, size, breakableDensity, seed } = params;
+  const { type, size, breakableDensity, seed, patrols } = params;
   useEffect(() => {
     let stale = false;
     const id = setTimeout(() => {
@@ -115,13 +125,14 @@ export function MazePreviewField({ value, onChange }: Props) {
         .then((mod) => {
           const canvas = canvasRef.current;
           if (stale || !canvas) return;
-          const d = mod.generateMazeDetailed({ type, size, breakableDensity, seed });
+          const d = mod.generateMazeDetailed({ type, size, breakableDensity, seed, patrols });
           draw(canvas, d);
           setFailed(false);
           setStats({
             steps: d.routeSteps,
             walls: d.maze.walls.length,
             breakable: d.breakableTreeDist.length,
+            patrols: d.maze.patrols?.length ?? 0,
           });
         })
         .catch(() => {
@@ -132,7 +143,7 @@ export function MazePreviewField({ value, onChange }: Props) {
       stale = true;
       clearTimeout(id);
     };
-  }, [type, size, breakableDensity, seed]);
+  }, [type, size, breakableDensity, seed, patrols]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
@@ -162,7 +173,8 @@ export function MazePreviewField({ value, onChange }: Props) {
       )}
       <span style={{ fontSize: 12, color: '#759C96' }}>
         {stats && !failed
-          ? `путь: ${stats.steps} шагов · стен: ${stats.walls} · ломаемых: ${stats.breakable}`
+          ? `путь: ${stats.steps} шагов · стен: ${stats.walls} · ломаемых: ${stats.breakable}` +
+            (stats.patrols > 0 ? ` · патрулей: ${stats.patrols}` : '')
           : ' '}
       </span>
       <button

@@ -28,6 +28,8 @@ export interface Maze {
   walls: Wall[];
   start: Pt;
   finish: Pt;
+  /** Patrol posts (normalized), placed on the honest route. Absent = no patrols. */
+  patrols?: Pt[];
 }
 
 export type MazeType = 'square' | 'hex' | 'circular';
@@ -37,6 +39,8 @@ export interface GeneratorParams {
   size: number;
   breakableDensity: number;
   seed: number;
+  /** Searchlight patrol count, 0..3. Absent = 0. */
+  patrols?: number;
 }
 
 /** Radius of the player dot, px. */
@@ -654,12 +658,17 @@ export function generateMazeDetailed(params: GeneratorParams): MazeDetails {
     breakableTreeDist.push(c.dist);
   }
 
+  // --- patrols: placed on the honest route, after the RNG stream is done ---
+  const maze: Maze = {
+    walls,
+    start: { ...(grid.centers[startCell] as Pt) },
+    finish: { ...(grid.centers[finishCell] as Pt) },
+  };
+  const patrolCount = Math.max(0, Math.min(3, Math.floor(params.patrols ?? 0)));
+  if (patrolCount > 0) maze.patrols = placePatrolPosts(maze, patrolCount);
+
   return {
-    maze: {
-      walls,
-      start: { ...(grid.centers[startCell] as Pt) },
-      finish: { ...(grid.centers[finishCell] as Pt) },
-    },
+    maze,
     cellSize: grid.cellSize,
     routeSteps: fromStart.dist[finishCell] as number,
     breakableTreeDist,
@@ -735,4 +744,135 @@ export function solvePath(maze: Maze, res = 384): Pt[] | null {
   path.push({ ...maze.start });
   path.reverse();
   return path;
+}
+
+// ---------------------------------------------------------------------------
+// Searchlight patrols
+// ---------------------------------------------------------------------------
+
+/** A post must not stand on the doorstep of start or finish (normalized units). */
+export const PATROL_END_CLEARANCE = 0.09;
+
+/** Posts spread over the middle 70% of the honest route — never next to start/finish. */
+export function placePatrolPosts(maze: Maze, count: number): Pt[] {
+  if (count <= 0) return [];
+  const path = solvePath(maze);
+  if (path === null || path.length < 2) return [];
+  const acc: number[] = [0];
+  for (let i = 1; i < path.length; i++) {
+    const a = path[i - 1] as Pt;
+    const b = path[i] as Pt;
+    acc.push((acc[i - 1] as number) + Math.hypot(b.x - a.x, b.y - a.y));
+  }
+  const total = acc[acc.length - 1] as number;
+  // Arc length says nothing about how close the route folds back to its own ends.
+  const clear = (p: Pt): boolean =>
+    Math.hypot(p.x - maze.start.x, p.y - maze.start.y) >= PATROL_END_CLEARANCE &&
+    Math.hypot(p.x - maze.finish.x, p.y - maze.finish.y) >= PATROL_END_CLEARANCE;
+
+  const out: Pt[] = [];
+  for (let i = 0; i < count; i++) {
+    const want = total * (0.15 + (0.7 * (i + 0.5)) / count);
+    let j = 1;
+    while (j < acc.length - 1 && (acc[j] as number) < want) j++;
+    const a = path[j - 1] as Pt;
+    const b = path[j] as Pt;
+    const seg = (acc[j] as number) - (acc[j - 1] as number);
+    const f = seg > EPS ? (want - (acc[j - 1] as number)) / seg : 0;
+    let pt = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+    if (!clear(pt)) {
+      // Slide to the closest point of the route (by arc length) that is clear.
+      let best = -1;
+      for (let k = 0; k < path.length; k++)
+        if (
+          clear(path[k] as Pt) &&
+          (best < 0 || Math.abs((acc[k] as number) - want) < Math.abs((acc[best] as number) - want))
+        )
+          best = k;
+      if (best >= 0) pt = { ...(path[best] as Pt) };
+    }
+    out.push(pt);
+  }
+  return out;
+}
+
+export type PatrolMode = 'IDLE' | 'ALERT' | 'SEARCH' | 'RETURN';
+
+export interface PatrolState {
+  post: Pt;
+  x: number;
+  y: number;
+  mode: PatrolMode;
+  /** Where the light is heading / searching (equals post while idle). */
+  target: Pt;
+  searchMsLeft: number;
+  /** Orbit clock, keeps running in every mode. */
+  t: number;
+  phaseOffset: number;
+}
+
+export interface PatrolParams {
+  lightRadius: number;
+  speed: number;
+  searchMs: number;
+  orbitRadius: number;
+  orbitPeriodS: number;
+}
+
+/** Idle patrol on its post; index spreads the orbit phases without an RNG. */
+export function makePatrol(post: Pt, index: number): PatrolState {
+  return {
+    post: { ...post },
+    x: post.x,
+    y: post.y,
+    mode: 'IDLE',
+    target: { ...post },
+    searchMsLeft: 0,
+    t: 0,
+    phaseOffset: index * 2.399,
+  };
+}
+
+/** One tick of the patrol state machine. Pure: returns a new state. */
+export function stepPatrol(p: PatrolState, dt: number, params: PatrolParams): PatrolState {
+  const t = p.t + dt;
+  if (p.mode === 'IDLE' || p.mode === 'SEARCH') {
+    const c = p.mode === 'IDLE' ? p.post : p.target;
+    const a = (2 * Math.PI * t) / params.orbitPeriodS + p.phaseOffset;
+    const searchMsLeft = p.mode === 'SEARCH' ? p.searchMsLeft - dt * 1000 : p.searchMsLeft;
+    return {
+      ...p,
+      t,
+      x: c.x + params.orbitRadius * Math.cos(a),
+      y: c.y + params.orbitRadius * Math.sin(a),
+      mode: p.mode === 'SEARCH' && searchMsLeft <= 0 ? 'RETURN' : p.mode,
+      searchMsLeft,
+    };
+  }
+  // ALERT / RETURN — straight line, light does not care about walls.
+  const goal = p.mode === 'ALERT' ? p.target : p.post;
+  const dx = goal.x - p.x;
+  const dy = goal.y - p.y;
+  const d = Math.hypot(dx, dy);
+  const stepLen = params.speed * dt;
+  if (d <= stepLen) {
+    return p.mode === 'ALERT'
+      ? { ...p, t, x: goal.x, y: goal.y, mode: 'SEARCH', searchMsLeft: params.searchMs }
+      : { ...p, t, x: goal.x, y: goal.y, mode: 'IDLE', target: { ...p.post } };
+  }
+  return { ...p, t, x: p.x + (dx / d) * stepLen, y: p.y + (dy / d) * stepLen };
+}
+
+/** Caught: inside the light cone and moving fast enough to be noticed. */
+export function patrolCatches(
+  px: number,
+  py: number,
+  dot: DotState,
+  lightRadius: number,
+  minSpeed: number,
+): boolean {
+  return (
+    Math.hypot(dot.x - px, dot.y - py) <= lightRadius + EPS &&
+    Math.hypot(dot.vx, dot.vy) >= minSpeed - EPS
+  );
 }

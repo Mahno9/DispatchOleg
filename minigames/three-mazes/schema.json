@@ -72,6 +72,20 @@
       "default": 50,
       "minimum": 0
     },
+    "patrolLightRadius": {
+      "type": "integer",
+      "title": "Радиус света прожектора, px",
+      "default": 56,
+      "minimum": 20,
+      "maximum": 200
+    },
+    "patrolSearchMs": {
+      "type": "integer",
+      "title": "Обыск места пролома, мс",
+      "default": 2500,
+      "minimum": 0,
+      "maximum": 10000
+    },
     "mazes": {
       "type": "array",
       "title": "Лабиринты",
@@ -136,6 +150,14 @@
                 "type": "integer",
                 "title": "Сид генератора",
                 "default": 1001
+              },
+              "patrols": {
+                "type": "integer",
+                "title": "Патрули-прожекторы",
+                "description": "Посты на честном пути. 0 — без патрулей.",
+                "default": 0,
+                "minimum": 0,
+                "maximum": 3
               }
             },
             "required": ["type", "size", "breakableDensity", "seed"]
@@ -169,6 +191,16 @@
             "title": "Финиш (результат генерации)",
             "readOnly": true,
             "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+          },
+          "patrols": {
+            "type": "array",
+            "title": "Посты патрулей (результат генерации)",
+            "readOnly": true,
+            "default": [],
+            "items": {
+              "type": "object",
+              "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+            }
           },
           "scale": {
             "type": "number",
