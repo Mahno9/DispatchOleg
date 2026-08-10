@@ -43,6 +43,9 @@ export function MinigameScreen({
   const briefedRef = useRef(briefed);
   briefedRef.current = briefed;
   const progressRef = useRef<ReactNode>(null);
+  // Реплика (onLine) перекрывает прогресс в слоте 2, пока висит: игра сама решает,
+  // когда её погасить (клик по панели → её собственный onDismiss).
+  const lineRef = useRef<ReactNode>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -70,7 +73,19 @@ export function MinigameScreen({
           </>
         );
         // Под инструктажем слот занят его подписью; строка игры доедет по «Понятно».
-        if (briefedRef.current) cb.current.onContext(progressRef.current);
+        // Пока висит реплика (lineRef) — прогресс копится в progressRef молча,
+        // иначе он затирает реплику в слоте на каждую смену этапа.
+        if (briefedRef.current && !lineRef.current) cb.current.onContext(progressRef.current);
+      },
+      onLine: (text, onDismiss) => {
+        if (!live) return;
+        lineRef.current =
+          text === null ? null : (
+            <div className="dialogue-context" onClick={onDismiss}>
+              <div className="dialogue-line">{text}</div>
+            </div>
+          );
+        if (briefedRef.current) cb.current.onContext(lineRef.current ?? progressRef.current);
       },
       onFinished: (result) => {
         if (live) cb.current.onFinished(result);
@@ -101,7 +116,9 @@ export function MinigameScreen({
   useEffect(() => {
     handleRef.current?.setPaused?.(!briefed);
     cb.current.onContext(
-      briefed ? progressRef.current : <div className="label">Инструктаж · перед запуском</div>,
+      briefed
+        ? (lineRef.current ?? progressRef.current)
+        : <div className="label">Инструктаж · перед запуском</div>,
     );
   }, [briefed]);
 

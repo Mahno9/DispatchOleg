@@ -34,6 +34,10 @@ interface LaunchOptions {
   muted: boolean;
   /** Bottom-bar slot 2 feed. Called any number of times, never terminal. */
   onProgress?: (text: string, percent?: number) => void;
+  /** Bottom-bar slot 2 story line (minigame_contract.md). `null` restores the
+   *  onProgress string; onDismiss is the game's own — the platform never
+   *  clears the slot on its own. */
+  onLine?: (text: string | null, onDismiss?: () => void) => void;
   /** Receives the result, or null when the player exited early / on error. */
   onFinished: (result: MinigameResult | null) => void;
 }
@@ -46,6 +50,7 @@ interface MinigameModule {
       onComplete: (result: MinigameResult) => void;
       onExit: () => void;
       onProgress: (text: string, percent?: number) => void;
+      onLine?: (text: string | null, onDismiss?: () => void) => void;
     },
   ) => { destroy: () => void; setPaused?: (paused: boolean) => void };
 }
@@ -71,7 +76,7 @@ async function getMinigames(): Promise<Minigame[]> {
  * at all — onFinished is then never called and the caller shows the failure.
  */
 export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandle> {
-  const { container, gameId, muted, onProgress, onFinished } = opts;
+  const { container, gameId, muted, onProgress, onLine, onFinished } = opts;
 
   let handle: MinigameHandle | null = null;
   let settled = false;
@@ -127,6 +132,7 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
       onComplete: (result) => finish(result),
       onExit: () => finish(null),
       onProgress: (text, percent) => onProgress?.(text, percent),
+      onLine: (text, onDismiss) => onLine?.(text, onDismiss),
     });
     return {
       destroy,
