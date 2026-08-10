@@ -273,7 +273,8 @@
             "type": "square",
             "size": 7,
             "breakableDensity": 0.2,
-            "seed": 2201
+            "seed": 2201,
+            "patrols": 0
           },
           "walls": [],
           "scale": 1,
@@ -284,7 +285,8 @@
             "type": "hex",
             "size": 7,
             "breakableDensity": 0.15,
-            "seed": 2202
+            "seed": 2202,
+            "patrols": 1
           },
           "walls": [],
           "scale": 1,
@@ -295,7 +297,8 @@
             "type": "circular",
             "size": 5,
             "breakableDensity": 0.1,
-            "seed": 2203
+            "seed": 2203,
+            "patrols": 2
           },
           "walls": [],
           "scale": 1,
