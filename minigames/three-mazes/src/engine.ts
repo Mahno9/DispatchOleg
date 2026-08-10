@@ -30,6 +30,8 @@ export interface Maze {
   finish: Pt;
   /** Patrol posts (normalized), placed on the honest route. Absent = no patrols. */
   patrols?: Pt[];
+  /** Bark triggers (normalized) on the honest route — a quiet player walks into them. */
+  quietSpots?: Pt[];
 }
 
 export type MazeType = 'square' | 'hex' | 'circular';
@@ -41,6 +43,8 @@ export interface GeneratorParams {
   seed: number;
   /** Searchlight patrol count, 0..3. Absent = 0. */
   patrols?: number;
+  /** Bark trigger count on the honest route, 0..3. Absent = 0. */
+  quietSpots?: number;
 }
 
 /** Radius of the player dot, px. */
@@ -658,14 +662,17 @@ export function generateMazeDetailed(params: GeneratorParams): MazeDetails {
     breakableTreeDist.push(c.dist);
   }
 
-  // --- patrols: placed on the honest route, after the RNG stream is done ---
+  // --- route props: placed on the honest route, after the RNG stream is done ---
   const maze: Maze = {
     walls,
     start: { ...(grid.centers[startCell] as Pt) },
     finish: { ...(grid.centers[finishCell] as Pt) },
   };
   const patrolCount = Math.max(0, Math.min(3, Math.floor(params.patrols ?? 0)));
-  if (patrolCount > 0) maze.patrols = placePatrolPosts(maze, patrolCount);
+  if (patrolCount > 0) maze.patrols = placeRoutePosts(maze, patrolCount);
+  const spotCount = Math.max(0, Math.min(3, Math.floor(params.quietSpots ?? 0)));
+  // Offset phase: bark spots share the route with the posts but not their coordinates.
+  if (spotCount > 0) maze.quietSpots = placeRoutePosts(maze, spotCount, 0.15);
 
   return {
     maze,
@@ -753,8 +760,12 @@ export function solvePath(maze: Maze, res = 384): Pt[] | null {
 /** A post must not stand on the doorstep of start or finish (normalized units). */
 export const PATROL_END_CLEARANCE = 0.09;
 
-/** Posts spread over the middle 70% of the honest route — never next to start/finish. */
-export function placePatrolPosts(maze: Maze, count: number): Pt[] {
+/**
+ * Props spread over the middle 70% of the honest route — never next to start/finish.
+ * `phase` shifts them inside their slots: 0.5 centres each slot (patrol posts),
+ * a different value puts another set on the same route without sharing coordinates.
+ */
+export function placeRoutePosts(maze: Maze, count: number, phase = 0.5): Pt[] {
   if (count <= 0) return [];
   const path = solvePath(maze);
   if (path === null || path.length < 2) return [];
@@ -772,7 +783,7 @@ export function placePatrolPosts(maze: Maze, count: number): Pt[] {
 
   const out: Pt[] = [];
   for (let i = 0; i < count; i++) {
-    const want = total * (0.15 + (0.7 * (i + 0.5)) / count);
+    const want = total * (0.15 + (0.7 * (i + phase)) / count);
     let j = 1;
     while (j < acc.length - 1 && (acc[j] as number) < want) j++;
     const a = path[j - 1] as Pt;
@@ -875,4 +886,58 @@ export function patrolCatches(
     Math.hypot(dot.x - px, dot.y - py) <= lightRadius + EPS &&
     Math.hypot(dot.vx, dot.vy) >= minSpeed - EPS
   );
+}
+
+// ---------------------------------------------------------------------------
+// Barks — short trigger lines, played phrase by phrase
+// ---------------------------------------------------------------------------
+
+export interface BarkDialogue {
+  lines: string[];
+  phrasePauseMs: number;
+  finalHoldMs: number;
+}
+
+export interface BarkPlay {
+  lines: string[];
+  i: number;
+  msLeft: number;
+  phraseMs: number;
+  finalMs: number;
+}
+
+/** Drops blank phrases and clamps the timers; null when nothing is left to say. */
+export function startBark(d: BarkDialogue): BarkPlay | null {
+  const lines = (Array.isArray(d.lines) ? d.lines : []).filter(
+    (s) => typeof s === 'string' && s.trim() !== '',
+  );
+  if (lines.length === 0) return null;
+  const ms = (v: number): number => (Number.isFinite(v) ? Math.max(0, v) : 0);
+  const phraseMs = ms(d.phrasePauseMs);
+  const finalMs = ms(d.finalHoldMs);
+  return { lines, i: 0, msLeft: lines.length > 1 ? phraseMs : finalMs, phraseMs, finalMs };
+}
+
+/**
+ * One tick. Pure: returns a new play state, null once the last phrase expired.
+ * A dt longer than a phrase rolls over as many phrases as it covers — no phrase
+ * survives a lag spike just because it was on screen when the frame stalled.
+ */
+export function stepBark(b: BarkPlay, dtMs: number): BarkPlay | null {
+  let i = b.i;
+  let msLeft = b.msLeft - Math.max(0, dtMs);
+  while (msLeft <= 0) {
+    if (i >= b.lines.length - 1) return null;
+    i++;
+    msLeft += i >= b.lines.length - 1 ? b.finalMs : b.phraseMs;
+  }
+  return { ...b, i, msLeft };
+}
+
+/** Uniform pick among the indices not in `used`; -1 when exhausted. Never mutates `used`. */
+export function drawIndex(poolSize: number, used: Set<number>, rnd: number): number {
+  const free: number[] = [];
+  for (let i = 0; i < poolSize; i++) if (!used.has(i)) free.push(i);
+  if (free.length === 0) return -1;
+  return free[Math.min(free.length - 1, Math.floor(rnd * free.length))] as number;
 }

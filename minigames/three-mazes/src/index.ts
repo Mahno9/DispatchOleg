@@ -1,6 +1,8 @@
 import {
   DOT_RADIUS,
   ZONE_RADIUS,
+  type BarkDialogue,
+  type BarkPlay,
   type DotState,
   type Maze,
   type MazeType,
@@ -14,9 +16,12 @@ import {
   computeScore,
   computeStyleTag,
   distancePointSegment,
+  drawIndex,
   generateMaze,
   makePatrol,
   patrolCatches,
+  startBark,
+  stepBark,
   stepPatrol,
   stepPhysics,
 } from './engine.js';
@@ -42,6 +47,7 @@ interface GeneratorParamsRaw {
   breakableDensity?: number;
   seed?: number;
   patrols?: number;
+  quietSpots?: number;
 }
 
 interface MazeConfig {
@@ -50,6 +56,7 @@ interface MazeConfig {
   start?: Pt;
   finish?: Pt;
   patrols?: Pt[];
+  quietSpots?: Pt[];
   scale?: number;
   scorePerMaze?: number;
 }
@@ -70,6 +77,7 @@ interface GameConfig {
   patrolSearchMs?: number;
   patrolCatchSpeedRatio?: number;
   mazes?: MazeConfig[];
+  barks?: { quiet?: BarkDialogue[]; onBreak?: BarkDialogue[] };
   sounds?: {
     wallBreak?: SoundVal;
     mazeComplete?: SoundVal;
@@ -87,6 +95,8 @@ interface Callbacks {
   }) => void;
   onExit: () => void;
   onProgress?: (text: string, percent?: number) => void;
+  /** Show a bark in the platform bottom bar; null hides it. `onDismiss` is the game's own killer. */
+  onLine?: (text: string | null, onDismiss?: () => void) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +169,20 @@ function pickSound(val: SoundVal): { url: string; volume: number } | undefined {
   return { url: last.url, volume: vol(last) };
 }
 
+/** Admin arrays may be missing or half-filled: keep only dialogues that have something to say. */
+function normalizeBarks(raw: BarkDialogue[] | undefined): BarkDialogue[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((d) => ({
+      lines: (Array.isArray(d?.lines) ? d.lines : []).filter(
+        (s) => typeof s === 'string' && s.trim() !== '',
+      ),
+      phrasePauseMs: Math.round(num(d?.phrasePauseMs, 2200, 0, 60000)),
+      finalHoldMs: Math.round(num(d?.finalHoldMs, 1500, 0, 60000)),
+    }))
+    .filter((d) => d.lines.length > 0);
+}
+
 /** Deterministic per-wall pseudo random in [0,1) — for crack decoration. */
 function hash01(i: number, salt: number): number {
   const x = Math.sin(i * 127.1 + salt * 311.7) * 43758.5453;
@@ -172,10 +196,16 @@ interface RtMaze {
   start: Pt;
   finish: Pt;
   patrols: Pt[];
+  /** Bark triggers, normalized (converted per check — nothing to remap on resize). */
+  spots: Pt[];
+  /** Fired once, silent for the rest of the launch: neither reset nor maze change clears it. */
+  spotsFired: boolean[];
   scale: number;
   score: number;
   breakableGroups: number;
 }
+
+const isPt = (p: Pt | undefined): boolean => Number.isFinite(p?.x) && Number.isFinite(p?.y);
 
 const isFiniteWall = (w: Wall): boolean =>
   [w.x1, w.y1, w.x2, w.y2].every((v) => typeof v === 'number' && Number.isFinite(v));
@@ -187,9 +217,8 @@ function normalizeMaze(raw: MazeConfig, index: number): RtMaze {
   let walls = Array.isArray(raw.walls) ? raw.walls.filter(isFiniteWall) : [];
   let start = raw.start;
   let finish = raw.finish;
-  let patrols = Array.isArray(raw.patrols)
-    ? raw.patrols.filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
-    : [];
+  let patrols = Array.isArray(raw.patrols) ? raw.patrols.filter(isPt) : [];
+  let spots = Array.isArray(raw.quietSpots) ? raw.quietSpots.filter(isPt) : [];
   if (walls.length === 0) {
     // Not generated in the admin yet — reproduce it from the (deterministic)
     // generator params so the game is playable straight out of the form.
@@ -203,11 +232,13 @@ function normalizeMaze(raw: MazeConfig, index: number): RtMaze {
       breakableDensity: num(g.breakableDensity, 0.15, 0, 1),
       seed: Math.floor(num(g.seed, 1 + index * 7919, -2147483648, 2147483647)),
       patrols: Math.round(num(g.patrols, 0, 0, 3)),
+      quietSpots: Math.round(num(g.quietSpots, 0, 0, 3)),
     });
     walls = maze.walls;
     start = maze.start;
     finish = maze.finish;
     patrols = maze.patrols ?? [];
+    spots = maze.quietSpots ?? [];
   }
   const groups = new Set<number>();
   walls.forEach((w, i) => {
@@ -218,6 +249,8 @@ function normalizeMaze(raw: MazeConfig, index: number): RtMaze {
     start: start ?? { x: 0.5, y: 0.5 },
     finish: finish ?? { x: 0.5, y: 0.5 },
     patrols,
+    spots,
+    spotsFired: spots.map(() => false),
     scale: num(raw.scale, 1, 0.3, 3),
     score: Math.round(num(raw.scorePerMaze, 100, 0, 1e6)),
     breakableGroups: groups.size,
@@ -268,6 +301,40 @@ export function init(
   const sounds = config.sounds ?? {};
   const mazes: RtMaze[] = (Array.isArray(config.mazes) ? config.mazes : []).map(normalizeMaze);
   const totalBreakable = mazes.reduce((s, m) => s + m.breakableGroups, 0);
+  const quietPool = normalizeBarks(config.barks?.quiet);
+  const breakPool = normalizeBarks(config.barks?.onBreak);
+
+  // --- barks: each dialogue plays at most once per launch, picked at random ---
+  const usedQuiet = new Set<number>();
+  const usedBreak = new Set<number>();
+  let bark: BarkPlay | null = null;
+  let lineShown: string | null = null;
+
+  /** A click on the platform panel kills the whole remaining dialogue, not one phrase. */
+  function dismissBark(): void {
+    bark = null;
+    pushLine();
+  }
+
+  /** Push on a real text change only — the bottom bar is not a per-frame channel. */
+  function pushLine(): void {
+    const text = bark ? (bark.lines[bark.i] as string) : null;
+    if (text === lineShown) return;
+    lineShown = text;
+    if (text === null) callbacks.onLine?.(null);
+    else callbacks.onLine?.(text, dismissBark);
+  }
+
+  function say(pool: BarkDialogue[], used: Set<number>): void {
+    const i = drawIndex(pool.length, used, Math.random());
+    if (i < 0) return;
+    used.add(i);
+    const b = startBark(pool[i] as BarkDialogue);
+    if (b) {
+      bark = b;
+      pushLine();
+    }
+  }
 
   // --- audio ---
   let muted = config.muted === true;
@@ -457,6 +524,7 @@ export function init(
     if (finished) return;
     finished = true;
     syncAmbient(false);
+    dismissBark();
     const styleTag = computeStyleTag(wallsBrokenTotal, breakerThreshold);
     const score = computeScore(earned, resets, penaltyPerReset);
     root.classList.remove(`${PREFIX}visible`);
@@ -494,6 +562,7 @@ export function init(
       p.mode = 'ALERT';
       p.target = { x: col.cx, y: col.cy }; // a second breach simply re-aims them
     }
+    say(breakPool, usedBreak);
     for (let i = 0; i < 5; i++) {
       const a = Math.random() * Math.PI * 2;
       const sp = 60 + Math.random() * 140;
@@ -608,6 +677,15 @@ export function init(
       if (patrolCatches(p.x, p.y, dot, patrolParams.lightRadius, patrolCatchSpeed)) {
         screamer(now);
         return;
+      }
+    }
+    // Invisible story triggers: stepping on one speaks, forever after it is silent.
+    for (let i = 0; i < mz.spots.length; i++) {
+      if (mz.spotsFired[i]) continue;
+      const s = toPx(mz.spots[i] as Pt);
+      if (Math.hypot(dot.x - s.x, dot.y - s.y) <= ZONE_RADIUS) {
+        mz.spotsFired[i] = true;
+        say(quietPool, usedQuiet);
       }
     }
     if (Math.hypot(dot.x - finishPx.x, dot.y - finishPx.y) <= ZONE_RADIUS) finishMaze(now);
@@ -881,6 +959,11 @@ export function init(
         skipPhysics = false;
       } else {
         update(dt, now);
+        // Same branch as the physics: pause, blur and the briefing freeze the phrases too.
+        if (bark) {
+          bark = stepBark(bark, dt * 1000);
+          pushLine();
+        }
       }
     }
     render(now);
@@ -899,6 +982,7 @@ export function init(
 
   // --- destroy ---
   function destroy(): void {
+    dismissBark();
     if (rafId !== null) window.cancelAnimationFrame(rafId);
     rafId = null;
     if (timerId !== null) window.clearTimeout(timerId);

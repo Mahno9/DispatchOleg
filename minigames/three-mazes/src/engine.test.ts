@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   BREAK_MIN_TREE_DIST,
   DOT_RADIUS,
+  PATROL_END_CLEARANCE,
+  type BarkPlay,
   type MazeType,
   type PatrolParams,
   type PatrolState,
@@ -13,15 +15,18 @@ import {
   computeScore,
   computeStyleTag,
   distancePointSegment,
+  drawIndex,
   generateMaze,
   generateMazeDetailed,
   makePatrol,
   minClearance,
   patrolCatches,
-  placePatrolPosts,
+  placeRoutePosts,
   raycast,
   relaxFactor,
   solvePath,
+  startBark,
+  stepBark,
   stepPatrol,
   stepPhysics,
 } from './engine.js';
@@ -355,8 +360,179 @@ describe('patrol posts', () => {
 
   it('returns nothing for a maze with no path or a non-positive count', () => {
     const sealed = { walls: [wall(0.5, 0, 0.5, 1)], start: { x: 0.2, y: 0.5 }, finish: { x: 0.8, y: 0.5 } };
-    expect(placePatrolPosts(sealed, 2)).toEqual([]);
-    expect(placePatrolPosts(generateMaze({ type: 'square', size: 8, breakableDensity: 0, seed: 1 }), 0)).toEqual([]);
+    expect(placeRoutePosts(sealed, 2)).toEqual([]);
+    expect(placeRoutePosts(generateMaze({ type: 'square', size: 8, breakableDensity: 0, seed: 1 }), 0)).toEqual([]);
+  });
+
+  it('another phase gives other points, still on the route and clear of the ends', () => {
+    for (const type of TYPES)
+      for (const seed of SEEDS) {
+        const m = generateMaze({ type, size: 10, breakableDensity: 0.3, seed });
+        const path = solvePath(m) as Pt[];
+        const mid = placeRoutePosts(m, 3);
+        const early = placeRoutePosts(m, 3, 0.15);
+        expect(early).toHaveLength(3);
+        expect(early).not.toEqual(mid);
+        for (const p of early) {
+          expect(Math.hypot(p.x - m.start.x, p.y - m.start.y)).toBeGreaterThanOrEqual(
+            PATROL_END_CLEARANCE - 1e-9,
+          );
+          expect(Math.hypot(p.x - m.finish.x, p.y - m.finish.y)).toBeGreaterThanOrEqual(
+            PATROL_END_CLEARANCE - 1e-9,
+          );
+          expect(Math.min(...path.map((q) => Math.hypot(p.x - q.x, p.y - q.y)))).toBeLessThan(0.01);
+        }
+      }
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('quiet spots', () => {
+  it('quiet spots do not perturb walls, start, finish or patrols', () => {
+    for (const type of TYPES)
+      for (const size of SIZES)
+        for (const seed of SEEDS) {
+          const p = { type, size, breakableDensity: 0.3, seed, patrols: 2 };
+          const plain = generateMazeDetailed(p).maze;
+          const withSpots = generateMazeDetailed({ ...p, quietSpots: 3 }).maze;
+          expect(withSpots.walls).toEqual(plain.walls);
+          expect(withSpots.start).toEqual(plain.start);
+          expect(withSpots.finish).toEqual(plain.finish);
+          expect(withSpots.patrols).toEqual(plain.patrols);
+        }
+  });
+
+  it('is deterministic and places exactly the requested number of spots', () => {
+    for (const type of TYPES)
+      for (const count of [1, 2, 3]) {
+        const p = { type, size: 8, breakableDensity: 0.3, seed: 4242, quietSpots: count };
+        expect(JSON.stringify(generateMazeDetailed(p))).toBe(
+          JSON.stringify(generateMazeDetailed(p)),
+        );
+        expect(generateMaze(p).quietSpots).toHaveLength(count);
+      }
+  });
+
+  it('no quietSpots field without them or with quietSpots = 0', () => {
+    for (const type of TYPES) {
+      const p = { type, size: 8, breakableDensity: 0.3, seed: 4242 };
+      expect(generateMaze(p).quietSpots).toBeUndefined();
+      expect(generateMaze({ ...p, quietSpots: 0 }).quietSpots).toBeUndefined();
+    }
+  });
+
+});
+
+// ---------------------------------------------------------------------------
+
+describe('drawIndex', () => {
+  it('covers the whole pool without repeats, then reports exhaustion', () => {
+    for (const size of [1, 2, 5, 17]) {
+      const used = new Set<number>();
+      for (let k = 0; k < size; k++) {
+        const i = drawIndex(size, used, (k * 0.37) % 1);
+        expect(i).toBeGreaterThanOrEqual(0);
+        expect(used.has(i)).toBe(false);
+        used.add(i);
+      }
+      expect(used.size).toBe(size);
+      expect(drawIndex(size, used, 0.5)).toBe(-1);
+    }
+  });
+
+  it('returns -1 for an empty pool', () => {
+    expect(drawIndex(0, new Set(), 0.5)).toBe(-1);
+    expect(drawIndex(-3, new Set(), 0.5)).toBe(-1);
+  });
+
+  it('rnd at both ends stays inside the free set', () => {
+    const used = new Set([0, 2]);
+    expect([1, 3]).toContain(drawIndex(4, used, 0));
+    expect([1, 3]).toContain(drawIndex(4, used, 0.999999));
+    expect([1, 3]).toContain(drawIndex(4, used, 1)); // guard against a sloppy caller
+  });
+
+  it('does not mutate used', () => {
+    const used = new Set([1]);
+    const before = structuredClone(used);
+    drawIndex(4, used, 0.5);
+    expect(used).toEqual(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('barks', () => {
+  const D = { lines: ['раз', 'два', 'три'], phrasePauseMs: 1000, finalHoldMs: 400 };
+  const text = (b: BarkPlay | null): string | null => (b ? (b.lines[b.i] as string) : null);
+
+  it('starts on the first phrase with the phrase timer', () => {
+    const b = startBark(D) as BarkPlay;
+    expect(text(b)).toBe('раз');
+    expect(b.msLeft).toBe(1000);
+  });
+
+  it('a single-phrase dialogue starts on the final timer', () => {
+    const b = startBark({ lines: ['одна'], phrasePauseMs: 1000, finalHoldMs: 400 }) as BarkPlay;
+    expect(b.msLeft).toBe(400);
+    expect(stepBark(b, 399)).not.toBeNull();
+    expect(stepBark(b, 400)).toBeNull();
+  });
+
+  const blanks: [string[], string | null][] = [
+    [[], null],
+    [['', '   '], null],
+    [['', 'есть'], 'есть'],
+  ];
+  it.each(blanks)('blank phrases are dropped: %j', (lines, expected) => {
+    expect(text(startBark({ lines, phrasePauseMs: 100, finalHoldMs: 100 }))).toBe(expected);
+  });
+
+  it('negative and NaN timers clamp to zero', () => {
+    const b = startBark({ lines: ['а', 'б'], phrasePauseMs: -500, finalHoldMs: NaN }) as BarkPlay;
+    expect(b.phraseMs).toBe(0);
+    expect(b.finalMs).toBe(0);
+    expect(stepBark(b, 0)).toBeNull(); // nothing holds anything: the whole dialogue is over
+  });
+
+  it('advances phrase by phrase and ends after the final hold', () => {
+    let b = startBark(D) as BarkPlay | null;
+    const step = (ms: number): void => {
+      b = b === null ? null : stepBark(b, ms);
+    };
+    step(999);
+    expect(text(b)).toBe('раз');
+    step(1);
+    expect(text(b)).toBe('два');
+    step(1000);
+    expect(text(b)).toBe('три');
+    expect(b?.msLeft).toBe(400);
+    step(399);
+    expect(text(b)).toBe('три');
+    step(1);
+    expect(b).toBeNull();
+  });
+
+  it('a long dt rolls over several phrases at once', () => {
+    const b = startBark(D) as BarkPlay;
+    expect(text(stepBark(b, 1500))).toBe('два');
+    expect(text(stepBark(b, 2100))).toBe('три');
+    expect(stepBark(b, 2400)).toBeNull();
+  });
+
+  it('stepBark does not mutate its input', () => {
+    const b = startBark(D) as BarkPlay;
+    const before = structuredClone(b);
+    stepBark(b, 1500);
+    expect(b).toEqual(before);
+  });
+
+  it('startBark does not mutate its input', () => {
+    const d = { lines: ['', 'да'], phrasePauseMs: -1, finalHoldMs: 10 };
+    const before = structuredClone(d);
+    startBark(d);
+    expect(d).toEqual(before);
   });
 });
 

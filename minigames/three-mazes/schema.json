@@ -158,6 +158,14 @@
                 "default": 0,
                 "minimum": 0,
                 "maximum": 3
+              },
+              "quietSpots": {
+                "type": "integer",
+                "title": "Точки реплик на маршруте",
+                "description": "Невидимые триггеры на честном пути: игрок проходит — звучит реплика. 0 — без реплик.",
+                "default": 0,
+                "minimum": 0,
+                "maximum": 3
               }
             },
             "required": ["type", "size", "breakableDensity", "seed"]
@@ -202,6 +210,16 @@
               "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
             }
           },
+          "quietSpots": {
+            "type": "array",
+            "title": "Точки реплик (результат генерации)",
+            "readOnly": true,
+            "default": [],
+            "items": {
+              "type": "object",
+              "properties": { "x": { "type": "number" }, "y": { "type": "number" } }
+            }
+          },
           "scale": {
             "type": "number",
             "title": "Масштаб отрисовки",
@@ -217,6 +235,79 @@
           }
         },
         "required": ["generatorParams"]
+      }
+    },
+    "barks": {
+      "type": "object",
+      "title": "Реплики в лабиринте",
+      "description": "Короткие реплики по триггерам. Каждый диалог звучит не более одного раза за запуск, выбор случайный. Текст показывает платформа в нижней панели.",
+      "properties": {
+        "quiet": {
+          "type": "array",
+          "title": "Реплики · тихий проход",
+          "description": "Срабатывают на точках маршрута (generatorParams.quietSpots).",
+          "default": [],
+          "items": {
+            "type": "object",
+            "title": "Диалог",
+            "properties": {
+              "lines": {
+                "type": "array",
+                "title": "Фразы",
+                "default": [],
+                "items": { "type": "string" }
+              },
+              "phrasePauseMs": {
+                "type": "integer",
+                "title": "Пауза между фразами, мс",
+                "default": 2200,
+                "minimum": 0,
+                "maximum": 60000
+              },
+              "finalHoldMs": {
+                "type": "integer",
+                "title": "Финальная пауза, мс",
+                "default": 1500,
+                "minimum": 0,
+                "maximum": 60000
+              }
+            },
+            "required": ["lines"]
+          }
+        },
+        "onBreak": {
+          "type": "array",
+          "title": "Реплики · пролом стены",
+          "description": "Срабатывают на каждом проломе, пока набор не исчерпан.",
+          "default": [],
+          "items": {
+            "type": "object",
+            "title": "Диалог",
+            "properties": {
+              "lines": {
+                "type": "array",
+                "title": "Фразы",
+                "default": [],
+                "items": { "type": "string" }
+              },
+              "phrasePauseMs": {
+                "type": "integer",
+                "title": "Пауза между фразами, мс",
+                "default": 2200,
+                "minimum": 0,
+                "maximum": 60000
+              },
+              "finalHoldMs": {
+                "type": "integer",
+                "title": "Финальная пауза, мс",
+                "default": 1500,
+                "minimum": 0,
+                "maximum": 60000
+              }
+            },
+            "required": ["lines"]
+          }
+        }
       }
     },
     "sounds": {
