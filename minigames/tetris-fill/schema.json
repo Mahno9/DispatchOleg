@@ -5,10 +5,67 @@
   "type": "object",
   "required": ["shape", "scoreThresholds"],
   "properties": {
+    "levels": {
+      "type": "array",
+      "title": "Уровни",
+      "description": "Уровни играются подряд, по нарастанию сложности. Поля уровня перекрывают одноимённые настройки ниже; что не задано — берётся оттуда. Список пуст — играется один силуэт из поля «Силуэт».",
+      "default": [],
+      "items": {
+        "type": "object",
+        "title": "Уровень",
+        "properties": {
+          "shape": {
+            "type": "object",
+            "title": "Силуэт",
+            "description": "Клетки, которые нужно заполнить на этом уровне.",
+            "x-type": "grid-paint",
+            "x-max-size": 16,
+            "required": ["width", "height", "rows"],
+            "default": {
+              "width": 4,
+              "height": 4,
+              "rows": [".##.", "####", "####", ".##."]
+            },
+            "properties": {
+              "width": { "type": "integer", "title": "Ширина", "minimum": 1, "maximum": 16 },
+              "height": { "type": "integer", "title": "Высота", "minimum": 1, "maximum": 16 },
+              "rows": { "type": "array", "title": "Строки", "items": { "type": "string" } }
+            }
+          },
+          "fallIntervalMs": {
+            "type": "integer",
+            "title": "Интервал падения, мс",
+            "minimum": 150,
+            "maximum": 3000
+          },
+          "lockDelayMs": {
+            "type": "integer",
+            "title": "Задержка фиксации, мс",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "hintAfterErrors": {
+            "type": "integer",
+            "title": "Подсказка после ошибок",
+            "minimum": 0
+          },
+          "randomizeRotation": {
+            "type": "boolean",
+            "title": "Случайный поворот детали"
+          },
+          "spawnColumn": {
+            "type": "string",
+            "title": "Где появляется деталь",
+            "enum": ["center", "target"],
+            "x-enumLabels": { "center": "По центру", "target": "Над своим местом (проще)" }
+          }
+        }
+      }
+    },
     "shape": {
       "type": "object",
       "title": "Силуэт",
-      "description": "Клетки, которые нужно заполнить. Разбиение на детали считается автоматически при запуске.",
+      "description": "Используется, если список уровней пуст. Разбиение на детали считается автоматически при запуске.",
       "x-type": "grid-paint",
       "x-max-size": 16,
       "required": ["width", "height", "rows"],

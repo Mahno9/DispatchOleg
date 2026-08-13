@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   EmptyShapeError,
+  levelsOf,
   collides,
   createFallState,
   hardDrop,
@@ -488,4 +490,57 @@ describe('scoreForElapsed', () => {
     expect(scoreForElapsed(flat, 5)).toBe(50);
     expect(scoreForElapsed(flat, 1)).toBeGreaterThan(scoreForElapsed([{ maxSeconds: 0, points: 100 }, { maxSeconds: 10, points: 0 }], 1));
   });
+});
+
+describe('levelsOf', () => {
+  it('старый конфиг без уровней — это один уровень', () => {
+    const shape = shapeOf(['##']);
+    expect(levelsOf({ shape, fallIntervalMs: 800 })).toEqual([{ shape, fallIntervalMs: 800 }]);
+    expect(levelsOf({ shape, levels: [] })).toEqual([{ shape }]);
+  });
+
+  it('уровень наследует верхний конфиг и перекрывает своими полями', () => {
+    const base = shapeOf(['##']);
+    const own = shapeOf(['#.', '##']);
+    const [a, b] = levelsOf({
+      shape: base,
+      fallIntervalMs: 800,
+      hintAfterErrors: 3,
+      levels: [{ shape: own }, { fallIntervalMs: 400 }],
+    });
+    expect(a).toEqual({ shape: own, fallIntervalMs: 800, hintAfterErrors: 3 });
+    expect(b).toEqual({ shape: base, fallIntervalMs: 400, hintAfterErrors: 3 });
+  });
+});
+
+describe('уровни из content/games.json', () => {
+  // Проверяем то, что реально уедет игроку: силуэты живут в контенте, а не в коде.
+  const games = JSON.parse(
+    readFileSync(new URL('../../../content/games.json', import.meta.url), 'utf8'),
+  ) as { minigame_id: string; config_json: Record<string, unknown> }[];
+  const configs = games.filter((g) => g.minigame_id === 'tetris-fill').map((g) => g.config_json);
+
+  it('в контенте есть хотя бы одна игра tetris-fill', () => {
+    expect(configs.length).toBeGreaterThan(0);
+  });
+
+  for (const [gi, config] of configs.entries()) {
+    for (const [li, level] of levelsOf(config).entries()) {
+      it(`игра ${gi + 1}, уровень ${li + 1}: силуэт разбирается и подаётся по гравитации`, () => {
+        const cells = parseShape(level.shape as ReturnType<typeof shapeOf>);
+        const pieces = orderForGravity(partition(cells));
+        const covered = pieces.flatMap((p) => p.cells.map(k));
+        expect(new Set(covered).size).toBe(cells.length);
+        expect(covered.length).toBe(cells.length);
+        // порядок подачи валиден: ни одна деталь не ложится под уже уложенную
+        for (let i = 0; i < pieces.length; i++) {
+          for (let j = i + 1; j < pieces.length; j++) {
+            const later = (pieces[j] as Piece).cells;
+            const earlier = (pieces[i] as Piece).cells;
+            expect(later.some((q) => earlier.some((p) => p.x === q.x && q.y > p.y))).toBe(false);
+          }
+        }
+      });
+    }
+  }
 });

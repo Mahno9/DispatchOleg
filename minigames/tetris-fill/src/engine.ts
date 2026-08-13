@@ -368,6 +368,28 @@ export function orderForGravity(pieces: Piece[]): Piece[] {
   return out.map((p, index) => ({ index, cells: p.cells }));
 }
 
+/** Per-level knobs; anything omitted falls back to the top-level config value. */
+export interface LevelConfig {
+  shape?: Shape;
+  fallIntervalMs?: number;
+  softDropFactor?: number;
+  lockDelayMs?: number;
+  spawnColumn?: SpawnColumn;
+  hintAfterErrors?: number;
+  randomizeRotation?: boolean;
+}
+
+/**
+ * Levels to play, in order: each level's own values win over the top-level ones.
+ * A config without `levels` (or with an empty list) is a single level — the old
+ * one-silhouette config keeps working unchanged.
+ */
+export function levelsOf(config: LevelConfig & { levels?: LevelConfig[] }): LevelConfig[] {
+  const { levels, ...base } = config;
+  if (!Array.isArray(levels) || levels.length === 0) return [base];
+  return levels.map((lv) => ({ ...base, ...lv }));
+}
+
 export function createFallState(shape: Shape, rules: FallRules): FallState {
   const cells = parseShape(shape);
   return {

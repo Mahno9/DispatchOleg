@@ -3,6 +3,7 @@ import {
   createFallState,
   hardDrop,
   landingY,
+  levelsOf,
   move,
   parseShape,
   rotateActive,
@@ -14,10 +15,10 @@ import {
   type Cell,
   type FallEvent,
   type FallState,
+  type LevelConfig,
   type Piece,
   type ScoreThreshold,
   type Shape,
-  type SpawnColumn,
 } from './engine.js';
 
 // ---------------------------------------------------------------------------
@@ -27,16 +28,11 @@ import {
 type WeightedAudio = { url: string; weight: number; volume?: number };
 type AudioValue = string | WeightedAudio[];
 
-interface GameConfig {
-  shape?: Shape;
+interface GameConfig extends LevelConfig {
+  /** Уровни по нарастанию сложности; пусто — одна арена из полей верхнего уровня. */
+  levels?: LevelConfig[];
   scoreThresholds?: ScoreThreshold[];
   errorPenalty?: number;
-  hintAfterErrors?: number;
-  randomizeRotation?: boolean;
-  fallIntervalMs?: number;
-  softDropFactor?: number;
-  lockDelayMs?: number;
-  spawnColumn?: SpawnColumn;
   sounds?: {
     rotate?: AudioValue;
     place?: AudioValue;
@@ -56,6 +52,8 @@ interface Callbacks {
 const PREFIX = 'tf-';
 const FADE_MS = 300;
 const WIN_MS = 400;
+/** Пауза между уровнями: собранный силуэт успевает вспыхнуть до следующего. */
+const LEVEL_MS = 900;
 const GAP = 1;
 const MIN_CELL = 16;
 const MAX_CELL = 48;
@@ -352,9 +350,19 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   }
 
   // --- config parsing (§6: bad silhouette → alarm panel + onExit) ---
-  let cells: Cell[];
+  const levels = levelsOf(config);
   try {
-    cells = parseShape(config.shape as Shape);
+    // все уровни проверяем сразу: битый силуэт третьего не должен всплыть на третьем уровне
+    for (const [i, lv] of levels.entries()) {
+      try {
+        parseShape(lv.shape as Shape);
+      } catch (e) {
+        if (levels.length > 1 && e instanceof Error && !(e instanceof EmptyShapeError)) {
+          throw new Error(`уровень ${i + 1}: ${e.message}`);
+        }
+        throw e;
+      }
+    }
   } catch (e) {
     const box = el('div', `${PREFIX}fault`);
     const status = el('div', `${PREFIX}fault__status`);
@@ -377,23 +385,21 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     return { destroy: baseDestroy, setPaused: () => {} };
   }
 
-  const shape = config.shape as Shape;
-  const W = shape.width;
-  const H = shape.height;
-
   const errorPenalty = intOr(config.errorPenalty, 5, 0, Number.MAX_SAFE_INTEGER);
-  const hintAfterErrors = intOr(config.hintAfterErrors, 3, 0, Number.MAX_SAFE_INTEGER);
-  const randomizeRotation = config.randomizeRotation !== false;
   const thresholds = Array.isArray(config.scoreThresholds) ? config.scoreThresholds : [];
   const rng = mulberry32(Date.now());
 
-  const state: FallState = createFallState(shape, {
-    fallIntervalMs: intOr(config.fallIntervalMs, 700, 150, 3000),
-    softDropFactor: Math.max(1, Math.min(20, Number(config.softDropFactor) || 6)),
-    lockDelayMs: intOr(config.lockDelayMs, 500, 0, 2000),
-    spawnColumn: config.spawnColumn === 'target' ? 'target' : 'center',
-  });
-  const total = state.pieces.length;
+  // --- per-level state (пересобирается в startLevel) ---
+  let levelIndex = 0;
+  let state!: FallState;
+  let W = 0;
+  let H = 0;
+  let total = 0;
+  let hintAfterErrors = 3;
+  let randomizeRotation = true;
+  /** Ошибки и детали уже пройденных уровней — текущие живут в state. */
+  let errorsDone = 0;
+  let piecesDone = 0;
 
   // --- state ---
   // Заморозка на время инструктажа: деталь не падает, ввод не принимается,
@@ -404,22 +410,29 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   const hintOn = (): boolean => state.pieceErrors >= hintAfterErrors;
   let cell = 24;
   let painted = 0;
-  let nextTurns = randomizeRotation ? Math.floor(rng() * 4) : 0;
+  let nextTurns = 0;
 
   // --- chrome ---
   const field = el('div', `${PREFIX}panel ${PREFIX}field`);
   const gridEl = el('div', `${PREFIX}grid`);
-  gridEl.style.gridTemplateColumns = `repeat(${W}, var(--c))`;
-  const cellEls: HTMLElement[] = [];
-  const inShape = new Uint8Array(W * H);
-  for (const c of cells) inShape[c.y * W + c.x] = 1;
-  for (let y = 0; y < H; y++) {
-    for (let x = 0; x < W; x++) {
-      const node = el('div', `${PREFIX}cell${inShape[y * W + x] ? '' : ` ${PREFIX}void`}`);
-      cellEls.push(node);
-      gridEl.appendChild(node);
+  let cellEls: HTMLElement[] = [];
+
+  /** Перерисовывает пустую сетку под силуэт уровня. */
+  function buildGrid(cells: Cell[]): void {
+    gridEl.innerHTML = '';
+    gridEl.style.gridTemplateColumns = `repeat(${W}, var(--c))`;
+    cellEls = [];
+    const inShape = new Uint8Array(W * H);
+    for (const c of cells) inShape[c.y * W + c.x] = 1;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const node = el('div', `${PREFIX}cell${inShape[y * W + x] ? '' : ` ${PREFIX}void`}`);
+        cellEls.push(node);
+        gridEl.appendChild(node);
+      }
     }
   }
+
   const shadowEl = el('div', `${PREFIX}shadow`);
   const pieceEl = el('div', `${PREFIX}piece`);
   field.append(gridEl, shadowEl, pieceEl);
@@ -471,7 +484,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       return;
     }
     pieceEl.style.display = '';
-    const key = `${state.current}:${a.turns}:${cell}`;
+    const key = `${levelIndex}:${state.current}:${a.turns}:${cell}`;
     if (key !== shapeKey) {
       shapeKey = key;
       renderSquares(pieceEl, a.shape);
@@ -509,14 +522,20 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     for (const c of (state.pieces[state.current] as Piece).cells) cellAt(c.x, c.y)?.classList.add(`${PREFIX}ghost`);
   }
 
+  const levelTag = (): string => (levels.length > 1 ? `Пробоина ${levelIndex + 1} / ${levels.length} · ` : '');
+
   function updateBar(): void {
-    headEl.textContent = state.current < total ? `Деталь ${state.current + 1} / ${total}` : `Собрано ${total} / ${total}`;
-    errEl.textContent = `Ошибок: ${state.errors}`;
-    errEl.classList.toggle(`${PREFIX}alert`, state.errors > 0);
+    const pieces = state.current < total ? `Деталь ${state.current + 1} / ${total}` : `Собрано ${total} / ${total}`;
+    headEl.textContent = levelTag() + pieces;
+    const errors = errorsDone + state.errors;
+    errEl.textContent = `Ошибок: ${errors}`;
+    errEl.classList.toggle(`${PREFIX}alert`, errors > 0);
   }
 
   function reportProgress(): void {
-    callbacks.onProgress?.(`СОБРАНО ${state.current} / ${total}`, Math.round((state.current / total) * 100));
+    const text = levelTag().toUpperCase() + `СОБРАНО ${state.current} / ${total}`;
+    const percent = ((levelIndex + state.current / total) / levels.length) * 100;
+    callbacks.onProgress?.(text, Math.round(percent));
   }
 
   function paintPiece(piece: Piece): void {
@@ -557,7 +576,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
         // сработало ровно на пороге — подсказка только что зажглась
         if (hintAfterErrors > 0 && state.pieceErrors === hintAfterErrors) play(config.sounds?.hint);
       } else {
-        win();
+        levelDone();
         return;
       }
     }
@@ -658,39 +677,78 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     if (e.key === 'ArrowDown') setSoftDrop(state, false);
   });
 
-  function win(): void {
-    if (finished) return;
-    finished = true;
+  /** Силуэт собран: либо следующий уровень через паузу, либо конец игры. */
+  function levelDone(): void {
     stopRepeat();
     renderActive();
     setHint(false);
     updateBar();
     root.classList.add(`${PREFIX}won`);
+    if (levelIndex + 1 >= levels.length) {
+      win();
+      return;
+    }
+    errorsDone += state.errors;
+    piecesDone += total;
+    play(config.sounds?.place);
+    later(() => {
+      root.classList.remove(`${PREFIX}won`);
+      startLevel(levelIndex + 1);
+    }, LEVEL_MS);
+  }
+
+  function win(): void {
+    if (finished) return;
+    finished = true;
+    renderActive();
     play(config.sounds?.win);
+    const errors = errorsDone + state.errors;
     const elapsedSeconds = Math.round((performance.now() - startedAt) / 1000);
-    const score = Math.max(0, Math.round(scoreForElapsed(thresholds, elapsedSeconds)) - errorPenalty * state.errors);
+    const score = Math.max(0, Math.round(scoreForElapsed(thresholds, elapsedSeconds)) - errorPenalty * errors);
     later(() => {
       fadeOut(() =>
         callbacks.onComplete({
           score,
           won: true,
           details: {
-            errors: state.errors,
-            pieces: total,
+            errors,
+            pieces: piecesDone + total,
             elapsedSeconds,
-            styleTag: state.errors === 0 ? 'precise' : 'rough',
+            styleTag: errors === 0 ? 'precise' : 'rough',
           },
         }),
       );
     }, WIN_MS);
   }
 
+  /** Собирает поле и состояние под уровень `i` и запускает подачу деталей. */
+  function startLevel(i: number): void {
+    const lv = levels[i] as LevelConfig;
+    const shape = lv.shape as Shape;
+    levelIndex = i;
+    W = shape.width;
+    H = shape.height;
+    hintAfterErrors = intOr(lv.hintAfterErrors, 3, 0, Number.MAX_SAFE_INTEGER);
+    randomizeRotation = lv.randomizeRotation !== false;
+    state = createFallState(shape, {
+      fallIntervalMs: intOr(lv.fallIntervalMs, 700, 150, 3000),
+      softDropFactor: Math.max(1, Math.min(20, Number(lv.softDropFactor) || 6)),
+      lockDelayMs: intOr(lv.lockDelayMs, 500, 0, 2000),
+      spawnColumn: lv.spawnColumn === 'target' ? 'target' : 'center',
+    });
+    total = state.pieces.length;
+    painted = 0;
+    nextTurns = randomizeRotation ? Math.floor(rng() * 4) : 0;
+    buildGrid(parseShape(shape));
+    spawn(state, nextTurns);
+    relayout();
+    updateBar();
+    reportProgress();
+    setHint(hintOn());
+  }
+
   // --- start ---
-  spawn(state, nextTurns);
-  relayout();
-  updateBar();
-  reportProgress();
-  setHint(hintOn());
+  startLevel(0);
   root.focus({ preventScroll: true });
   rafId = requestAnimationFrame(tick);
 
