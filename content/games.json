@@ -836,15 +836,15 @@
       },
       "scoreThresholds": [
         {
-          "maxSeconds": 45,
-          "points": 300
+          "maxSeconds": 150,
+          "points": 400
         },
         {
-          "maxSeconds": 120,
-          "points": 150
+          "maxSeconds": 360,
+          "points": 200
         },
         {
-          "maxSeconds": 300,
+          "maxSeconds": 720,
           "points": 0
         }
       ],
@@ -854,7 +854,78 @@
       "fallIntervalMs": 750,
       "softDropFactor": 6,
       "lockDelayMs": 500,
-      "spawnColumn": "center"
+      "spawnColumn": "center",
+      "levels": [
+        {
+          "shape": {
+            "width": 5,
+            "height": 3,
+            "rows": [
+              ".###.",
+              "#####",
+              ".###."
+            ]
+          },
+          "fallIntervalMs": 950,
+          "lockDelayMs": 800,
+          "hintAfterErrors": 1,
+          "randomizeRotation": false,
+          "spawnColumn": "target"
+        },
+        {
+          "shape": {
+            "width": 7,
+            "height": 5,
+            "rows": [
+              "..###..",
+              ".#####.",
+              "#######",
+              ".#####.",
+              "..###.."
+            ]
+          },
+          "fallIntervalMs": 800,
+          "lockDelayMs": 650,
+          "hintAfterErrors": 2,
+          "randomizeRotation": true,
+          "spawnColumn": "center"
+        },
+        {
+          "shape": {
+            "width": 8,
+            "height": 6,
+            "rows": [
+              "..####..",
+              ".######.",
+              "########",
+              "########",
+              ".######.",
+              "..####.."
+            ]
+          },
+          "fallIntervalMs": 650,
+          "lockDelayMs": 500,
+          "hintAfterErrors": 3
+        },
+        {
+          "shape": {
+            "width": 10,
+            "height": 7,
+            "rows": [
+              "..####....",
+              ".#######..",
+              "####..####",
+              "#####.####",
+              ".########.",
+              "..######..",
+              "...####..."
+            ]
+          },
+          "fallIntervalMs": 500,
+          "lockDelayMs": 350,
+          "hintAfterErrors": 5
+        }
+      ]
     },
     "character_id": null,
     "pre_dialogue_id": null,
