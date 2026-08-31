@@ -45,6 +45,15 @@
     "created_at": 1785884554692
   },
   {
+    "id": "hqShtab01",
+    "kind": "image",
+    "mime": "image/svg+xml",
+    "ext": "svg",
+    "original_name": "hq-shtab-background.svg",
+    "size_bytes": 20161,
+    "created_at": 1788220800000
+  },
+  {
     "id": "ms1gG2ok6a",
     "kind": "image",
     "mime": "image/svg+xml",
