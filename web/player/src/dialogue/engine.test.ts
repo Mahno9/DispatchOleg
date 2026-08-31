@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { advance, parseDialogue, pickPostDialogue, type DialogueDoc } from './engine';
+import { advance, initialSides, parseDialogue, pickPostDialogue, type DialogueDoc } from './engine';
 
 const RAW = {
   start: 'n1',
@@ -29,6 +29,7 @@ describe('parseDialogue', () => {
       text: 'Слушаю.',
       next: 'n2',
       choices: [],
+      link: null,
     });
     expect(doc.nodes.n2?.choices).toHaveLength(2);
     expect(doc.nodes.n2?.side).toBe('right');
@@ -41,6 +42,20 @@ describe('parseDialogue', () => {
     expect(parseDialogue({ start: 'gone', nodes: { n1: { text: 'a' } } })).toBeNull();
     expect(parseDialogue({ nodes: { n1: { text: 'a' } } })).toBeNull();
     expect(parseDialogue('[]')).toBeNull();
+  });
+
+  it('keeps http(s) links and drops everything else', () => {
+    const doc = parseDialogue({
+      start: 'n1',
+      nodes: {
+        n1: { text: 'a', link: 'https://t.me/black_mug' },
+        n2: { text: 'b', link: 'javascript:alert(1)' },
+        n3: { text: 'c', link: 42 },
+      },
+    })!;
+    expect(doc.nodes.n1?.link).toBe('https://t.me/black_mug');
+    expect(doc.nodes.n2?.link).toBeNull();
+    expect(doc.nodes.n3?.link).toBeNull();
   });
 
   it('drops junk nodes and fills defaults', () => {
@@ -70,6 +85,36 @@ describe('advance', () => {
     expect(advance(doc, 'n2', 1)).toBeNull(); // choice points at a node that does not exist
     expect(advance(doc, 'n2', 9)).toBeNull();
     expect(advance(doc, 'n2')).toBeNull(); // choices need an explicit pick
+  });
+});
+
+describe('initialSides', () => {
+  it('seeds Oleg left and the NPC right in a plain scene', () => {
+    const doc = parseDialogue(RAW) as DialogueDoc;
+    expect(initialSides(doc, null)).toEqual({ left: 'oleg', right: '7' });
+  });
+
+  it('seeds both sides from the document in an NPC↔NPC scene — no phantom Oleg', () => {
+    const doc = parseDialogue({
+      start: 'n1',
+      nodes: {
+        n1: { speaker: '53', side: 'left', text: 'a', next: 'n2' },
+        n2: { speaker: '62', side: 'right', text: 'b', next: null },
+      },
+    }) as DialogueDoc;
+    expect(initialSides(doc, null)).toEqual({ left: '53', right: '62' });
+    // The right slot honours the declared side even when a left-side NPC
+    // comes first in key order.
+    expect(initialSides(doc, '99')).toEqual({ left: '53', right: '62' });
+  });
+
+  it('falls back to Oleg and the game partner when a side never speaks', () => {
+    const doc = parseDialogue({
+      start: 'n1',
+      nodes: { n1: { speaker: 'oleg', side: 'left', text: 'a', next: null } },
+    }) as DialogueDoc;
+    expect(initialSides(doc, '7')).toEqual({ left: 'oleg', right: '7' });
+    expect(initialSides(doc, null)).toEqual({ left: 'oleg', right: null });
   });
 });
 

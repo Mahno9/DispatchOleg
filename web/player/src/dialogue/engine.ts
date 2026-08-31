@@ -20,6 +20,11 @@ export interface DialogueNode {
   next: string | null;
   /** Normalised to an array — empty means "plain `next` transition". */
   choices: DialogueChoice[];
+  /**
+   * External link the player must open before the node lets the scene advance
+   * (used by the finale to hand out a real-world contact). http(s) only.
+   */
+  link: string | null;
 }
 
 export interface DialogueDoc {
@@ -65,12 +70,30 @@ export function parseDialogue(raw: unknown): DialogueDoc | null {
       text: n.text,
       next: typeof n.next === 'string' ? n.next : null,
       choices: parseChoices(n.choices),
+      link: typeof n.link === 'string' && /^https?:\/\//.test(n.link) ? n.link : null,
     };
   }
 
   const start = doc.start;
   if (typeof start !== 'string' || !nodes[start]) return null;
   return { start, nodes };
+}
+
+/**
+ * Who occupies each side before the first line: the first speaker declared for
+ * that side anywhere in the document. Falls back to Oleg on the left and the
+ * game's character on the right — so a plain Oleg↔NPC scene keeps both
+ * portraits from frame one, and an NPC↔NPC scene shows no phantom Oleg.
+ */
+export function initialSides(
+  doc: DialogueDoc,
+  partner: string | null,
+): { left: string | null; right: string | null } {
+  const nodes = Object.values(doc.nodes);
+  return {
+    left: nodes.find((n) => n.side === 'left')?.speaker ?? OLEG,
+    right: nodes.find((n) => n.side === 'right')?.speaker ?? partner,
+  };
 }
 
 /**

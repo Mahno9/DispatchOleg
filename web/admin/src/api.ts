@@ -78,6 +78,8 @@ export interface DialogueNode {
   text: string;
   next?: string | null;
   choices?: DialogueChoice[] | null;
+  /** Внешняя ссылка: игрок обязан открыть её, прежде чем узел пропустит дальше. */
+  link?: string | null;
   /** Позиция узла в графовом редакторе, % от холста. Игрок эти поля игнорирует. */
   x?: number;
   y?: number;

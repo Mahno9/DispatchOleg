@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactN
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from '../camera/camera';
 import { CharacterInfo } from './CharacterInfo';
 import { silhouetteFor } from './Silhouettes';
-import { OLEG, advance, type DialogueDoc } from './engine';
+import { OLEG, advance, initialSides, type DialogueDoc } from './engine';
 
 /** Portrait source for one speaker id (`characters` row, trimmed). */
 export interface SceneCharacter {
@@ -96,18 +96,19 @@ export function DialogueScene({ doc, cast, partner, onContext, onFinish }: Dialo
   const node = doc.nodes[nodeId] ?? null;
   const text = node?.text ?? '';
   const done = shown >= text.length;
+  // Misclick guard for nodes with an external link: the scene refuses to
+  // advance until the player actually opened it.
+  const [linkOpened, setLinkOpened] = useState(false);
+  useEffect(() => setLinkOpened(false), [nodeId]);
 
   // Latest callbacks without re-running the effects that use them.
   const cb = useRef({ onContext, onFinish });
   cb.current = { onContext, onFinish };
 
   // Who stands where: the current speaker takes `side`, the other side keeps
-  // whoever spoke there last (Oleg left / the game character right initially).
-  const initialSides = useMemo(() => {
-    const other = Object.values(doc.nodes).find((n) => n.speaker !== OLEG)?.speaker ?? partner;
-    return { left: OLEG as string | null, right: other };
-  }, [doc, partner]);
-  const [sides, setSides] = useState(initialSides);
+  // whoever spoke there last (per-side seeding lives in engine.initialSides).
+  const seededSides = useMemo(() => initialSides(doc, partner), [doc, partner]);
+  const [sides, setSides] = useState(seededSides);
 
   useEffect(() => {
     if (!node) return;
@@ -175,6 +176,7 @@ export function DialogueScene({ doc, cast, partner, onContext, onFinish }: Dialo
   function onSceneClick(): void {
     if (!done) return setShown(text.length);
     if (node && node.choices.length > 0) return; // waiting for a card
+    if (node?.link && !linkOpened) return; // waiting for the link to be opened
     go();
   }
 
@@ -196,6 +198,23 @@ export function DialogueScene({ doc, cast, partner, onContext, onFinish }: Dialo
           cast={cast}
         />
       </div>
+
+      {done && node?.link && (
+        <div className="dialogue-choices">
+          <a
+            className="btn dialogue-choice"
+            href={node.link}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLinkOpened(true);
+            }}
+          >
+            {node.link.replace(/^https?:\/\//, '')}
+          </a>
+        </div>
+      )}
 
       {choices.length > 0 && (
         <div className="dialogue-choices">

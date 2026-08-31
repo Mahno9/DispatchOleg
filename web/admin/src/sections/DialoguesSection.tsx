@@ -275,6 +275,14 @@ function NodeForm({
         onChange={(e) => onPatch({ text: e.target.value })}
       />
 
+      <label className='poi-field-label'>Ссылка (блокирует переход, пока не открыта)</label>
+      <input
+        value={node.link ?? ''}
+        placeholder='https://…'
+        spellCheck={false}
+        onChange={(e) => onPatch({ link: e.target.value.trim() || null })}
+      />
+
       {/* next и choices взаимоисключающие — docs/dialogue-system.md §1.2 */}
       {choices.length === 0 ? (
         <>
