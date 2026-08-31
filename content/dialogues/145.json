@@ -1,0 +1,45 @@
+{
+  "id": 145,
+  "title": "Три уровня подземки · провал",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Я потерял метку. Всё сначала.",
+        "next": "n2",
+        "x": 6,
+        "y": 45,
+        "choices": null
+      },
+      "n2": {
+        "speaker": "58",
+        "side": "right",
+        "text": "Бывает. В 81-м я неделю водил метку по кругу, пока не понял, что читаю собственные следы.",
+        "next": "n3",
+        "x": 28,
+        "y": 45,
+        "choices": null
+      },
+      "n3": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "И что вы сделали?",
+        "next": "n4",
+        "x": 50,
+        "y": 45,
+        "choices": null
+      },
+      "n4": {
+        "speaker": "58",
+        "side": "right",
+        "text": "Пошёл с начала. Иди и ты.",
+        "next": null,
+        "x": 72,
+        "y": 45,
+        "choices": null
+      }
+    }
+  }
+}

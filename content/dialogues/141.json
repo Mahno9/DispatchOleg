@@ -1,0 +1,54 @@
+{
+  "id": 141,
+  "title": "Разбор ночной смены · провал",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "62",
+        "side": "right",
+        "text": "Смена не принята. В очереди несоответствия.",
+        "next": "n2",
+        "x": 6,
+        "y": 45,
+        "choices": null
+      },
+      "n2": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Я переразберу.",
+        "next": "n3",
+        "x": 28,
+        "y": 45,
+        "choices": null
+      },
+      "n3": {
+        "speaker": "62",
+        "side": "right",
+        "text": "Разумеется. Пересортировка уже заведена как подзадача. Девятая.",
+        "next": "n4",
+        "x": 50,
+        "y": 45,
+        "choices": null
+      },
+      "n4": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Их же восемь.",
+        "next": "n5",
+        "x": 72,
+        "y": 45,
+        "choices": null
+      },
+      "n5": {
+        "speaker": "62",
+        "side": "right",
+        "text": "Было. Мы растём.",
+        "next": null,
+        "x": 88,
+        "y": 45,
+        "choices": null
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "id": 154,
+  "title": "Восточный мост · провал",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Отбой, дальше пожарные. ...Феномачо, твоя метка ведёт домой.",
+        "next": "n2",
+        "x": 6,
+        "y": 45,
+        "choices": null
+      },
+      "n2": {
+        "speaker": "61",
+        "side": "right",
+        "text": "Это реконструктор. Он строит мне маршрут.",
+        "next": "n3",
+        "x": 28,
+        "y": 45,
+        "choices": null
+      },
+      "n3": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Это сбой.",
+        "next": "n4",
+        "x": 50,
+        "y": 45,
+        "choices": null
+      },
+      "n4": {
+        "speaker": "61",
+        "side": "right",
+        "text": "Единственный, кто обо мне заботится, — и тот сбой.",
+        "next": null,
+        "x": 72,
+        "y": 45,
+        "choices": null
+      }
+    }
+  }
+}

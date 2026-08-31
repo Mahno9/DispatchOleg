@@ -1,0 +1,45 @@
+{
+  "id": 150,
+  "title": "Пробоина в отсеке · победа",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Закрыто. Отсек герметичен.",
+        "next": "n2",
+        "x": 6,
+        "y": 45,
+        "choices": null
+      },
+      "n2": {
+        "speaker": "57",
+        "side": "right",
+        "text": "Красиво вышло. Можно я потрогаю?",
+        "next": "n3",
+        "x": 28,
+        "y": 45,
+        "choices": null
+      },
+      "n3": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Нет.",
+        "next": "n4",
+        "x": 50,
+        "y": 45,
+        "choices": null
+      },
+      "n4": {
+        "speaker": "57",
+        "side": "right",
+        "text": "Понял. Извините.",
+        "next": null,
+        "x": 72,
+        "y": 45,
+        "choices": null
+      }
+    }
+  }
+}

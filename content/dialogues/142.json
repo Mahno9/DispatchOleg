@@ -1,0 +1,45 @@
+{
+  "id": 142,
+  "title": "[Резерв] Видия · пожар · победа",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Двенадцать из двенадцати. Чисто сработано.",
+        "next": "n2",
+        "x": 6,
+        "y": 45,
+        "choices": null
+      },
+      "n2": {
+        "speaker": "55",
+        "side": "right",
+        "text": "Одна гражданка поблагодарила асфальт.",
+        "next": "n3",
+        "x": 28,
+        "y": 45,
+        "choices": null
+      },
+      "n3": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Оформлю благодарность на тебя. Официально.",
+        "next": "n4",
+        "x": 50,
+        "y": 45,
+        "choices": null
+      },
+      "n4": {
+        "speaker": "55",
+        "side": "right",
+        "text": "Не надо. Асфальту приятнее.",
+        "next": null,
+        "x": 72,
+        "y": 45,
+        "choices": null
+      }
+    }
+  }
+}

@@ -224,8 +224,8 @@
     },
     "character_id": 62,
     "pre_dialogue_id": 138,
-    "post_win_dialogue_id": null,
-    "post_lose_dialogue_id": null,
+    "post_win_dialogue_id": 140,
+    "post_lose_dialogue_id": 141,
     "style_dialogues_json": {},
     "required_game_ids_json": [],
     "sort_order": 10,
@@ -248,10 +248,10 @@
       "streakStep": 3,
       "maxMultiplier": 4
     },
-    "character_id": 55,
-    "pre_dialogue_id": 137,
-    "post_win_dialogue_id": null,
-    "post_lose_dialogue_id": null,
+    "character_id": 61,
+    "pre_dialogue_id": 152,
+    "post_win_dialogue_id": 153,
+    "post_lose_dialogue_id": 154,
     "style_dialogues_json": {},
     "required_game_ids_json": [
       20
@@ -486,8 +486,8 @@
     },
     "character_id": 58,
     "pre_dialogue_id": 139,
-    "post_win_dialogue_id": null,
-    "post_lose_dialogue_id": null,
+    "post_win_dialogue_id": 144,
+    "post_lose_dialogue_id": 145,
     "style_dialogues_json": {},
     "required_game_ids_json": [
       21
@@ -582,10 +582,10 @@
       ],
       "prizeImage": ""
     },
-    "character_id": null,
-    "pre_dialogue_id": null,
-    "post_win_dialogue_id": null,
-    "post_lose_dialogue_id": null,
+    "character_id": 56,
+    "pre_dialogue_id": 146,
+    "post_win_dialogue_id": 147,
+    "post_lose_dialogue_id": 148,
     "style_dialogues_json": {},
     "required_game_ids_json": [
       20
@@ -927,10 +927,10 @@
         }
       ]
     },
-    "character_id": null,
-    "pre_dialogue_id": null,
-    "post_win_dialogue_id": null,
-    "post_lose_dialogue_id": null,
+    "character_id": 57,
+    "pre_dialogue_id": 149,
+    "post_win_dialogue_id": 150,
+    "post_lose_dialogue_id": 151,
     "style_dialogues_json": {},
     "required_game_ids_json": [
       22

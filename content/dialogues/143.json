@@ -1,0 +1,45 @@
+{
+  "id": 143,
+  "title": "[Резерв] Видия · пожар · провал",
+  "nodes_json": {
+    "start": "n1",
+    "nodes": {
+      "n1": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "Отбой. Дальше работают пожарные.",
+        "next": "n2",
+        "x": 6,
+        "y": 45,
+        "choices": null
+      },
+      "n2": {
+        "speaker": "55",
+        "side": "right",
+        "text": "Я стояла где надо. Запиши это куда-нибудь.",
+        "next": "n3",
+        "x": 28,
+        "y": 45,
+        "choices": null
+      },
+      "n3": {
+        "speaker": "oleg",
+        "side": "left",
+        "text": "В сводку. Отдельной строкой.",
+        "next": "n4",
+        "x": 50,
+        "y": 45,
+        "choices": null
+      },
+      "n4": {
+        "speaker": "55",
+        "side": "right",
+        "text": "Строку тоже никто не прочитает. Но пусть будет.",
+        "next": null,
+        "x": 72,
+        "y": 45,
+        "choices": null
+      }
+    }
+  }
+}

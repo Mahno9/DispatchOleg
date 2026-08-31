@@ -1,6 +1,6 @@
 {
   "id": 137,
-  "title": "Восточный мост - начало",
+  "title": "[Резерв] Видия · пожар · до",
   "nodes_json": {
     "start": "n1",
     "nodes": {
@@ -84,7 +84,7 @@
         "speaker": "oleg",
         "side": "left",
         "text": "Кричи. Пусть хоть слышат, куда падать.",
-        "next": null,
+        "next": "n11",
         "x": 78,
         "y": 62,
         "choices": null
@@ -93,7 +93,7 @@
         "speaker": "oleg",
         "side": "left",
         "text": "Дам тебе прожектор со второй машины.",
-        "next": null,
+        "next": "n12",
         "x": 78,
         "y": 76,
         "choices": null
@@ -102,8 +102,35 @@
         "speaker": "oleg",
         "side": "left",
         "text": "Держи руки. Разберёмся по ходу.",
-        "next": null,
+        "next": "n13",
         "x": 78,
+        "y": 90,
+        "choices": null
+      },
+      "n11": {
+        "speaker": "55",
+        "side": "right",
+        "text": "Кричу третий этаж подряд. Они думают, асфальт разговаривает.",
+        "next": null,
+        "x": 92,
+        "y": 62,
+        "choices": null
+      },
+      "n12": {
+        "speaker": "55",
+        "side": "right",
+        "text": "Свет пройдёт насквозь. Получится самый заметный асфальт в городе.",
+        "next": null,
+        "x": 92,
+        "y": 76,
+        "choices": null
+      },
+      "n13": {
+        "speaker": "55",
+        "side": "right",
+        "text": "Держу. Как всегда. Незаметно для окружающих.",
+        "next": null,
+        "x": 92,
         "y": 90,
         "choices": null
       }
