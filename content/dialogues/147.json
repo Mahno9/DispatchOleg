@@ -31,6 +31,7 @@
         "y": 45,
         "choices": null
       }
-    }
+    },
+    "remote": true
   }
 }

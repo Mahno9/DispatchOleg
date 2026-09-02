@@ -112,6 +112,7 @@
         "y": 76,
         "choices": null
       }
-    }
+    },
+    "remote": true
   }
 }

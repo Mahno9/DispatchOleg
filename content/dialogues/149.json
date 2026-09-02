@@ -116,6 +116,7 @@
         "y": 88,
         "choices": null
       }
-    }
+    },
+    "remote": true
   }
 }

@@ -139,6 +139,7 @@
         "y": 98,
         "choices": null
       }
-    }
+    },
+    "remote": false
   }
 }

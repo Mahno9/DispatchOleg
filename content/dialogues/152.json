@@ -242,6 +242,7 @@
         "y": 92,
         "choices": null
       }
-    }
+    },
+    "remote": true
   }
 }

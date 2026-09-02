@@ -152,6 +152,7 @@
         "y": 84,
         "choices": null
       }
-    }
+    },
+    "remote": false
   }
 }
