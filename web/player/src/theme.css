@@ -575,10 +575,9 @@ h3 {
   cursor: default;
 }
 
-.meta-char--idle .meta-char-frame {
-  border-color: var(--line-dim);
-}
-
+/* A slot on the floor, not a box: the cast stands on the grid (Windows.png
+   "МЕТА"), and a bordered cell only framed dead space above the shorter assets.
+   Hover reads off the name chip and the «ДИАЛОГ» tag instead. */
 .meta-char-frame {
   position: relative;
   display: flex;
@@ -586,20 +585,6 @@ h3 {
   justify-content: center;
   width: clamp(96px, 13vw, 150px);
   height: clamp(120px, 26vh, 210px);
-  overflow: hidden;
-  background: rgba(3, 11, 12, 0.45);
-  border: 1px solid var(--line-dim);
-  clip-path: var(--cut-sm);
-  transition:
-    border-color var(--t) linear,
-    background var(--t) linear;
-}
-
-.meta-char:not(.meta-char--idle):hover .meta-char-frame,
-.meta-char:focus-visible .meta-char-frame {
-  border-color: var(--glow);
-  background: var(--surface);
-  box-shadow: var(--halo);
 }
 
 /* «ДИАЛОГ» marker — only while the character is under the cursor. */
@@ -1048,8 +1033,9 @@ h3 {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-end;
   gap: 6px;
-  width: min(100%, 340px);
+  width: min(100%, 420px);
   min-height: 0;
   margin: 0 auto;
   animation: portrait-in 180ms steps(6, end) both;
@@ -1059,32 +1045,58 @@ h3 {
   visibility: hidden;
 }
 
+/* No box around the figure (Windows.png "НАЧАЛО ИГРЫ"): the assets run from 3:4
+   to landscape, so any fixed frame either crops them or leaves them floating in
+   dead space. Who is speaking is carried by the caption and the muted filter. */
 .portrait-frame {
   position: relative;
   display: flex;
   flex: 1;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  width: min(100%, 340px);
+  width: min(100%, 420px);
   min-height: 0;
+}
+
+/* Comms panel — a screen instead of a figure. The dispatcher is on one always
+   (his side of the terminal is a camera feed, live or not); everyone else only
+   when the scene is a call (`nodes_json.remote`). The box sits on the frame, not
+   on the media: `.portrait-muted`'s filter would dim a border down to nothing. */
+.portrait-dispatcher .portrait-frame,
+.portrait-remote .portrait-frame {
+  flex: 0 1 auto;
+  aspect-ratio: 3 / 4;
+  max-height: 100%;
   overflow: hidden;
   background: rgba(3, 11, 12, 0.55);
   border: 1px solid var(--line-dim);
   clip-path: var(--cut);
-  transition:
-    border-color var(--t) linear,
-    filter var(--t) linear;
+  transition: border-color var(--t) linear;
 }
 
-.portrait-speaking .portrait-frame {
+/* No halo: `--cut` clips a box-shadow away, so the speaker is the lit edge. */
+.portrait-speaking.portrait-dispatcher .portrait-frame,
+.portrait-speaking.portrait-remote .portrait-frame {
   border-color: var(--glow);
-  box-shadow: var(--halo);
 }
 
+/* Inside a panel the picture fills the screen and crops from the top: what a
+   feed cuts off is the legs, never the head. */
+.portrait-dispatcher .portrait-media,
+.portrait-remote .portrait-media {
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* Avatars are whole figures on a transparent ground, not photos: `cover` cut the
+   head and both shoulders off every asset that isn't 3:4. Only the webcam, which
+   really is a photo of a box it has to fill, still wants `cover`. */
 .portrait-media {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: bottom;
   filter: saturate(0.6) contrast(1.1);
 }
 

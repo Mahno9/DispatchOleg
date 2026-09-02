@@ -61,7 +61,9 @@ function renameNode(doc: DialogueDoc, from: string, to: string): DialogueDoc {
   for (const [id, node] of Object.entries(doc.nodes)) {
     nodes[id === from ? to : id] = relink(node, from, to);
   }
-  return { start: doc.start === from ? to : doc.start, nodes };
+  // `...doc` carries `remote` through — a rebuilt-from-scratch doc silently
+  // dropped it, so renaming any node undid the scene's comms-panel flag.
+  return { ...doc, start: doc.start === from ? to : doc.start, nodes };
 }
 
 function freeId(nodes: Record<string, DialogueNode>, base = 'n'): string {
@@ -90,13 +92,14 @@ function parseDoc(text: string): DialogueDoc | null {
     return null;
   }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-  const { start, nodes } = raw as { start?: unknown; nodes?: unknown };
+  const { start, nodes, remote } = raw as { start?: unknown; nodes?: unknown; remote?: unknown };
   if (nodes !== undefined && (typeof nodes !== 'object' || nodes === null || Array.isArray(nodes))) {
     return null;
   }
   return {
     start: typeof start === 'string' ? start : '',
     nodes: (nodes ?? {}) as Record<string, DialogueNode>,
+    remote: remote === true,
   };
 }
 
@@ -129,8 +132,11 @@ export function validateDialogue(text: string): ValidationResult {
     return { errors: ['Ожидается объект { start, nodes }'], warnings, doc: null };
   }
 
-  const { start, nodes } = raw as { start?: unknown; nodes?: unknown };
+  const { start, nodes, remote } = raw as { start?: unknown; nodes?: unknown; remote?: unknown };
   if (typeof start !== 'string' || start === '') errors.push('Поле «start» должно быть строкой');
+  if (remote !== undefined && typeof remote !== 'boolean') {
+    errors.push('Поле «remote» должно быть true или false');
+  }
   if (typeof nodes !== 'object' || nodes === null || Array.isArray(nodes)) {
     errors.push('Поле «nodes» должно быть объектом');
     return { errors, warnings, doc: null };
@@ -189,7 +195,7 @@ export function validateDialogue(text: string): ValidationResult {
   return {
     errors,
     warnings,
-    doc: errors.length === 0 ? ({ start, nodes: map } as DialogueDoc) : null,
+    doc: errors.length === 0 ? ({ start, nodes: map, remote: remote === true } as DialogueDoc) : null,
   };
 }
 
@@ -805,6 +811,16 @@ export function DialoguesSection() {
               <div className='dlg-title-row'>
                 <label className='poi-field-label'>Название</label>
                 <input value={title} onChange={(e) => setTitle(e.target.value)} />
+                {/* Сцена целиком: либо разговор в штабе, либо звонок. */}
+                <label className='poi-check-label' title='Портреты рисуются экранами связи'>
+                  <input
+                    type='checkbox'
+                    checked={doc?.remote === true}
+                    disabled={!doc}
+                    onChange={(e) => updateDoc((d) => ({ ...d, remote: e.target.checked }))}
+                  />
+                  Удалённо
+                </label>
                 <span className='dlg-graph-hint'>
                   узлов: {ids.length} · старт: {doc?.start || '—'}
                 </span>

@@ -6,12 +6,18 @@ import { OLEG } from './engine';
  *
  * Rules of the set: one solid shape per figure (`currentColor`, coloured by
  * `.avatar-silhouette`), head-and-shoulders framing, nothing thinner than a few
- * units — these are read at ~100x140 px on a phone. The 3:4 viewBox matches
- * `.meta-char-frame`, so `meet` scaling leaves almost no letterboxing.
+ * units — these are read at ~100x140 px on a phone. `xMidYMax` stands the figure
+ * on the floor of its slot, the way the drawn portrait assets sit.
  */
 function Bust({ children }: { children: ReactNode }) {
   return (
-    <svg className="avatar-silhouette" viewBox="0 0 120 160" fill="currentColor" aria-hidden="true">
+    <svg
+      className="avatar-silhouette"
+      viewBox="0 0 120 160"
+      preserveAspectRatio="xMidYMax meet"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       {children}
     </svg>
   );

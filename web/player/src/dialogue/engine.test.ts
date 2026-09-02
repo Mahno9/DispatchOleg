@@ -44,6 +44,16 @@ describe('parseDialogue', () => {
     expect(parseDialogue('[]')).toBeNull();
   });
 
+  it('reads `remote` as a strict boolean, defaulting to a face-to-face scene', () => {
+    const nodes = { n1: { text: 'a' } };
+    expect(parseDialogue(RAW)!.remote).toBe(false);
+    expect(parseDialogue({ start: 'n1', nodes, remote: true })!.remote).toBe(true);
+    expect(parseDialogue({ start: 'n1', nodes, remote: false })!.remote).toBe(false);
+    // Anything but `true` is a near scene: a typo must not stage a call.
+    expect(parseDialogue({ start: 'n1', nodes, remote: 'true' })!.remote).toBe(false);
+    expect(parseDialogue({ start: 'n1', nodes, remote: 1 })!.remote).toBe(false);
+  });
+
   it('keeps http(s) links and drops everything else', () => {
     const doc = parseDialogue({
       start: 'n1',

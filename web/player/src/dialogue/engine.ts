@@ -30,6 +30,12 @@ export interface DialogueNode {
 export interface DialogueDoc {
   start: string;
   nodes: Record<string, DialogueNode>;
+  /**
+   * The scene is a call, not a meeting: both portraits are shown as comms
+   * panels — framed screens that crop to fill — instead of figures standing on
+   * the stage. Default false, i.e. face to face.
+   */
+  remote: boolean;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -76,7 +82,7 @@ export function parseDialogue(raw: unknown): DialogueDoc | null {
 
   const start = doc.start;
   if (typeof start !== 'string' || !nodes[start]) return null;
-  return { start, nodes };
+  return { start, nodes, remote: doc.remote === true };
 }
 
 /**

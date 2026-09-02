@@ -88,6 +88,8 @@ export interface DialogueNode {
 export interface DialogueDoc {
   start: string;
   nodes: Record<string, DialogueNode>;
+  /** Разговор удалённый — плеер рисует портреты экранами связи, а не фигурами. */
+  remote?: boolean;
 }
 
 export interface Dialogue {

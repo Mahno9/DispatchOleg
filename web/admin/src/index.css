@@ -3214,7 +3214,8 @@ textarea {
   gap: 10px;
 }
 
-.dlg-title-row input {
+/* Прямой потомок: в строке рядом с названием живут и другие поля. */
+.dlg-title-row > input {
   flex: 1;
   min-width: 0;
 }

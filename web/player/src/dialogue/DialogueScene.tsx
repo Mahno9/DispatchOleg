@@ -53,17 +53,24 @@ interface PortraitProps {
   id: string | null;
   side: 'left' | 'right';
   speaking: boolean;
+  /** `doc.remote` — draw the portrait as a comms panel instead of a figure. */
+  remote: boolean;
   cast: Record<string, SceneCharacter>;
 }
 
-function Portrait({ id, side, speaking, cast }: PortraitProps) {
+function Portrait({ id, side, speaking, remote, cast }: PortraitProps) {
   if (id === null) return <div className="portrait portrait-empty" />;
   const character = cast[id];
   const name = id === OLEG ? 'Олег' : (character?.name ?? '???');
+  // Oleg is always on a screen — his side of the terminal is the camera feed,
+  // live or not. Everyone else only when the scene is a call.
+  const framed = id === OLEG ? ' portrait-dispatcher' : remote ? ' portrait-remote' : '';
   return (
     <figure
       key={id}
-      className={`portrait portrait-${side} ${speaking ? 'portrait-speaking' : 'portrait-muted'}`}
+      className={`portrait portrait-${side} ${
+        speaking ? 'portrait-speaking' : 'portrait-muted'
+      }${framed}`}
     >
       <div className="portrait-frame">
         {id === OLEG ? (
@@ -189,12 +196,14 @@ export function DialogueScene({ doc, cast, partner, onContext, onFinish }: Dialo
           id={node?.side === 'left' ? node.speaker : sides.left}
           side="left"
           speaking={node?.side === 'left'}
+          remote={doc.remote}
           cast={cast}
         />
         <Portrait
           id={node?.side === 'right' ? node.speaker : sides.right}
           side="right"
           speaking={node?.side === 'right'}
+          remote={doc.remote}
           cast={cast}
         />
       </div>
