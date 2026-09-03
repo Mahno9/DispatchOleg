@@ -73,7 +73,13 @@ describe('launchMinigame — onLine', () => {
 
     const container = { appendChild: vi.fn() } as unknown as HTMLElement;
     const onLine = vi.fn();
-    await launchMinigame({ container, gameId: 1, muted: false, onLine, onFinished: vi.fn() });
+    await launchMinigame({
+      container,
+      gameId: 1,
+      audio: { muted: false, musicVolume: 70, sfxVolume: 100 },
+      onLine,
+      onFinished: vi.fn(),
+    });
 
     // Фикстура зовёт onLine('...', dismiss) прямо из init.
     expect(onLine).toHaveBeenNthCalledWith(1, 'Тут кто-то уже проходил.', expect.any(Function));

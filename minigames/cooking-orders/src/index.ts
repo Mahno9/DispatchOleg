@@ -47,6 +47,9 @@ interface GameConfig {
     wipe?: AudioValue;
   };
   muted?: boolean;
+  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. Музыки тут нет — играют только SFX-петли. */
+  musicVolume?: number;
+  sfxVolume?: number;
 }
 
 interface Callbacks {
@@ -418,7 +421,14 @@ function plural(n: number, unit: string): string {
   return stem.endsWith('к') ? `${stem.slice(0, -1)}ок` : stem;
 }
 
-export function init(container: HTMLElement, config: GameConfig, callbacks: Callbacks): { destroy: () => void } {
+export function init(
+  container: HTMLElement,
+  config: GameConfig,
+  callbacks: Callbacks,
+): {
+  destroy: () => void;
+  setVolume: (v: { muted: boolean; musicVolume: number; sfxVolume: number }) => void;
+} {
   const styleEl = el('style');
   styleEl.textContent = STYLES;
   container.appendChild(styleEl);
@@ -454,6 +464,9 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
         timers.clear();
         container.innerHTML = '';
       },
+      setVolume(): void {
+        /* нечего озвучивать: игра не поднялась */
+      },
     };
   }
 
@@ -475,8 +488,13 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   let renderedPotStep = -1;
 
   // --- audio ---
+  const gainOf = (v: unknown, fallback: number): number =>
+    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
+  // Тут нет музыки — только SFX-петли (pourLoop/cookLoop), масштабируются sfxGain.
+  let sfxGain = gainOf(config.sfxVolume, 100);
   const audioCache = new Map<string, HTMLAudioElement>();
   let loopAudio: HTMLAudioElement | null = null;
+  let loopSound: { url: string; volume: number } | undefined;
 
   function pickSound(value: AudioValue | undefined): { url: string; volume: number } | undefined {
     if (!value) return undefined;
@@ -506,8 +524,13 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     const sound = pickSound(value);
     if (!sound) return;
     const node = audioFor(sound.url).cloneNode() as HTMLAudioElement;
-    node.volume = Math.max(0, Math.min(1, sound.volume / 100));
+    node.volume = Math.max(0, Math.min(1, (sound.volume / 100) * sfxGain));
     node.play().catch(() => {});
+  }
+
+  function applyLoopVolume(): void {
+    if (!loopAudio || !loopSound) return;
+    loopAudio.volume = Math.max(0, Math.min(1, (loopSound.volume / 100) * sfxGain));
   }
 
   function startLoop(value: AudioValue | undefined): void {
@@ -517,9 +540,10 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     if (!sound) return;
     const node = audioFor(sound.url).cloneNode() as HTMLAudioElement;
     node.loop = true;
-    node.volume = Math.max(0, Math.min(1, sound.volume / 100));
-    node.play().catch(() => {});
+    loopSound = sound;
     loopAudio = node;
+    applyLoopVolume();
+    node.play().catch(() => {});
   }
 
   function stopLoop(): void {
@@ -527,6 +551,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     loopAudio.pause();
     loopAudio.currentTime = 0;
     loopAudio = null;
+    loopSound = undefined;
   }
 
   // --- chrome -------------------------------------------------------------
@@ -1055,6 +1080,13 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   report();
 
   return {
+    setVolume(v): void {
+      sfxGain = gainOf(v.sfxVolume, 100);
+      muted = v.muted === true;
+      muteBtn.textContent = muted ? '🔇' : '🔊';
+      if (muted) stopLoop();
+      applyLoopVolume();
+    },
     destroy(): void {
       stopRaf();
       stopLoop();

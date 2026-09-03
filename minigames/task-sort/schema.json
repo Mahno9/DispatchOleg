@@ -244,8 +244,19 @@
         "drop": { "type": "array", "title": "Опускание карточки", "x-type": "asset:audio" },
         "shred": { "type": "array", "title": "Шреддер (архив)", "x-type": "asset:audio" },
         "error": { "type": "array", "title": "Ошибки проверки", "x-type": "asset:audio" },
-        "confirm": { "type": "array", "title": "Смена принята", "x-type": "asset:audio" }
+        "confirm": { "type": "array", "title": "Смена принята", "x-type": "asset:audio" },
+        "deal": { "type": "array", "title": "Раскладка стопки", "x-type": "asset:audio" },
+        "probe": { "type": "array", "title": "Запрос приоритета", "x-type": "asset:audio" },
+        "probeDone": { "type": "array", "title": "Приоритет получен", "x-type": "asset:audio" },
+        "ready": { "type": "array", "title": "Входящие разобраны", "x-type": "asset:audio" },
+        "scan": { "type": "array", "title": "Сканирование при проверке", "x-type": "asset:audio" }
       }
+    },
+    "music": {
+      "type": "array",
+      "title": "Фоновая музыка",
+      "description": "Играет петлёй всю смену, приглушена относительно звуков",
+      "x-type": "asset:audio"
     }
   }
 }

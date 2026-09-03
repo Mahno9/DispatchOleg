@@ -1413,3 +1413,100 @@ h3 {
     animation: none;
   }
 }
+
+/* --- Общий регулятор звука в терминальной панели ------------------------- */
+/* Настройка одна на игрока, поэтому виджет живёт в шапке, а не в игровой
+   зоне: она целиком отдана бандлу мини-игры (docs/platform.md §2.5). */
+.audio {
+  position: relative;
+  display: inline-flex;
+}
+
+.audio-btn {
+  padding: 1px 7px;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: var(--glow);
+  background: transparent;
+  border: 1px solid var(--line-dim);
+  cursor: pointer;
+}
+
+.audio-btn:hover {
+  border-color: var(--glow);
+}
+
+.audio-btn-off {
+  color: var(--text-dim);
+}
+
+.audio-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 208px;
+  padding: 11px 12px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+
+.audio-toggle {
+  padding: 6px 8px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--page);
+  background: var(--glow);
+  border: 1px solid var(--glow);
+  cursor: pointer;
+}
+
+.audio-toggle-off {
+  color: var(--amber);
+  background: transparent;
+  border-color: var(--amber);
+}
+
+.audio-row {
+  display: grid;
+  grid-template-columns: 4.6em 1fr 2.1em;
+  gap: 7px;
+  align-items: center;
+}
+
+.audio-row-off {
+  opacity: 0.4;
+}
+
+.audio-label {
+  font-family: var(--font-display);
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.audio-val {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--glow);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.audio-row input[type='range'] {
+  width: 100%;
+  height: 3px;
+  accent-color: var(--glow);
+  cursor: pointer;
+}
+
+.audio-row-off input[type='range'] {
+  cursor: not-allowed;
+}

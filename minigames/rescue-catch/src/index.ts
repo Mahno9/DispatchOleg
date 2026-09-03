@@ -35,6 +35,9 @@ type AudioVal = string | WeightedAudio[] | undefined;
 
 export interface GameConfig extends Partial<EngineConfig> {
   muted?: boolean;
+  /** 0…100 from the platform's global volume widget; also arrives live via setVolume. */
+  musicVolume?: number;
+  sfxVolume?: number;
   music?: AudioVal;
   sounds?: {
     catch?: AudioVal;
@@ -142,7 +145,11 @@ export function init(
   container: HTMLElement,
   config: GameConfig,
   callbacks: Callbacks,
-): { destroy: () => void; setPaused: (paused: boolean) => void } {
+): {
+  destroy: () => void;
+  setPaused: (paused: boolean) => void;
+  setVolume: (v: { muted: boolean; musicVolume: number; sfxVolume: number }) => void;
+} {
   const styleEl = document.createElement('style');
   styleEl.textContent = STYLES;
   container.appendChild(styleEl);
@@ -183,9 +190,13 @@ export function init(
 
   // --- audio -------------------------------------------------------------
   let muted = config.muted === true;
+  const gainOf = (v: unknown, fallback: number): number =>
+    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
+  let musicGain = gainOf(config.musicVolume, 100);
+  let sfxGain = gainOf(config.sfxVolume, 100);
   const audioCtx = new AudioContext();
   const master = audioCtx.createGain();
-  master.gain.value = muted ? 0 : 1;
+  master.gain.value = muted ? 0 : sfxGain;
   master.connect(audioCtx.destination);
   const buffers = new Map<string, AudioBuffer>();
   let music: HTMLAudioElement | null = null;
@@ -243,17 +254,26 @@ export function init(
   if (musicSound) {
     music = new Audio(musicSound.url);
     music.loop = true;
-    music.volume = clamp((musicSound.volume / 100) * 0.4, 0, 1);
-    if (!muted) music.play().catch(() => {});
+  }
+
+  function applyMusicVolume(): void {
+    if (!music || !musicSound) return;
+    music.volume = clamp((musicSound.volume / 100) * 0.4 * musicGain, 0, 1);
+  }
+
+  function syncMusic(): void {
+    if (!music) return;
+    applyMusicVolume();
+    // musicGain at 0 means "don't play", not "play silently" — a looping
+    // track would otherwise keep spinning for nothing.
+    if (muted || finished || paused || held || musicGain === 0) music.pause();
+    else void music.play().catch(() => {});
   }
 
   function applyMute(): void {
-    master.gain.value = muted ? 0 : 1;
+    master.gain.value = muted ? 0 : sfxGain;
     muteBtn.textContent = muted ? '🔇' : '🔊';
-    if (music) {
-      if (muted) music.pause();
-      else void music.play().catch(() => {});
-    }
+    syncMusic();
   }
   muteBtn.title = 'Звук';
   muteBtn.addEventListener('pointerdown', (e) => {
@@ -419,7 +439,7 @@ export function init(
     }
     last = performance.now(); // critical: no multi-second dt on the first frame
     void audioCtx.resume().catch(() => {});
-    if (music && !muted) void music.play().catch(() => {});
+    syncMusic();
   }
   function pause(): void {
     if (paused) return;
@@ -907,5 +927,12 @@ export function init(
     container.innerHTML = '';
   }
 
-  return { destroy, setPaused };
+  function setVolume(v: { muted: boolean; musicVolume: number; sfxVolume: number }): void {
+    musicGain = gainOf(v.musicVolume, 100);
+    sfxGain = gainOf(v.sfxVolume, 100);
+    muted = v.muted === true;
+    applyMute();
+  }
+
+  return { destroy, setPaused, setVolume };
 }

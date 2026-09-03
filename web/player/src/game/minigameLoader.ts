@@ -31,7 +31,8 @@ interface LaunchOptions {
   /** Working area of the `minigame` screen — the bottom bar is not part of it. */
   container: HTMLElement;
   gameId: number;
-  muted: boolean;
+  /** Стартовые значения общего регулятора; дальше — через handle.setVolume. */
+  audio: AudioSettingsPatch;
   /** Bottom-bar slot 2 feed. Called any number of times, never terminal. */
   onProgress?: (text: string, percent?: number) => void;
   /** Bottom-bar slot 2 story line (minigame_contract.md). `null` restores the
@@ -52,7 +53,11 @@ interface MinigameModule {
       onProgress: (text: string, percent?: number) => void;
       onLine?: (text: string | null, onDismiss?: () => void) => void;
     },
-  ) => { destroy: () => void; setPaused?: (paused: boolean) => void };
+  ) => {
+    destroy: () => void;
+    setPaused?: (paused: boolean) => void;
+    setVolume?: (volume: AudioSettingsPatch) => void;
+  };
 }
 
 export interface MinigameHandle {
@@ -60,6 +65,16 @@ export interface MinigameHandle {
   /** Заморозить/разморозить игру, не разрушая её (minigame_contract.md).
    *  Нет у игр без собственных часов — вызывать через `?.`. */
   setPaused?: (paused: boolean) => void;
+  /** Живая громкость из общего регулятора в шапке. Без неё игра просто
+   *  останется на значениях, полученных при запуске. */
+  setVolume?: (volume: AudioSettingsPatch) => void;
+}
+
+/** 0…100 на канал; `muted` глушит оба, не теряя их значений. */
+export interface AudioSettingsPatch {
+  muted: boolean;
+  musicVolume: number;
+  sfxVolume: number;
 }
 
 let minigamesCache: Minigame[] | null = null;
@@ -76,7 +91,7 @@ async function getMinigames(): Promise<Minigame[]> {
  * at all — onFinished is then never called and the caller shows the failure.
  */
 export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandle> {
-  const { container, gameId, muted, onProgress, onLine, onFinished } = opts;
+  const { container, gameId, audio, onProgress, onLine, onFinished } = opts;
 
   let handle: MinigameHandle | null = null;
   let settled = false;
@@ -123,7 +138,9 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
       {
         ...(meta.defaultConfig ?? {}),
         ...gameConfig.config,
-        muted,
+        muted: audio.muted,
+        musicVolume: audio.musicVolume,
+        sfxVolume: audio.sfxVolume,
       },
       localState.getSnapshot().profile.name || DEFAULT_PLAYER_NAME,
     );
@@ -141,6 +158,13 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
           handle?.setPaused?.(paused);
         } catch (err) {
           console.error('[minigameLoader] setPaused failed', err);
+        }
+      },
+      setVolume: (volume) => {
+        try {
+          handle?.setVolume?.(volume);
+        } catch (err) {
+          console.error('[minigameLoader] setVolume failed', err);
         }
       },
     };

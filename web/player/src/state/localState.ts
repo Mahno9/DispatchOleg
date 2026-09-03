@@ -10,6 +10,36 @@ export interface GameResult {
   details?: Record<string, number | string>;
 }
 
+/**
+ * Громкость — общая для всей игры настройка игрока, не свойство мини-игры.
+ * Живёт здесь же, в prefs: сервер круглит `prefs` как `Record<string, unknown>`
+ * (server/src/repos/sync.ts), так что новые поля доезжают без правок бэка.
+ */
+export interface AudioPrefs {
+  muted: boolean;
+  /** 0…100 */
+  musicVolume: number;
+  /** 0…100 */
+  sfxVolume: number;
+}
+
+export const DEFAULT_AUDIO_PREFS: AudioPrefs = { muted: false, musicVolume: 70, sfxVolume: 100 };
+
+/**
+ * У игроков со старой версией в localStorage лежит `prefs: { muted }` без
+ * громкостей, а то и мусор — поэтому читаем защищаясь, а не приводим типом.
+ */
+export function normalizeAudioPrefs(raw: unknown): AudioPrefs {
+  const p = (typeof raw === 'object' && raw !== null ? raw : {}) as Record<string, unknown>;
+  const num = (v: unknown, fallback: number): number =>
+    typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100, Math.round(v))) : fallback;
+  return {
+    muted: p.muted === true,
+    musicVolume: num(p.musicVolume, DEFAULT_AUDIO_PREFS.musicVolume),
+    sfxVolume: num(p.sfxVolume, DEFAULT_AUDIO_PREFS.sfxVolume),
+  };
+}
+
 export interface ClientState {
   version: 1;
   updatedAt: number;
@@ -17,7 +47,7 @@ export interface ClientState {
   /** Keyed by game id (numeric server id, stringified by JSON). */
   gameResults: Record<string, GameResult>;
   onboarded: boolean;
-  prefs: { muted: boolean };
+  prefs: AudioPrefs;
   /** Server-authoritative admin-reset tombstones; we only echo what we were given. */
   removedGames?: Record<string, number>;
 }
@@ -33,7 +63,7 @@ function createInitialState(): ClientState {
     profile: { userId: '', name: '' },
     gameResults: {},
     onboarded: false,
-    prefs: { muted: false },
+    prefs: { ...DEFAULT_AUDIO_PREFS },
   };
 }
 
@@ -73,7 +103,13 @@ class LocalStateStore {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
-        if (isClientState(parsed)) return { ...createInitialState(), ...parsed };
+        if (isClientState(parsed)) {
+          const merged = { ...createInitialState(), ...parsed };
+          // Слияние поверхностное: у старого состояния prefs — это {muted},
+          // и он бы затёр громкости целиком, а не дополнился ими.
+          merged.prefs = normalizeAudioPrefs(merged.prefs);
+          return merged;
+        }
       }
     } catch {
       // Corrupt/unavailable storage — fall through to fresh state.
@@ -110,7 +146,21 @@ class LocalStateStore {
 
   /** Replace the entire state (e.g. after a server-newer sync). Saves + emits. */
   replace(next: ClientState): void {
-    this.commit(next);
+    // Полезная нагрузка сервера — это `Record<string, unknown>` (см.
+    // server/src/repos/sync.ts): у игроков, начавших до появления регулятора,
+    // там лежит prefs без громкостей. Без нормализации они прилетели бы как
+    // undefined и обнулили бы настройку игрока при первой же синхронизации.
+    const prefs = normalizeAudioPrefs(next.prefs);
+    const cur = this.state.prefs;
+    // Сервер отдаёт свежий объект на каждый ответ, а синк тикает раз в 20 с.
+    // MinigameScreen шлёт setVolume по смене ссылки на prefs, поэтому при
+    // равных значениях ссылку надо сохранить — иначе игра дёргается каждый
+    // тик и локальный mute сбрасывается сам собой.
+    const same =
+      prefs.muted === cur.muted &&
+      prefs.musicVolume === cur.musicVolume &&
+      prefs.sfxVolume === cur.sfxVolume;
+    this.commit({ ...next, prefs: same ? cur : prefs });
   }
 
   // -- mutate helpers --
@@ -151,9 +201,12 @@ class LocalStateStore {
     this.commit({ ...this.state, updatedAt: Date.now(), onboarded });
   }
 
-  setMuted(muted: boolean): void {
-    if (this.state.prefs.muted === muted) return;
-    this.commit({ ...this.state, updatedAt: Date.now(), prefs: { ...this.state.prefs, muted } });
+  setAudioPrefs(patch: Partial<AudioPrefs>): void {
+    const next = normalizeAudioPrefs({ ...this.state.prefs, ...patch });
+    const cur = this.state.prefs;
+    if (next.muted === cur.muted && next.musicVolume === cur.musicVolume && next.sfxVolume === cur.sfxVolume)
+      return;
+    this.commit({ ...this.state, updatedAt: Date.now(), prefs: next });
   }
 }
 

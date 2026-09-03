@@ -72,6 +72,10 @@ export async function syncNow(): Promise<void> {
     const res = await api.postSync({ userId: state.profile.userId, state });
     notifySyncResult(true);
     if (res.outcome === 'server-newer' || res.outcome === 'merged') {
+      // За время запроса игрок мог что-то поменять — например, увести ползунок
+      // громкости. Ответ построен на устаревшем снимке, и принять его значило
+      // бы молча откатить свежую правку вместе с её updatedAt.
+      if (localState.getSnapshot() !== state) return;
       const incoming: ServerState = res.state;
       if (isAdoptableState(incoming)) localState.replace(incoming);
     }

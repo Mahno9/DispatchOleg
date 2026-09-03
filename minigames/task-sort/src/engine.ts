@@ -1,5 +1,6 @@
 /**
- * Pure scoring logic for task-sort. No DOM, no config, no side-effects.
+ * Pure logic for task-sort: scoring and audio-variant selection. No DOM, no
+ * side-effects.
  *
  * The player sorts dispatcher tickets into three zones: INBOX, QUEUE (ordered)
  * and ARCHIVE. Only the player's own *active* tasks belong in the queue, sorted
@@ -30,6 +31,37 @@ export interface Evaluation {
   maxScore: number;
   percent: number;
   perfect: boolean;
+}
+
+/** Один вариант звука в взвешенном списке из админки. */
+export type WeightedAudio = { url: string; weight: number; volume?: number };
+/** Строка — легаси-форма с единственным файлом; массив — взвешенный выбор. */
+export type AudioValue = string | WeightedAudio[];
+
+/** `0` — валидная громкость (полная тишина варианта), `|| 100` её бы съело. */
+function volumeOf(v: { volume?: number }): number {
+  const n = Number(v.volume);
+  return Number.isFinite(n) ? n : 100;
+}
+
+/**
+ * Взвешенный выбор варианта звука. Нужен, чтобы повторяющееся действие —
+ * взять карточку, бросить карточку — не било в одну и ту же запись подряд.
+ */
+export function pickSound(
+  value: AudioValue | undefined,
+  random: number = Math.random(),
+): { url: string; volume: number } | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'string') return { url: value, volume: 100 };
+  if (!value.length) return undefined;
+  let r = random * value.reduce((s, v) => s + (Number(v.weight) || 0), 0);
+  for (const v of value) {
+    r -= Number(v.weight) || 0;
+    if (r <= 0) return { url: v.url, volume: volumeOf(v) };
+  }
+  const last = value[value.length - 1]!;
+  return { url: last.url, volume: volumeOf(last) };
 }
 
 export const PLACEMENT_POINTS = 10;
@@ -176,6 +208,20 @@ export function evaluate(
     percent: maxScore === 0 ? 100 : Math.round((score / maxScore) * 100),
     perfect: mistakes.length === 0,
   };
+}
+
+/**
+ * Should the "inbox cleared" cue fire on this render? It must track the inbox
+ * actually emptying, not `phase` round-tripping through 'checking': a failed
+ * non-final attempt sends phase back to 'sort' with the inbox still empty
+ * (nothing newly unlocked), and re-deriving readiness from phase alone would
+ * refire the cue right after the error sound. `wasEmpty` is the inbox's own
+ * previous emptiness, kept independent of phase — so moving a card back into
+ * the inbox and re-clearing it *does* re-arm the cue (a fresh accomplishment),
+ * while bouncing through a check does not.
+ */
+export function shouldPlayReadyCue(inboxEmpty: boolean, isSortPhase: boolean, wasEmpty: boolean): boolean {
+  return inboxEmpty && isSortPhase && !wasEmpty;
 }
 
 /** Post-dialogue branching tag; only meaningful when the player won. */

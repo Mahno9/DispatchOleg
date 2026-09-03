@@ -9,6 +9,7 @@ import { BottomBar } from './ui/BottomBar';
 import { DialogueScreen } from './screens/DialogueScreen';
 import { MetaScreen, isUnlocked } from './screens/MetaScreen';
 import { MinigameScreen } from './screens/MinigameScreen';
+import { AudioSettings } from './ui/AudioSettings';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { QrScanScreen } from './screens/QrScanScreen';
 import { VictoryScreen } from './screens/VictoryScreen';
@@ -283,7 +284,7 @@ export function App() {
         <MinigameScreen
           gameId={selectedGame.id}
           minigameId={selectedGame.minigameId}
-          muted={state.prefs.muted}
+          audio={state.prefs}
           onContext={setSlotContext}
           onFinished={(result) => {
             if (!result) return endChain();
@@ -332,6 +333,7 @@ export function App() {
             ТЕСТ-РЕЖИМ
           </span>
         )}
+        <AudioSettings prefs={state.prefs} />
         <span>{state.profile.name || 'ГОСТЬ'}</span>
         <span className={`status ${online ? 'status-active' : 'status-offline'}`}>
           <i className="marker" />

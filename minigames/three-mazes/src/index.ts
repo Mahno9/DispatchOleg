@@ -85,6 +85,9 @@ interface GameConfig {
     ambient?: SoundVal;
   };
   muted?: boolean;
+  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. */
+  musicVolume?: number;
+  sfxVolume?: number;
 }
 
 interface Callbacks {
@@ -265,7 +268,11 @@ export function init(
   container: HTMLElement,
   config: GameConfig,
   callbacks: Callbacks,
-): { destroy: () => void; setPaused: (paused: boolean) => void } {
+): {
+  destroy: () => void;
+  setPaused: (paused: boolean) => void;
+  setVolume: (v: { muted: boolean; musicVolume: number; sfxVolume: number }) => void;
+} {
   const styleEl = document.createElement('style');
   styleEl.textContent = STYLES;
   container.appendChild(styleEl);
@@ -338,14 +345,19 @@ export function init(
 
   // --- audio ---
   let muted = config.muted === true;
+  const gainOf = (v: unknown, fallback: number): number =>
+    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
+  let musicGain = gainOf(config.musicVolume, 100);
+  let sfxGain = gainOf(config.sfxVolume, 100);
   let ambient: HTMLAudioElement | null = null;
+  let ambientSound: { url: string; volume: number } | undefined;
   const live: HTMLAudioElement[] = [];
 
   function play(val: SoundVal): void {
     const s = pickSound(val);
     if (muted || !s) return;
     const a = new Audio(s.url);
-    a.volume = Math.min(s.volume / 100, 1);
+    a.volume = Math.max(0, Math.min(1, (s.volume / 100) * sfxGain));
     a.addEventListener('ended', () => {
       const i = live.indexOf(a);
       if (i >= 0) live.splice(i, 1);
@@ -354,15 +366,21 @@ export function init(
     a.play().catch(() => {});
   }
 
+  function applyAmbientVolume(): void {
+    if (!ambient || !ambientSound) return;
+    ambient.volume = Math.max(0, Math.min(1, (ambientSound.volume / 100) * 0.5 * musicGain));
+  }
+
   function syncAmbient(on: boolean): void {
-    if (on && !muted) {
+    // musicGain в нуле — тоже «не играть», иначе трек крутится вхолостую.
+    if (on && !muted && musicGain > 0) {
       if (!ambient) {
-        const s = pickSound(sounds.ambient);
-        if (!s) return;
-        ambient = new Audio(s.url);
+        ambientSound = pickSound(sounds.ambient);
+        if (!ambientSound) return;
+        ambient = new Audio(ambientSound.url);
         ambient.loop = true;
-        ambient.volume = Math.min((s.volume / 100) * 0.5, 1);
       }
+      applyAmbientVolume();
       ambient.play().catch(() => {});
     } else if (ambient) {
       ambient.pause();
@@ -1010,5 +1028,17 @@ export function init(
     container.innerHTML = '';
   }
 
-  return { destroy, setPaused };
+  function setVolume(v: { muted: boolean; musicVolume: number; sfxVolume: number }): void {
+    musicGain = gainOf(v.musicVolume, 100);
+    sfxGain = gainOf(v.sfxVolume, 100);
+    muted = v.muted === true;
+    renderMute();
+    if (muted) {
+      for (const a of live) a.pause();
+      live.length = 0;
+    }
+    syncAmbient(!held && !paused && phase === 'ACTIVE');
+  }
+
+  return { destroy, setPaused, setVolume };
 }

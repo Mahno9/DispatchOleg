@@ -19,6 +19,9 @@ interface RawConfig {
   prizeImage?: string;
   sounds?: Record<string, AudioValue | undefined>;
   muted?: boolean;
+  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. Музыки тут нет — только SFX. */
+  musicVolume?: number;
+  sfxVolume?: number;
   [key: string]: unknown;
 }
 
@@ -43,7 +46,15 @@ function clock(seconds: number): string {
   return `${mm}:${ss}`;
 }
 
-export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Callbacks): { destroy: () => void; setPaused: (paused: boolean) => void } {
+export function init(
+  container: HTMLElement,
+  rawConfig: RawConfig,
+  callbacks: Callbacks,
+): {
+  destroy: () => void;
+  setPaused: (paused: boolean) => void;
+  setVolume: (v: { muted: boolean; musicVolume: number; sfxVolume: number }) => void;
+} {
   const config: Config = normalizeConfig(rawConfig);
   const total = config.locks.length;
   let state: State = createState(config);
@@ -62,6 +73,10 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
   let muted = rawConfig.muted === true;
   let finished = false;
   let held = false; // заморозка платформой на время инструктажа
+  const gainOf = (v: unknown, fallback: number): number =>
+    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
+  // Музыки в этой игре нет — только SFX, поэтому используется только sfxGain.
+  let sfxGain = gainOf(rawConfig.sfxVolume, 100);
 
   function later(fn: () => void, ms: number): void {
     const id = setTimeout(() => {
@@ -98,7 +113,7 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
       audioCache.set(sound.url, base);
     }
     const node = base.cloneNode() as HTMLAudioElement;
-    node.volume = Math.max(0, Math.min(1, sound.volume / 100));
+    node.volume = Math.max(0, Math.min(1, (sound.volume / 100) * sfxGain));
     node.play().catch(() => {});
   }
 
@@ -353,6 +368,14 @@ export function init(container: HTMLElement, rawConfig: RawConfig, callbacks: Ca
         widget?.reset();
         if (state.phase === 'lock') startTicker();
       }
+    },
+
+    // Общий регулятор в шапке плеера; локальная кнопка 🔊 остаётся быстрым
+    // переключателем, но глобальная настройка её перебивает.
+    setVolume(v): void {
+      sfxGain = gainOf(v.sfxVolume, 100);
+      muted = v.muted === true;
+      muteBtn.textContent = muted ? '🔇' : '🔊';
     },
 
     destroy(): void {

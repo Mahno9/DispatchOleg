@@ -3,18 +3,18 @@ import {
   evaluate,
   maxScoreFor,
   normalizeTasks,
+  pickSound,
   probeTicks,
+  shouldPlayReadyCue,
   shuffle,
   styleTagFor,
+  type AudioValue,
   type Task,
 } from './engine.js';
 
 // ---------------------------------------------------------------------------
 // Config / callbacks
 // ---------------------------------------------------------------------------
-
-type WeightedAudio = { url: string; weight: number; volume?: number };
-type AudioValue = string | WeightedAudio[];
 
 interface GameConfig {
   playerName?: string;
@@ -27,8 +27,17 @@ interface GameConfig {
     shred?: AudioValue;
     error?: AudioValue;
     confirm?: AudioValue;
+    deal?: AudioValue;
+    probe?: AudioValue;
+    probeDone?: AudioValue;
+    ready?: AudioValue;
+    scan?: AudioValue;
   };
+  music?: AudioValue;
   muted?: boolean;
+  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. */
+  musicVolume?: number;
+  sfxVolume?: number;
 }
 
 interface Callbacks {
@@ -45,6 +54,10 @@ const DRAG_THRESHOLD = 5;
 const RETURN_MS = 160;
 const SCAN_MS = 400;
 const DEAL_STEP_MS = 40;
+/** Фон не должен спорить с foley: он подложка, а не трек. */
+const MUSIC_GAIN = 0.35;
+/** Наведение подряд на десяток карточек не должно строчить звуком запроса. */
+const PROBE_SOUND_GAP_MS = 120;
 const SPINNER = ['|', '/', '—', '\\'];
 
 // ---------------------------------------------------------------------------
@@ -412,7 +425,14 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): 
   return node;
 }
 
-export function init(container: HTMLElement, config: GameConfig, callbacks: Callbacks): { destroy: () => void } {
+export function init(
+  container: HTMLElement,
+  config: GameConfig,
+  callbacks: Callbacks,
+): {
+  destroy: () => void;
+  setVolume: (v: { muted: boolean; musicVolume: number; sfxVolume: number }) => void;
+} {
   const styleEl = el('style');
   styleEl.textContent = STYLES;
   container.appendChild(styleEl);
@@ -434,6 +454,10 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   // --- state ---
   let muted = config.muted === true;
   let finished = false;
+  const gain = (v: unknown, fallback: number): number =>
+    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
+  let musicGain = gain(config.musicVolume, 100);
+  let sfxGain = gain(config.sfxVolume, 100);
   let phase: 'deal' | 'sort' | 'checking' | 'done' = 'deal';
   let attemptsUsed = 0;
   let mistakeIds = new Set<string>();
@@ -462,19 +486,6 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   // --- audio ---
   const audioCache = new Map<string, HTMLAudioElement>();
 
-  function pickSound(value: AudioValue | undefined): { url: string; volume: number } | undefined {
-    if (!value) return undefined;
-    if (typeof value === 'string') return { url: value, volume: 100 };
-    if (!value.length) return undefined;
-    let r = Math.random() * value.reduce((s, v) => s + (Number(v.weight) || 0), 0);
-    for (const v of value) {
-      r -= Number(v.weight) || 0;
-      if (r <= 0) return { url: v.url, volume: Number(v.volume) || 100 };
-    }
-    const last = value[value.length - 1]!;
-    return { url: last.url, volume: Number(last.volume) || 100 };
-  }
-
   function play(value: AudioValue | undefined): void {
     if (muted) return;
     const sound = pickSound(value);
@@ -486,12 +497,44 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       audioCache.set(sound.url, base);
     }
     const node = base.cloneNode() as HTMLAudioElement;
-    node.volume = Math.max(0, Math.min(1, sound.volume / 100));
+    node.volume = Math.max(0, Math.min(1, (sound.volume / 100) * sfxGain));
     node.play().catch(() => {});
+  }
+
+  const musicSound = pickSound(config.music);
+  const music = musicSound ? new Audio(musicSound.url) : null;
+  if (music) music.loop = true;
+
+  function applyMusicVolume(): void {
+    if (!music || !musicSound) return;
+    music.volume = Math.max(0, Math.min(1, (musicSound.volume / 100) * MUSIC_GAIN * musicGain));
+  }
+
+  function syncMusic(): void {
+    if (!music) return;
+    applyMusicVolume();
+    // Ползунок в нуле — это тоже «не играть», иначе трек крутится вхолостую.
+    if (muted || finished || musicGain === 0) music.pause();
+    else void music.play().catch(() => {});
+  }
+  applyMusicVolume();
+
+  function stopMusic(): void {
+    if (!music) return;
+    music.pause();
+    // Пустой src резолвится в адрес страницы — элемент заново лезет в неё за
+    // ресурсом и сыплет MEDIA_ELEMENT_ERROR. Снимаем атрибут вместо этого.
+    // Вызывается дважды на обычном финише (fadeOut, потом destroy) — второй
+    // раз атрибута уже нет, дальше pause() и делать нечего.
+    if (music.hasAttribute('src')) {
+      music.removeAttribute('src');
+      music.load();
+    }
   }
 
   // --- finish latches ---
   function fadeOut(cb: () => void): void {
+    stopMusic();
     root.classList.remove(`${PREFIX}visible`);
     later(cb, FADE_MS);
   }
@@ -520,7 +563,11 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       destroy(): void {
         for (const t of timers) clearTimeout(t);
         timers.clear();
+        stopMusic();
         container.innerHTML = '';
+      },
+      setVolume(): void {
+        /* нечего озвучивать: игра не поднялась */
       },
     };
   }
@@ -537,8 +584,15 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   muteBtn.addEventListener('click', () => {
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
+    syncMusic();
   });
   topbar.append(title, msgEl, muteBtn);
+
+  syncMusic();
+  // Автоплей глушится до первого жеста в документе, а игра монтируется под
+  // брифинговым оверлеем, который этот жест и съедает.
+  // ponytail: одна попытка добора на первом pointerdown, дальше не пытаемся.
+  root.addEventListener('pointerdown', syncMusic, { once: true });
 
   const zonesEl = el('div', `${PREFIX}zones`);
   const bodies: Record<Zone, HTMLElement> = {
@@ -699,6 +753,13 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
 
     function startProbe(): void {
       if (probe || revealed.has(task.id) || phase === 'deal') return;
+      // Проводка курсором по стопке поднимает запрос на каждой карточке —
+      // без зазора это очередь из щелчков вместо одного звука.
+      const now = Date.now();
+      if (now - lastProbeSoundAt >= PROBE_SOUND_GAP_MS) {
+        lastProbeSoundAt = now;
+        play(config.sounds?.probe);
+      }
       // Уход курсора до конца обрывает запрос — иначе достаточно мазнуть по
       // стопке и вернуться за готовыми ответами.
       let tick = 0;
@@ -710,6 +771,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
         tick++;
         if (tick >= need) {
           revealed.add(task.id);
+          play(config.sounds?.probeDone);
           stopProbe();
           return;
         }
@@ -763,6 +825,13 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   }
 
   let dealing = true;
+  /**
+   * Собственная «пустота» входящих, отдельно от phase — иначе провал
+   * проверки (phase дёргается в 'checking' и обратно в 'sort', пока входящие
+   * не менялись) перевзводит звук разблокировки следом за звуком ошибки.
+   */
+  let wasInboxEmpty = false;
+  let lastProbeSoundAt = 0;
 
   function render(): void {
     // Карточки пересоздаются целиком, поэтому запрос приоритета на старом узле
@@ -797,7 +866,10 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       });
     }
 
-    const ready = inbox.length === 0 && phase === 'sort';
+    const inboxEmpty = inbox.length === 0;
+    const ready = inboxEmpty && phase === 'sort';
+    if (shouldPlayReadyCue(inboxEmpty, phase === 'sort', wasInboxEmpty)) play(config.sounds?.ready);
+    wasInboxEmpty = inboxEmpty;
     confirmBtn.disabled = !ready;
     noteEl.textContent = ready
       ? `Попытка ${attemptsUsed + 1} из ${attemptsAllowed}`
@@ -1019,6 +1091,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   confirmBtn.addEventListener('click', () => {
     if (phase !== 'sort' || inbox.length > 0 || finished) return;
     phase = 'checking';
+    play(config.sounds?.scan);
     render();
     const scan = el('div', `${PREFIX}scan`);
     zonesEl.style.position = 'relative';
@@ -1073,6 +1146,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   // --- start: РАСКЛАДКА ---
   render();
   reportProgress();
+  play(config.sounds?.deal);
   later(
     () => {
       dealing = false;
@@ -1083,6 +1157,15 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
   );
 
   return {
+    // Общий регулятор в шапке плеера; локальная кнопка 🔊 остаётся быстрым
+    // переключателем, но глобальная настройка её перебивает.
+    setVolume(v): void {
+      musicGain = gain(v.musicVolume, 100);
+      sfxGain = gain(v.sfxVolume, 100);
+      muted = v.muted === true;
+      muteBtn.textContent = muted ? '🔇' : '🔊';
+      syncMusic();
+    },
     destroy(): void {
       cleanupDrag();
       for (const t of timers) clearTimeout(t);
@@ -1092,9 +1175,12 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       if (rafId) cancelAnimationFrame(rafId);
       for (const audio of audioCache.values()) {
         audio.pause();
-        audio.src = '';
+        // Тот же случай, что и в stopMusic(): пустой src бьёт по документу.
+        audio.removeAttribute('src');
+        audio.load();
       }
       audioCache.clear();
+      stopMusic();
       container.innerHTML = '';
     },
   };

@@ -1,12 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { launchMinigame, type MinigameHandle, type MinigameResult } from '../game/minigameLoader';
+import {
+  launchMinigame,
+  type AudioSettingsPatch,
+  type MinigameHandle,
+  type MinigameResult,
+} from '../game/minigameLoader';
 import { TUTORIALS, resolveStep, type Dir, type TutorialStep } from '../game/tutorials';
 
 interface MinigameScreenProps {
   gameId: number;
   /** Какой бандл запустится — ключ инструктажа; игру грузит уже loader. */
   minigameId: string;
-  muted: boolean;
+  /** Общий регулятор звука; меняется на лету, без перезапуска игры. */
+  audio: AudioSettingsPatch;
   /** Bottom-bar slot 2 — fed by the game's onProgress (docs/platform.md §3.1). */
   onContext: (node: ReactNode) => void;
   /** Result of the run, or null when the player exited without finishing. */
@@ -20,7 +26,7 @@ interface MinigameScreenProps {
 export function MinigameScreen({
   gameId,
   minigameId,
-  muted,
+  audio,
   onContext,
   onFinished,
 }: MinigameScreenProps) {
@@ -33,6 +39,12 @@ export function MinigameScreen({
 
   const cb = useRef({ onContext, onFinished });
   cb.current = { onContext, onFinished };
+
+  // Громкость НЕ в зависимостях запускающего эффекта: иначе каждое движение
+  // ползунка перемонтировало бы игру и сбрасывало разложенные карточки.
+  // В запуск отдаём свежее значение через ref, дальше — через setVolume.
+  const audioRef = useRef(audio);
+  audioRef.current = audio;
 
   // Инструктаж лежит ПОВЕРХ смонтированной игры — иначе стрелки указывают в
   // пустоту. Но игра под ним заморожена (handle.setPaused, minigame_contract.md):
@@ -56,7 +68,7 @@ export function MinigameScreen({
     launchMinigame({
       container,
       gameId,
-      muted,
+      audio: audioRef.current,
       onProgress: (text, percent) => {
         if (!live) return;
         progressRef.current = (
@@ -99,6 +111,9 @@ export function MinigameScreen({
         }
         handleRef.current = h;
         h.setPaused?.(!briefedRef.current);
+        // Бандл грузится асинхронно: всё, что игрок накрутил регулятором за
+        // это время, ушло в никуда — handleRef был ещё пуст.
+        h.setVolume?.(audioRef.current);
       },
       (err: unknown) => {
         if (live) setError(err instanceof Error ? err.message : String(err));
@@ -111,7 +126,11 @@ export function MinigameScreen({
       handleRef.current?.destroy();
       handleRef.current = null;
     };
-  }, [gameId, muted]);
+  }, [gameId]);
+
+  useEffect(() => {
+    handleRef.current?.setVolume?.(audio);
+  }, [audio]);
 
   useEffect(() => {
     handleRef.current?.setPaused?.(!briefed);

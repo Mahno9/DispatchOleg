@@ -41,6 +41,9 @@ interface GameConfig extends LevelConfig {
     win?: AudioValue;
   };
   muted?: boolean;
+  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. Музыки тут нет — только SFX. */
+  musicVolume?: number;
+  sfxVolume?: number;
 }
 
 interface Callbacks {
@@ -269,7 +272,15 @@ const intOr = (v: unknown, fallback: number, min: number, max: number): number =
   return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : fallback;
 };
 
-export function init(container: HTMLElement, config: GameConfig, callbacks: Callbacks): { destroy: () => void; setPaused: (paused: boolean) => void } {
+export function init(
+  container: HTMLElement,
+  config: GameConfig,
+  callbacks: Callbacks,
+): {
+  destroy: () => void;
+  setPaused: (paused: boolean) => void;
+  setVolume: (v: { muted: boolean; musicVolume: number; sfxVolume: number }) => void;
+} {
   const styleEl = el('style');
   styleEl.textContent = STYLES;
   container.appendChild(styleEl);
@@ -300,6 +311,10 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
 
   // --- audio ---
   let muted = config.muted === true;
+  const gainOf = (v: unknown, fallback: number): number =>
+    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
+  // Музыки в этой игре нет — только SFX, поэтому используется только sfxGain.
+  let sfxGain = gainOf(config.sfxVolume, 100);
   const audioCache = new Map<string, HTMLAudioElement>();
 
   function pickSound(value: AudioValue | undefined): { url: string; volume: number } | undefined {
@@ -326,7 +341,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       audioCache.set(sound.url, base);
     }
     const node = base.cloneNode() as HTMLAudioElement;
-    node.volume = Math.max(0, Math.min(1, sound.volume / 100));
+    node.volume = Math.max(0, Math.min(1, (sound.volume / 100) * sfxGain));
     node.play().catch(() => {});
   }
 
@@ -382,7 +397,7 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
     box.append(status, text, exitBtn);
     root.appendChild(box);
     // Битый силуэт: на экране только панель ошибки, замораживать нечего.
-    return { destroy: baseDestroy, setPaused: () => {} };
+    return { destroy: baseDestroy, setPaused: () => {}, setVolume: () => {} };
   }
 
   const errorPenalty = intOr(config.errorPenalty, 5, 0, Number.MAX_SAFE_INTEGER);
@@ -767,6 +782,11 @@ export function init(container: HTMLElement, config: GameConfig, callbacks: Call
       } else {
         startedAt += performance.now() - heldAt;
       }
+    },
+    setVolume(v): void {
+      sfxGain = gainOf(v.sfxVolume, 100);
+      muted = v.muted === true;
+      muteBtn.textContent = muted ? '🔇' : '🔊';
     },
   };
 }
