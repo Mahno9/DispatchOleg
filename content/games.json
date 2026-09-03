@@ -220,6 +220,110 @@
           "done": true,
           "priority": 4
         }
+      ],
+      "sounds": {
+        "pick": [
+          {
+            "url": "/assets-store/sfx-pick-1.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-pick-2.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-pick-3.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "drop": [
+          {
+            "url": "/assets-store/sfx-drop-1.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-drop-2.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "shred": [
+          {
+            "url": "/assets-store/sfx-shred-1.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-shred-2.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-shred-3.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "deal": [
+          {
+            "url": "/assets-store/sfx-deal.ogg",
+            "weight": 1,
+            "volume": 90
+          }
+        ],
+        "probe": [
+          {
+            "url": "/assets-store/sfx-probe.ogg",
+            "weight": 1,
+            "volume": 70
+          }
+        ],
+        "probeDone": [
+          {
+            "url": "/assets-store/sfx-probe-done.ogg",
+            "weight": 1,
+            "volume": 85
+          }
+        ],
+        "ready": [
+          {
+            "url": "/assets-store/sfx-ready.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "scan": [
+          {
+            "url": "/assets-store/sfx-scan.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "error": [
+          {
+            "url": "/assets-store/sfx-error.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "confirm": [
+          {
+            "url": "/assets-store/sfx-confirm.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ]
+      },
+      "music": [
+        {
+          "url": "/assets-store/mus-nightshift.ogg",
+          "weight": 1,
+          "volume": 100
+        }
       ]
     },
     "character_id": 62,

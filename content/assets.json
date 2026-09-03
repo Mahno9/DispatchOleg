@@ -63,6 +63,15 @@
     "created_at": 1785884564151
   },
   {
+    "id": "mus-nightshift",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "music-r1.ogg",
+    "size_bytes": 1881470,
+    "created_at": 1788437898206
+  },
+  {
     "id": "pntUBTSH_W",
     "kind": "image",
     "mime": "image/svg+xml",
@@ -79,6 +88,141 @@
     "original_name": "flambae-silhouette.svg",
     "size_bytes": 13221,
     "created_at": 1785884554696
+  },
+  {
+    "id": "sfx-confirm",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "confirm-r3.ogg",
+    "size_bytes": 24969,
+    "created_at": 1788437898205
+  },
+  {
+    "id": "sfx-deal",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "deal-1.ogg",
+    "size_bytes": 15533,
+    "created_at": 1788437898199
+  },
+  {
+    "id": "sfx-drop-1",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "drop-m3.ogg",
+    "size_bytes": 8087,
+    "created_at": 1788437898194
+  },
+  {
+    "id": "sfx-drop-2",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "drop-m1.ogg",
+    "size_bytes": 8074,
+    "created_at": 1788437898195
+  },
+  {
+    "id": "sfx-error",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "error-1.ogg",
+    "size_bytes": 17467,
+    "created_at": 1788437898204
+  },
+  {
+    "id": "sfx-pick-1",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "pick-r1.ogg",
+    "size_bytes": 9576,
+    "created_at": 1788437898191
+  },
+  {
+    "id": "sfx-pick-2",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "pick-r2.ogg",
+    "size_bytes": 9757,
+    "created_at": 1788437898192
+  },
+  {
+    "id": "sfx-pick-3",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "pick-r4.ogg",
+    "size_bytes": 10263,
+    "created_at": 1788437898193
+  },
+  {
+    "id": "sfx-probe",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "probe-r4.ogg",
+    "size_bytes": 8911,
+    "created_at": 1788437898200
+  },
+  {
+    "id": "sfx-probe-done",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "probeDone-3.ogg",
+    "size_bytes": 5677,
+    "created_at": 1788437898201
+  },
+  {
+    "id": "sfx-ready",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "ready-2.ogg",
+    "size_bytes": 9685,
+    "created_at": 1788437898202
+  },
+  {
+    "id": "sfx-scan",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "scan-1.ogg",
+    "size_bytes": 11681,
+    "created_at": 1788437898203
+  },
+  {
+    "id": "sfx-shred-1",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "shred-1.ogg",
+    "size_bytes": 13748,
+    "created_at": 1788437898196
+  },
+  {
+    "id": "sfx-shred-2",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "shred-2.ogg",
+    "size_bytes": 12855,
+    "created_at": 1788437898197
+  },
+  {
+    "id": "sfx-shred-3",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "shred-3.ogg",
+    "size_bytes": 12624,
+    "created_at": 1788437898198
   },
   {
     "id": "wEpj0r0I_x",
