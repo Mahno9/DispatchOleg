@@ -403,7 +403,9 @@ const styleTag = wallsBroken < breakerThreshold ? 'ghost' : 'breaker';
 
 | Поле | Тип / `x-type` | Описание |
 |---|---|---|
+| `sounds.start` | `array` / `asset:audio` | Точка материализовалась под курсором (FROZEN → ACTIVE) |
 | `sounds.wallBreak` | `array` / `asset:audio` | Хруст ломаемой стены |
+| `sounds.alert` | `array` / `asset:audio` | Пролом поднял патрули; молчит, если патрулей у лабиринта нет |
 | `sounds.mazeComplete` | `array` / `asset:audio` | Финиш лабиринта |
 | `sounds.gameComplete` | `array` / `asset:audio` | Финиш всей игры (после третьего) |
 | `sounds.ambient` | `array` / `asset:audio` | Фоновый гул терминала, зациклен на время ACTIVE |
@@ -577,10 +579,11 @@ function frame(now: number) {
 чтобы ресайз окна не убивал прохождение.
 
 **Жизненный цикл.** `init` возвращает `{ destroy }`; `destroy` снимает `pointermove`/`pointerleave`,
-`blur`/`visibilitychange`, `ResizeObserver`, отменяет `requestAnimationFrame`, останавливает и
-освобождает все `<audio>`/`AudioContext`, чистит `container.innerHTML`. `onComplete` вызывается ровно
-один раз, после короткого fade-out (~300 мс по базовому контракту); флаг `finished` защищает от
-повторного вызова.
+`blur`/`visibilitychange`, `ResizeObserver`, отменяет `requestAnimationFrame`, чистит `container.innerHTML`.
+Звук останавливает избирательно: `ambient` — всегда; одноразовые SFX (`live`) — только при выходе на
+полпути, а после штатного финиша не трогает их, чтобы хвост `gameComplete` доиграл. `onComplete`
+вызывается ровно один раз, после короткого fade-out (~300 мс по базовому контракту); флаг `finished`
+защищает от повторного вызова.
 
 ### 5.3 Тесты (vitest)
 

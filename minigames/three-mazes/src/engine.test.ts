@@ -21,6 +21,7 @@ import {
   makePatrol,
   minClearance,
   patrolCatches,
+  pickSound,
   placeRoutePosts,
   raycast,
   relaxFactor,
@@ -458,6 +459,69 @@ describe('drawIndex', () => {
     const before = structuredClone(used);
     drawIndex(4, used, 0.5);
     expect(used).toEqual(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe('pickSound', () => {
+  const list = [
+    { url: '/a.ogg', weight: 1 },
+    { url: '/b.ogg', weight: 3 },
+    { url: '/c.ogg', weight: 1 },
+  ];
+
+  it('делит диапазон по весам, а не поровну', () => {
+    // Суммарный вес 5: [0, 0.2) → a, [0.2, 0.8) → b, [0.8, 1] → c.
+    expect(pickSound(list, 0.19)?.url).toBe('/a.ogg');
+    expect(pickSound(list, 0.21)?.url).toBe('/b.ogg');
+    expect(pickSound(list, 0.79)?.url).toBe('/b.ogg');
+    expect(pickSound(list, 0.81)?.url).toBe('/c.ogg');
+  });
+
+  it('легаси-форма — одна строка вместо массива', () => {
+    expect(pickSound('/one.ogg', 0.5)).toEqual({ url: '/one.ogg', volume: 100 });
+  });
+
+  it('пустой слот — undefined и [] дают undefined', () => {
+    expect(pickSound(undefined, 0.5)).toBeUndefined();
+    expect(pickSound([], 0.5)).toBeUndefined();
+  });
+
+  it('отрицательный вес не выигрывает', () => {
+    const withNegative = [
+      { url: '/a.ogg', weight: 1 },
+      { url: '/neg.ogg', weight: -5 },
+      { url: '/c.ogg', weight: 1 },
+    ];
+    for (let i = 0; i <= 20; i++) {
+      expect(pickSound(withNegative, i / 20)?.url).not.toBe('/neg.ogg');
+    }
+  });
+
+  it('все веса нулевые — слот всё равно звучит', () => {
+    // Иначе слот с забытыми весами молча онемел бы.
+    const zeros = [
+      { url: '/x.ogg', weight: 0 },
+      { url: '/y.ogg', weight: 0 },
+    ];
+    expect(pickSound(zeros, 0.5)?.url).toBe('/x.ogg');
+    expect(pickSound(zeros, 1)?.url).toBe('/x.ogg');
+  });
+
+  it('volume: 0 остаётся нулём, а не падает в 100 (0 falsy, но валиден)', () => {
+    expect(pickSound([{ url: '/v.ogg', weight: 1, volume: 0 }], 0.5)?.volume).toBe(0);
+    // rnd = 1 — последний элемент, возвращается ещё внутри цикла
+    expect(pickSound([{ url: '/only.ogg', weight: 1, volume: 0 }], 1)?.volume).toBe(0);
+    // rnd > 1 — безалаберный вызывающий, настоящая ветка fallback после цикла
+    expect(pickSound([{ url: '/only.ogg', weight: 1, volume: 0 }], 1.5)?.volume).toBe(0);
+  });
+
+  it('volume клампится в 0..200, мусор и undefined — в 100', () => {
+    expect(pickSound([{ url: '/v.ogg', weight: 1, volume: 500 }], 0.5)?.volume).toBe(200);
+    expect(pickSound([{ url: '/v.ogg', weight: 1, volume: -5 }], 0.5)?.volume).toBe(0);
+    expect(pickSound([{ url: '/v.ogg', weight: 1, volume: NaN }], 0.5)?.volume).toBe(100);
+    expect(pickSound([{ url: '/v.ogg', weight: 1 }], 0.5)?.volume).toBe(100);
   });
 });
 

@@ -941,3 +941,36 @@ export function drawIndex(poolSize: number, used: Set<number>, rnd: number): num
   if (free.length === 0) return -1;
   return free[Math.min(free.length - 1, Math.floor(rnd * free.length))] as number;
 }
+
+// ---------------------------------------------------------------------------
+// Audio — weighted variant pick. `rnd` is the caller's Math.random(); engine
+// stays pure.
+// ---------------------------------------------------------------------------
+
+export interface WeightedAudio {
+  url: string;
+  weight: number;
+  volume?: number;
+}
+
+export type SoundVal = string | WeightedAudio[] | undefined;
+
+/** `0` — валидная громкость (полная тишина варианта); мусор и дефолт — 100, кламп 0..200. */
+function volumeOf(w: WeightedAudio): number {
+  const n = Number(w.volume);
+  return Number.isFinite(n) ? Math.max(0, Math.min(200, n)) : 100;
+}
+
+/** Взвешенный выбор звукового варианта; отрицательный вес не выигрывает. */
+export function pickSound(val: SoundVal, rnd: number): { url: string; volume: number } | undefined {
+  if (!val) return undefined;
+  if (typeof val === 'string') return { url: val, volume: 100 };
+  if (!val.length) return undefined;
+  let r = rnd * val.reduce((s, v) => s + Math.max(0, v.weight), 0);
+  for (const v of val) {
+    r -= Math.max(0, v.weight);
+    if (r <= 0) return { url: v.url, volume: volumeOf(v) };
+  }
+  const last = val[val.length - 1] as WeightedAudio;
+  return { url: last.url, volume: volumeOf(last) };
+}

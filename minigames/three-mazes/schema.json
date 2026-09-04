@@ -314,7 +314,14 @@
       "type": "object",
       "title": "Звуки",
       "properties": {
+        "start": { "type": "array", "title": "Появление точки на старте", "x-type": "asset:audio" },
         "wallBreak": { "type": "array", "title": "Хруст ломаемой стены", "x-type": "asset:audio" },
+        "alert": {
+          "type": "array",
+          "title": "Сигнал тревоги патрулей",
+          "description": "Звучит при проломе стены — только если у лабиринта есть патрули.",
+          "x-type": "asset:audio"
+        },
         "mazeComplete": { "type": "array", "title": "Финиш лабиринта", "x-type": "asset:audio" },
         "gameComplete": { "type": "array", "title": "Финиш игры", "x-type": "asset:audio" },
         "ambient": { "type": "array", "title": "Фоновый гул", "x-type": "asset:audio" }

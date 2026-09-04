@@ -20,10 +20,12 @@ import {
   generateMaze,
   makePatrol,
   patrolCatches,
+  pickSound,
   startBark,
   stepBark,
   stepPatrol,
   stepPhysics,
+  type SoundVal,
 } from './engine.js';
 
 // Re-exported for the admin preview widget (x-type "maze-preview"), which
@@ -33,13 +35,6 @@ export { generateMazeDetailed } from './engine.js';
 // ---------------------------------------------------------------------------
 // Config / callbacks
 // ---------------------------------------------------------------------------
-
-interface WeightedAudio {
-  url: string;
-  weight: number;
-  volume?: number;
-}
-type SoundVal = string | WeightedAudio[] | undefined;
 
 interface GeneratorParamsRaw {
   type?: string;
@@ -79,7 +74,9 @@ interface GameConfig {
   mazes?: MazeConfig[];
   barks?: { quiet?: BarkDialogue[]; onBreak?: BarkDialogue[] };
   sounds?: {
+    start?: SoundVal;
     wallBreak?: SoundVal;
+    alert?: SoundVal;
     mazeComplete?: SoundVal;
     gameComplete?: SoundVal;
     ambient?: SoundVal;
@@ -156,20 +153,6 @@ const SPEAKER_SVG =
 function num(v: number | undefined, dflt: number, min: number, max: number): number {
   const n = typeof v === 'number' && Number.isFinite(v) ? v : dflt;
   return Math.max(min, Math.min(max, n));
-}
-
-function pickSound(val: SoundVal): { url: string; volume: number } | undefined {
-  if (!val) return undefined;
-  if (typeof val === 'string') return { url: val, volume: 100 };
-  if (!val.length) return undefined;
-  const vol = (w: WeightedAudio): number => num(w.volume, 100, 0, 200);
-  let r = Math.random() * val.reduce((s, v) => s + Math.max(0, v.weight), 0);
-  for (const v of val) {
-    r -= Math.max(0, v.weight);
-    if (r <= 0) return { url: v.url, volume: vol(v) };
-  }
-  const last = val[val.length - 1] as WeightedAudio;
-  return { url: last.url, volume: vol(last) };
 }
 
 /** Admin arrays may be missing or half-filled: keep only dialogues that have something to say. */
@@ -354,7 +337,7 @@ export function init(
   const live: HTMLAudioElement[] = [];
 
   function play(val: SoundVal): void {
-    const s = pickSound(val);
+    const s = pickSound(val, Math.random());
     if (muted || !s) return;
     const a = new Audio(s.url);
     a.volume = Math.max(0, Math.min(1, (s.volume / 100) * sfxGain));
@@ -375,7 +358,7 @@ export function init(
     // musicGain в нуле — тоже «не играть», иначе трек крутится вхолостую.
     if (on && !muted && musicGain > 0) {
       if (!ambient) {
-        ambientSound = pickSound(sounds.ambient);
+        ambientSound = pickSound(sounds.ambient, Math.random());
         if (!ambientSound) return;
         ambient = new Audio(ambientSound.url);
         ambient.loop = true;
@@ -587,6 +570,8 @@ export function init(
       shards.push({ x: col.cx, y: col.cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, born: now });
     }
     play(sounds.wallBreak);
+    // Тревога — только если её есть кому поднять: в первом лабиринте патрулей нет.
+    if (patrols.length) play(sounds.alert);
   }
 
   // --- input ---
@@ -622,6 +607,12 @@ export function init(
   window.addEventListener('blur', onBlur);
   window.addEventListener('focus', onFocus);
   document.addEventListener('visibilitychange', onVisibility);
+  // Автоплей глушится до первого жеста в документе, а в тест-режиме плеера
+  // (?test=game:N) игра монтируется вообще без клика.
+  // ponytail: одна попытка добора на первом pointerdown, дальше не пытаемся.
+  root.addEventListener('pointerdown', () => syncAmbient(!held && !paused && phase === 'ACTIVE'), {
+    once: true,
+  });
 
   const ro = new ResizeObserver(() => applyLayout());
   ro.observe(root);
@@ -671,6 +662,7 @@ export function init(
         dot = { x: p.x, y: p.y, vx: 0, vy: 0, relaxMs: 0 };
         phase = 'ACTIVE';
         syncAmbient(true);
+        play(sounds.start);
       }
       return;
     }
@@ -1011,14 +1003,19 @@ export function init(
     window.removeEventListener('blur', onBlur);
     window.removeEventListener('focus', onFocus);
     document.removeEventListener('visibilitychange', onVisibility);
-    for (const a of live) {
-      a.pause();
-      a.src = '';
-    }
+    // Штатный финиш — не глушим: gameComplete стартует за 550 мс до destroy()
+    // и иначе обрывается на полуслове. Выход на полпути — глушим, скример не
+    // должен тянуться в меню.
+    if (!finished) for (const a of live) a.pause();
     live.length = 0;
     if (ambient) {
       ambient.pause();
-      ambient.src = '';
+      // Пустой src резолвится в адрес страницы — элемент лезет в неё за
+      // ресурсом и сыплет MEDIA_ELEMENT_ERROR. Снимаем атрибут вместо этого.
+      if (ambient.hasAttribute('src')) {
+        ambient.removeAttribute('src');
+        ambient.load();
+      }
       ambient = null;
     }
     screamerImg = null;
