@@ -126,41 +126,22 @@
       "type": "object",
       "title": "Звуки",
       "properties": {
-        "catch": {
-          "type": "string",
-          "title": "Звук спасения",
-          "x-type": "asset:audio"
-        },
-        "miss": {
-          "type": "string",
-          "title": "Звук промаха",
-          "x-type": "asset:audio"
-        },
-        "inversionWarn": {
-          "type": "string",
-          "title": "Предупреждение об инверсии (inverted)",
-          "x-type": "asset:audio"
-        },
-        "deny": {
-          "type": "string",
-          "title": "Отказ — неверная клавиша (clockwise, bidirectional)",
-          "x-type": "asset:audio"
-        },
-        "win": {
-          "type": "string",
-          "title": "Победа",
-          "x-type": "asset:audio"
-        },
-        "lose": {
-          "type": "string",
-          "title": "Поражение",
-          "x-type": "asset:audio"
-        }
+        "step": { "type": "array", "title": "Шаг спасателя", "x-type": "asset:audio" },
+        "deny": { "type": "array", "title": "Отказ — неверная клавиша (clockwise, bidirectional)", "x-type": "asset:audio" },
+        "spawn": { "type": "array", "title": "Появление в окне", "x-type": "asset:audio" },
+        "fall": { "type": "array", "title": "Отрыв от окна", "x-type": "asset:audio" },
+        "critical": { "type": "array", "title": "Тик перед касанием", "x-type": "asset:audio" },
+        "catch": { "type": "array", "title": "Звук спасения", "x-type": "asset:audio" },
+        "miss": { "type": "array", "title": "Звук промаха", "x-type": "asset:audio" },
+        "inversionWarn": { "type": "array", "title": "Предупреждение об инверсии (inverted)", "x-type": "asset:audio" },
+        "win": { "type": "array", "title": "Победа", "x-type": "asset:audio" },
+        "lose": { "type": "array", "title": "Поражение", "x-type": "asset:audio" }
       }
     },
     "music": {
-      "type": "string",
+      "type": "array",
       "title": "Фоновая музыка",
+      "description": "Играет петлёй всю партию, приглушена относительно звуков",
       "x-type": "asset:audio"
     }
   }

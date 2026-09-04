@@ -9,6 +9,7 @@
 import {
   applyInput,
   createState,
+  CRITICAL_LEAD,
   keysOf,
   landingIn,
   multiplierOf,
@@ -44,6 +45,10 @@ export interface GameConfig extends Partial<EngineConfig> {
     miss?: AudioVal;
     inversionWarn?: AudioVal;
     deny?: AudioVal;
+    step?: AudioVal;
+    spawn?: AudioVal;
+    fall?: AudioVal;
+    critical?: AudioVal;
     win?: AudioVal;
     lose?: AudioVal;
   };
@@ -270,6 +275,18 @@ export function init(
     else void music.play().catch(() => {});
   }
 
+  function stopMusic(): void {
+    if (!music) return;
+    music.pause();
+    // Пустой src резолвится в адрес страницы — элемент заново лезет в неё за
+    // ресурсом и сыплет MEDIA_ELEMENT_ERROR. Снимаем атрибут вместо этого.
+    if (music.hasAttribute('src')) {
+      music.removeAttribute('src');
+      music.load();
+    }
+    music = null;
+  }
+
   function applyMute(): void {
     master.gain.value = muted ? 0 : sfxGain;
     muteBtn.textContent = muted ? '🔇' : '🔊';
@@ -282,6 +299,10 @@ export function init(
     applyMute();
   });
   applyMute();
+  // Autoplay stays blocked until the document sees a gesture, and the game mounts
+  // under the briefing overlay that eats the first one.
+  // ponytail: one top-up attempt, not a retry loop.
+  root.addEventListener('pointerdown', syncMusic, { once: true });
 
   // --- progress / completion --------------------------------------------
   function report(): void {
@@ -294,11 +315,7 @@ export function init(
     if (finished) return;
     finished = true;
     cancelAnimationFrame(raf);
-    if (music) {
-      music.pause();
-      music.src = '';
-      music = null;
-    }
+    stopMusic();
     root.classList.remove(`${PREFIX}visible`);
     const s = state;
     fadeTimer = window.setTimeout(() => {
@@ -339,9 +356,20 @@ export function init(
           flashes.push({ point: e.point ?? state.position, kind: 'deny', t: 0.18 });
           break;
         case 'step':
-          // ponytail: flash only — every sound key in the schema means something
-          // else (deny is the failure blip), and inventing one is a schema change.
+          play(sounds.step);
           flashes.push({ point: e.point ?? state.position, kind: 'step', t: 0.14 });
+          break;
+        // ponytail: no per-frame priority arbiter — two short quiet foley hits in
+        // one frame is normal density; if a playtest hears mush, the `volume`
+        // field in the admin config fixes it.
+        case 'spawn':
+          play(sounds.spawn);
+          break;
+        case 'fall':
+          play(sounds.fall);
+          break;
+        case 'critical':
+          play(sounds.critical);
           break;
         case 'inversionWarn':
           play(sounds.inversionWarn);
@@ -612,7 +640,7 @@ export function init(
   function pointState(i: number): 'occupied' | 'critical' | 'targeted' | 'blocked' | 'idle' {
     if (i === state.position) return 'occupied';
     const v = state.victims.find((vv) => vv.target === i);
-    if (v) return landingIn(v, state.cfg) < 0.4 ? 'critical' : 'targeted';
+    if (v) return landingIn(v, state.cfg) < CRITICAL_LEAD ? 'critical' : 'targeted';
     if (state.cfg.controlVariant === 'clockwise' && i !== (state.position + 1) % state.points) {
       return 'blocked';
     }
@@ -750,7 +778,7 @@ export function init(
           );
           ctx.restore();
         }
-        drawFigure(x, y, landingIn(v, state.cfg) < 0.4 ? C.orange : C.amber);
+        drawFigure(x, y, landingIn(v, state.cfg) < CRITICAL_LEAD ? C.orange : C.amber);
       }
     }
   }
@@ -917,11 +945,7 @@ export function init(
     window.removeEventListener('blur', pause);
     window.removeEventListener('focus', resume);
     document.removeEventListener('visibilitychange', onVisibility);
-    if (music) {
-      music.pause();
-      music.src = '';
-      music = null;
-    }
+    stopMusic();
     buffers.clear();
     void audioCtx.close().catch(() => {});
     container.innerHTML = '';
