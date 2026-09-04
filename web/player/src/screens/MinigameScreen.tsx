@@ -1,11 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  DEFAULT_PLAYER_NAME,
   launchMinigame,
   type AudioSettingsPatch,
   type MinigameHandle,
   type MinigameResult,
 } from '../game/minigameLoader';
 import { TUTORIALS, resolveStep, type Dir, type TutorialStep } from '../game/tutorials';
+import { TypedLine, splitSpeaker } from '../dialogue/Line';
 
 interface MinigameScreenProps {
   gameId: number;
@@ -13,6 +15,12 @@ interface MinigameScreenProps {
   minigameId: string;
   /** Общий регулятор звука; меняется на лету, без перезапуска игры. */
   audio: AudioSettingsPatch;
+  /** Имя персонажа игры — подписывает его реплики (onLine) в слоте 2. */
+  speaker?: string;
+  /** Имя игрока: им подписаны реплики Олега в двухголосых репликах игр. */
+  playerName?: string;
+  /** Персонаж говорит (true) или слушает — портрет в панели гаснет вслед. */
+  onSpeaker?: (characterSpeaking: boolean) => void;
   /** Bottom-bar slot 2 — fed by the game's onProgress (docs/platform.md §3.1). */
   onContext: (node: ReactNode) => void;
   /** Result of the run, or null when the player exited without finishing. */
@@ -27,7 +35,10 @@ export function MinigameScreen({
   gameId,
   minigameId,
   audio,
+  speaker = '',
+  playerName = DEFAULT_PLAYER_NAME,
   onContext,
+  onSpeaker,
   onFinished,
 }: MinigameScreenProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -37,8 +48,13 @@ export function MinigameScreen({
   // Игра без инструктажа стартует сразу, как и раньше.
   const [briefed, setBriefed] = useState(steps.length === 0);
 
-  const cb = useRef({ onContext, onFinished });
-  cb.current = { onContext, onFinished };
+  // Имя приезжает асинхронно (список персонажей), а колбэк игры замыкается
+  // один раз на запуске — читаем через ref, чтобы не перемонтировать игру.
+  const namesRef = useRef({ character: speaker, player: playerName });
+  namesRef.current = { character: speaker, player: playerName };
+
+  const cb = useRef({ onContext, onSpeaker, onFinished });
+  cb.current = { onContext, onSpeaker, onFinished };
 
   // Громкость НЕ в зависимостях запускающего эффекта: иначе каждое движение
   // ползунка перемонтировало бы игру и сбрасывало разложенные карточки.
@@ -91,12 +107,25 @@ export function MinigameScreen({
       },
       onLine: (text, onDismiss) => {
         if (!live) return;
+        // Реплика игры печатается тем же кодом, что и диалоговая (dialogue/Line.tsx).
+        // Двухголосые реплики (лабиринт) подписаны префиксом «ИМЯ:» — вынимаем
+        // говорящего оттуда: Олег слева, где его камера, персонаж справа, где
+        // его портрет. Без префикса говорит персонаж игры, как было.
+        const { character, player } = namesRef.current;
+        const said = text === null ? null : splitSpeaker(text, [character, player]);
+        const fromPlayer = said?.name === player && player !== '';
+        // key — чтобы на смене текста печать начиналась заново, а не дописывалась.
         lineRef.current =
-          text === null ? null : (
-            <div className="dialogue-context" onClick={onDismiss}>
-              <div className="dialogue-line">{text}</div>
-            </div>
+          said === null ? null : (
+            <TypedLine
+              key={text}
+              name={said.name ?? character}
+              text={said.text}
+              side={fromPlayer ? 'left' : 'right'}
+              onClick={onDismiss}
+            />
           );
+        cb.current.onSpeaker?.(!fromPlayer);
         if (briefedRef.current) cb.current.onContext(lineRef.current ?? progressRef.current);
       },
       onFinished: (result) => {

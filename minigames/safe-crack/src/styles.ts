@@ -82,14 +82,30 @@ export const STYLES = `
   border: 1px solid #0A3435;
   box-shadow: inset 0 0 0 1px #030B0C;
 }
-.${P}question {
+.${P}progress {
   flex: 0 0 auto;
-  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
   border-left: 2px solid #E9A928;
   background: #0A3435;
   font-size: 14px;
   letter-spacing: 0.06em;
   color: #D3DED5;
+}
+.${P}progress__label { flex: 0 0 auto; white-space: nowrap; }
+.${P}progress__bar {
+  flex: 1 1 auto;
+  height: 8px;
+  background: #062326;
+  box-shadow: inset 0 0 0 1px #030B0C;
+}
+.${P}progress__fill {
+  height: 100%;
+  width: 0;
+  background: #16A69B;
+  transition: width 180ms linear;
 }
 .${P}slot {
   flex: 1 1 auto;

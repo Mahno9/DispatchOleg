@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { api, type Game, type GameConfig, type VerifiedGame } from './api';
+import { api, type Character, type Game, type GameConfig, type VerifiedGame } from './api';
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from './camera/camera';
 import { pickPostDialogue } from './dialogue/engine';
 import { CrtOverlay } from './fx/CrtOverlay';
+import { DEFAULT_PLAYER_NAME } from './game/minigameLoader';
 import { localState } from './state/localState';
 import { getConnectivitySnapshot, startSync, subscribeConnectivity, syncNow } from './state/sync';
+import { BarPortrait } from './ui/BarPortrait';
 import { BottomBar } from './ui/BottomBar';
 import { DialogueScreen } from './screens/DialogueScreen';
 import { MetaScreen, isUnlocked } from './screens/MetaScreen';
@@ -55,6 +57,8 @@ export function App() {
     return state.onboarded ? 'meta' : 'onboarding';
   });
   const [games, setGames] = useState<Game[]>([]);
+  /** Каст — ради портрета и имени того, кто ведёт игрока по мини-игре. */
+  const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedGame, setSelectedGame] = useState<VerifiedGame | null>(null);
   const [onboardStatus, setOnboardStatus] = useState('');
   /** Texts/timings of the tutorial game — null until (or unless) it loads. */
@@ -68,6 +72,8 @@ export function App() {
   );
   /** Slot 2 rented out to the dialogue scene / the running minigame. */
   const [slotContext, setSlotContext] = useState<ReactNode>(null);
+  /** Персонаж игры говорит или слушает: в двухголосых репликах портрет гаснет. */
+  const [charSpeaking, setCharSpeaking] = useState(true);
 
   // Onboarding hands this to timer-driven screens: it must be referentially
   // stable, or their setTimeout effects restart on every App re-render (the
@@ -89,6 +95,7 @@ export function App() {
   // pre-dialogue → minigame → post-dialogue, entered from a QR scan or a test run.
   const startGame = useCallback((game: VerifiedGame) => {
     setSelectedGame(game);
+    setCharSpeaking(true);
     setScreen('launch');
     api.getGameConfig(game.id).then(
       (config) => {
@@ -116,6 +123,11 @@ export function App() {
     }
     startGame(game);
   }, [games, startGame, endChain]);
+
+  useEffect(() => {
+    // Портрет — украшение: не загрузился каст, панель просто останется без него.
+    api.getCharacters().then(setCharacters, () => setCharacters([]));
+  }, []);
 
   useEffect(() => {
     api.getGames().then(
@@ -167,6 +179,9 @@ export function App() {
   let workarea;
   let context;
   let action;
+  let portrait;
+  const gameCharacter =
+    characters.find((c) => c.id === gameConfig?.characterId) ?? null;
 
   switch (screen) {
     case 'onboarding':
@@ -285,7 +300,10 @@ export function App() {
           gameId={selectedGame.id}
           minigameId={selectedGame.minigameId}
           audio={state.prefs}
+          speaker={gameCharacter?.name ?? ''}
+          playerName={state.profile.name || DEFAULT_PLAYER_NAME}
           onContext={setSlotContext}
+          onSpeaker={setCharSpeaking}
           onFinished={(result) => {
             if (!result) return endChain();
             localState.recordGameResult(selectedGame.id, result);
@@ -299,6 +317,10 @@ export function App() {
         />
       );
       context = slotContext;
+      // В диалоге персонажи стоят в рабочей области — там панели портрет не нужен.
+      portrait = gameCharacter && (
+        <BarPortrait character={gameCharacter} speaking={charSpeaking} />
+      );
       action = (
         <button type="button" className="btn btn-key btn-danger" onClick={endChain}>
           Выйти
@@ -347,6 +369,7 @@ export function App() {
       <BottomBar
         cameraOn={state.onboarded || camera.status === 'live'}
         context={context}
+        portrait={portrait}
         action={action}
       />
 

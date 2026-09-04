@@ -446,6 +446,30 @@ h3 {
   clip-path: none;
 }
 
+/* Портрет собеседника — слот между репликой и кнопкой, появляется только когда
+   персонажу есть что сказать (мини-игра). Кадр связи тот же, что в диалоге. */
+.bottombar-portrait {
+  grid-template-columns: 220px 1fr 108px 150px;
+}
+
+.slot-portrait {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.bar-portrait {
+  width: 100%;
+  height: 100%;
+}
+
+/* Ширину задаёт aspect-ratio кадра связи (.portrait-remote), высоту — слот. */
+.bar-portrait .portrait-frame {
+  width: auto;
+  height: 100%;
+}
+
 /* Camera video + NO SIGNAL placeholder. */
 .camera-video {
   width: 100%;

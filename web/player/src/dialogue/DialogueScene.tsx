@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from '../camera/camera';
 import { CharacterInfo } from './CharacterInfo';
+import { DialogueLine, useTypewriter } from './Line';
 import { silhouetteFor } from './Silhouettes';
 import { OLEG, advance, initialSides, type DialogueDoc } from './engine';
 
@@ -20,12 +21,6 @@ interface DialogueSceneProps {
   /** Feeds bottom-bar slot 2 with the current line (docs/platform.md §1.2). */
   onContext: (node: ReactNode) => void;
   onFinish: () => void;
-}
-
-const CHAR_MS = 22;
-
-function prefersReducedMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
 /** Oleg's portrait is the player: the live webcam frame, or his silhouette. */
@@ -98,11 +93,12 @@ function Portrait({ id, side, speaking, remote, cast }: PortraitProps) {
  */
 export function DialogueScene({ doc, cast, partner, onContext, onFinish }: DialogueSceneProps) {
   const [nodeId, setNodeId] = useState(doc.start);
-  const [shown, setShown] = useState(0);
 
   const node = doc.nodes[nodeId] ?? null;
   const text = node?.text ?? '';
-  const done = shown >= text.length;
+  // Печать живёт в общем useTypewriter (dialogue/Line.tsx) — там же появится
+  // её звук. Ключ nodeId: две подряд ноды с одинаковым текстом печатаются заново.
+  const { shown, done, skip } = useTypewriter(text, nodeId);
   // Misclick guard for nodes with an external link: the scene refuses to
   // advance until the player actually opened it.
   const [linkOpened, setLinkOpened] = useState(false);
@@ -124,46 +120,19 @@ export function DialogueScene({ doc, cast, partner, onContext, onFinish }: Dialo
     );
   }, [node]);
 
-  // Typewriter. Restarts per node, even when two nodes carry the same text.
-  useEffect(() => {
-    if (prefersReducedMotion()) {
-      setShown(text.length);
-      return;
-    }
-    setShown(0);
-    const timer = setInterval(() => {
-      setShown((n) => {
-        if (n >= text.length) {
-          clearInterval(timer);
-          return n;
-        }
-        return n + 1;
-      });
-    }, CHAR_MS);
-    return () => clearInterval(timer);
-  }, [nodeId, text]);
-
   // Mirror the line into the bottom bar; clear the slot when the scene leaves.
   useEffect(() => {
     const speaker = node?.side === 'left' ? sides.left : sides.right;
     const name = speaker === OLEG ? 'Олег' : (speaker !== null && cast[speaker]?.name) || '';
     cb.current.onContext(
-      <div
-        className={`dialogue-context${node?.side === 'right' ? ' dialogue-context-right' : ''}`}
+      <DialogueLine
+        name={name}
+        text={text}
+        shown={shown}
+        done={done}
+        side={node?.side === 'right' ? 'right' : 'left'}
         onClick={onSceneClick}
-      >
-        <div className="label dialogue-name">{name}</div>
-        <p className="dialogue-line">
-          {text.slice(0, shown)}
-          {/* The untyped tail stays in the DOM, just invisible: the line holds its
-              final layout from the first character instead of crawling as it types
-              (unreadable once right-aligned). The cursor is a background-filled
-              NBSP, not .boot-cursor's inline-block — an atomic inline would add a
-              break opportunity mid-word and reflow the text around it. */}
-          <span className={`dialogue-cursor${done ? ' dialogue-hidden' : ''}`}>{' '}</span>
-          <span className="dialogue-hidden">{text.slice(shown)}</span>
-        </p>
-      </div>,
+      />,
     );
   }, [text, shown, done, node, sides, cast]);
 
@@ -181,7 +150,7 @@ export function DialogueScene({ doc, cast, partner, onContext, onFinish }: Dialo
   }
 
   function onSceneClick(): void {
-    if (!done) return setShown(text.length);
+    if (!done) return skip();
     if (node && node.choices.length > 0) return; // waiting for a card
     if (node?.link && !linkOpened) return; // waiting for the link to be opened
     go();

@@ -6,6 +6,8 @@ interface BottomBarProps {
   cameraOn: boolean;
   /** Slot 2 — the only screen-dependent part of the bar. */
   context?: ReactNode;
+  /** Портрет собеседника слева от кнопки — только там, где есть кто говорить. */
+  portrait?: ReactNode;
   /** Slot 3 — platform-owned action button (START / ОТМЕНА / ВЫЙТИ / nothing). */
   action?: ReactNode;
 }
@@ -14,9 +16,9 @@ interface BottomBarProps {
  * The permanent bottom panel. Mounted above the screen state machine so it
  * survives every screen switch — only the slot contents change.
  */
-export function BottomBar({ cameraOn, context, action }: BottomBarProps) {
+export function BottomBar({ cameraOn, context, portrait, action }: BottomBarProps) {
   return (
-    <div className="bottombar">
+    <div className={`bottombar${portrait ? ' bottombar-portrait' : ''}`}>
       <div className="slot slot-camera">
         {cameraOn ? (
           <CameraPanel />
@@ -30,6 +32,7 @@ export function BottomBar({ cameraOn, context, action }: BottomBarProps) {
         )}
       </div>
       <div className="slot slot-context">{context}</div>
+      {portrait && <div className="slot slot-portrait">{portrait}</div>}
       <div className="slot-action">{action}</div>
     </div>
   );

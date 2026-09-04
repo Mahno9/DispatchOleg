@@ -12,6 +12,7 @@ import {
   normalizeConfig,
   normalizePattern,
   numberToWords,
+  panelLine,
   reduce,
   resolveExpected,
   shuffle,
@@ -20,6 +21,7 @@ import {
   type Lock,
   type State,
 } from './engine.js';
+import games from '../../../content/games.json' with { type: 'json' };
 
 function lock(over: Partial<Lock> = {}): Lock {
   return { question: 'q', widget: 'mega-slider', answer: '1', points: 50, params: {}, ...over };
@@ -310,5 +312,93 @@ describe('number-as-words', () => {
   it('composeWords склеивает непустые фрагменты', () => {
     expect(composeWords(['двести', EMPTY_SLOT, 'три'])).toBe('двести три');
     expect(composeWords([EMPTY_SLOT, EMPTY_SLOT, EMPTY_SLOT])).toBe('');
+  });
+});
+
+describe('panelLine — подсказка в слоте 2', () => {
+  const cfg = config({ locks: [lock({ question: 'первая' }), lock({ question: 'вторая' })] });
+
+  it('на заставке панель свободна', () => {
+    expect(panelLine(cfg, createState(cfg))).toBeNull();
+  });
+
+  it('висит весь ригель, включая проверку и показ результата', () => {
+    let state = run(cfg, [{ type: 'START' }]);
+    expect(panelLine(cfg, state)).toBe('первая');
+    state = run(cfg, [{ type: 'SUBMIT', value: '1' }], state);
+    expect(state.phase).toBe('checking');
+    expect(panelLine(cfg, state)).toBe('первая');
+    state = run(cfg, [{ type: 'CHECK_DONE' }], state);
+    expect(state.phase).toBe('lockOpen');
+    expect(panelLine(cfg, state)).toBe('первая');
+  });
+
+  it('на следующем ригеле меняется на его подсказку', () => {
+    const state = solve(cfg, run(cfg, [{ type: 'START' }]));
+    expect(panelLine(cfg, state)).toBe('вторая');
+  });
+
+  it('финал освобождает панель под итоговую строку прогресса', () => {
+    const one = config({ locks: [lock({ question: 'первая' })] });
+    const won = solve(one, run(one, [{ type: 'START' }]));
+    expect(won.phase).toBe('victory');
+    expect(panelLine(one, won)).toBeNull();
+  });
+
+  it('пустой вопрос панель не занимает', () => {
+    const mute = config({ locks: [lock({ question: '   ' })] });
+    expect(panelLine(mute, run(mute, [{ type: 'START' }]))).toBeNull();
+  });
+});
+
+// Контентный сторож: ответы «Сейфа ломбарда» должны быть вводимы виджетами.
+// Ловит не смысл загадки, а физическую невозможность набрать эталон.
+describe('content: сейф ломбарда (games.json)', () => {
+  const game = games.find((g) => g.minigame_id === 'safe-crack');
+  const config = normalizeConfig(game?.config_json);
+
+  it('игра на месте и ригели заданы', () => {
+    expect(config.locks.length).toBeGreaterThan(0);
+  });
+
+  it.each(config.locks.map((l, i) => [i, l] as const))('ригель %i вводим', (_i, lock) => {
+    const expected = resolveExpected(lock);
+    expect(expected).not.toBe('');
+
+    if (lock.widget === 'mega-slider') {
+      const value = Number(lock.answer);
+      expect(Number.isInteger(value)).toBe(true);
+      expect(value).toBeGreaterThanOrEqual(Number(lock.params.min ?? 0));
+      expect(value).toBeLessThanOrEqual(Number(lock.params.max ?? 10000));
+    }
+
+    if (lock.widget === 'number-as-words') {
+      const reels = buildWordReels(Number(lock.params.slots ?? 3), Number(lock.params.maxNumber ?? 999));
+      const combos = new Set<string>();
+      const walk = (depth: number, acc: string[]): void => {
+        if (depth === reels.length) return void combos.add(composeWords(acc));
+        for (const f of reels[depth]!) walk(depth + 1, [...acc, f]);
+      };
+      walk(0, []);
+      expect(combos.has(expected), `не набрать «${expected}»`).toBe(true);
+    }
+
+    if (lock.widget === 'haystack-dropdown') {
+      const options = (lock.params.options as string[]) ?? [];
+      expect(options.filter((o) => compareAnswer(o, lock.answer))).toHaveLength(1);
+    }
+
+    if (lock.widget === 'shuffle-keyboard' || lock.widget === 'safe-drum') {
+      const target = (lock.params.targetWord as string) ?? lock.answer;
+      expect(compareAnswer(target, lock.answer)).toBe(true);
+    }
+  });
+
+  // Загадка ригеля 4: «в журнале он такой один» — вторая фамилия на ту же букву её ломает.
+  it('оценщик — единственная фамилия на свою букву', () => {
+    const lock = config.locks.find((l) => l.widget === 'haystack-dropdown');
+    const options = (lock?.params.options as string[]) ?? [];
+    const first = normalize(lock!.answer)[0];
+    expect(options.filter((o) => normalize(o).startsWith(first!))).toHaveLength(1);
   });
 });
