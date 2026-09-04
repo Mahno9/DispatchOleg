@@ -445,35 +445,46 @@
         {
           "generatorParams": {
             "type": "square",
-            "size": 7,
-            "breakableDensity": 0.2,
-            "seed": 2201,
+            "size": 10,
+            "breakableDensity": 0,
+            "seed": 3005,
+            "breakableGroups": [
+              63,
+              96
+            ],
             "patrols": 0,
-            "quietSpots": 3
+            "quietSpots": 2
           },
           "walls": [],
           "scale": 1,
-          "scorePerMaze": 100
+          "scorePerMaze": 130
         },
         {
           "generatorParams": {
             "type": "hex",
-            "size": 7,
-            "breakableDensity": 0.15,
-            "seed": 2202,
-            "patrols": 1,
+            "size": 8,
+            "breakableDensity": 0.02,
+            "seed": 3001,
+            "patrols": 2,
             "quietSpots": 3
           },
           "walls": [],
           "scale": 1,
-          "scorePerMaze": 120
+          "scorePerMaze": 170
         },
         {
           "generatorParams": {
             "type": "circular",
-            "size": 5,
-            "breakableDensity": 0.1,
-            "seed": 2203,
+            "size": 6,
+            "breakableDensity": 0,
+            "seed": 2206,
+            "breakableGroups": [
+              6,
+              66,
+              108,
+              114
+            ],
+            "finishAtCenter": true,
             "patrols": 2,
             "quietSpots": 3
           },
