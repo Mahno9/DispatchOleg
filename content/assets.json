@@ -63,6 +63,15 @@
     "created_at": 1785884564151
   },
   {
+    "id": "mus-bridge",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "music-2.ogg",
+    "size_bytes": 1830996,
+    "created_at": 1788496448137
+  },
+  {
     "id": "mus-nightshift",
     "kind": "audio",
     "mime": "audio/ogg",
@@ -88,6 +97,96 @@
     "original_name": "flambae-silhouette.svg",
     "size_bytes": 13221,
     "created_at": 1785884554696
+  },
+  {
+    "id": "sfx-bridge-catch-1",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "catch-1.ogg",
+    "size_bytes": 8147,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-catch-2",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "catch-2.ogg",
+    "size_bytes": 7996,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-catch-3",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "catch-3.ogg",
+    "size_bytes": 8079,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-critical",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "critical-3.ogg",
+    "size_bytes": 5954,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-deny",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "deny-nea-8.ogg",
+    "size_bytes": 5181,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-fall",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "fall-4.ogg",
+    "size_bytes": 9229,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-lose",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "lose-2.ogg",
+    "size_bytes": 8939,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-miss",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "miss-r2-2.ogg",
+    "size_bytes": 15919,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-step",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "step-a2.ogg",
+    "size_bytes": 6354,
+    "created_at": 1788496448137
+  },
+  {
+    "id": "sfx-bridge-win",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "win-3.ogg",
+    "size_bytes": 15873,
+    "created_at": 1788496448137
   },
   {
     "id": "sfx-confirm",

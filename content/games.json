@@ -340,17 +340,87 @@
     "title": "Восточный мост",
     "minigame_id": "rescue-catch",
     "config_json": {
-      "controlVariant": "bidirectional",
-      "rescueTarget": 12,
-      "lives": 3,
+      "rescueTarget": 18,
       "spawnIntervalStart": 2.6,
       "spawnIntervalMin": 1,
       "fallTime": 1.9,
       "hangTime": 1.1,
-      "maxAirborne": 2,
-      "pointsPerCatch": 100,
-      "streakStep": 3,
-      "maxMultiplier": 4
+      "sounds": {
+        "step": [
+          {
+            "url": "/assets-store/sfx-bridge-step.ogg",
+            "weight": 1,
+            "volume": 65
+          }
+        ],
+        "deny": [
+          {
+            "url": "/assets-store/sfx-bridge-deny.ogg",
+            "weight": 1,
+            "volume": 75
+          }
+        ],
+        "spawn": [],
+        "fall": [
+          {
+            "url": "/assets-store/sfx-bridge-fall.ogg",
+            "weight": 1,
+            "volume": 70
+          }
+        ],
+        "critical": [
+          {
+            "url": "/assets-store/sfx-bridge-critical.ogg",
+            "weight": 1,
+            "volume": 60
+          }
+        ],
+        "catch": [
+          {
+            "url": "/assets-store/sfx-bridge-catch-1.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-bridge-catch-2.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-bridge-catch-3.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "miss": [
+          {
+            "url": "/assets-store/sfx-bridge-miss.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "win": [
+          {
+            "url": "/assets-store/sfx-bridge-win.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "lose": [
+          {
+            "url": "/assets-store/sfx-bridge-lose.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ]
+      },
+      "music": [
+        {
+          "url": "/assets-store/mus-bridge.ogg",
+          "weight": 1,
+          "volume": 100
+        }
+      ]
     },
     "character_id": 61,
     "pre_dialogue_id": 152,
