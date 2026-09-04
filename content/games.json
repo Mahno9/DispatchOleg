@@ -418,7 +418,7 @@
         {
           "url": "/assets-store/mus-bridge.ogg",
           "weight": 1,
-          "volume": 100
+          "volume": 180
         }
       ]
     },
@@ -656,7 +656,58 @@
             "finalHoldMs": 4800
           }
         ]
-      }
+      },
+      "sounds": {
+        "start": [
+          {
+            "url": "/assets-store/sfx-metro-start.ogg",
+            "weight": 1,
+            "volume": 60
+          }
+        ],
+        "wallBreak": [
+          {
+            "url": "/assets-store/sfx-metro-break.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "alert": [
+          {
+            "url": "/assets-store/sfx-metro-alert.ogg",
+            "weight": 1,
+            "volume": 85
+          }
+        ],
+        "mazeComplete": [
+          {
+            "url": "/assets-store/sfx-metro-maze.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "gameComplete": [
+          {
+            "url": "/assets-store/sfx-metro-done.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "ambient": [
+          {
+            "url": "/assets-store/mus-metro.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ]
+      },
+      "screamerSound": [
+        {
+          "url": "/assets-store/sfx-metro-screamer.ogg",
+          "weight": 1,
+          "volume": 100
+        }
+      ]
     },
     "character_id": 58,
     "pre_dialogue_id": 139,
