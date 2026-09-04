@@ -41,6 +41,8 @@ interface GeneratorParamsRaw {
   size?: number;
   breakableDensity?: number;
   seed?: number;
+  breakableGroups?: number[];
+  finishAtCenter?: boolean;
   patrols?: number;
   quietSpots?: number;
 }
@@ -197,7 +199,8 @@ const isFiniteWall = (w: Wall): boolean =>
   [w.x1, w.y1, w.x2, w.y2].every((v) => typeof v === 'number' && Number.isFinite(v));
 
 /** Logical wall id: pieces of one arc share a group and break together. */
-const groupOf = (w: Wall, index: number): number => (typeof w.group === 'number' ? w.group : -1 - index);
+const groupOf = (w: Wall, index: number): number =>
+  typeof w.group === 'number' ? w.group : -1 - index;
 
 function normalizeMaze(raw: MazeConfig, index: number): RtMaze {
   let walls = Array.isArray(raw.walls) ? raw.walls.filter(isFiniteWall) : [];
@@ -217,6 +220,8 @@ function normalizeMaze(raw: MazeConfig, index: number): RtMaze {
       size: Math.round(num(g.size, 8, 3, 20)),
       breakableDensity: num(g.breakableDensity, 0.15, 0, 1),
       seed: Math.floor(num(g.seed, 1 + index * 7919, -2147483648, 2147483647)),
+      ...(Array.isArray(g.breakableGroups) ? { breakableGroups: g.breakableGroups } : {}),
+      finishAtCenter: g.finishAtCenter === true,
       patrols: Math.round(num(g.patrols, 0, 0, 3)),
       quietSpots: Math.round(num(g.quietSpots, 0, 0, 3)),
     });
@@ -555,7 +560,11 @@ export function init(
     play(config.screamerSound);
   }
 
-  function breakWall(hit: Wall, col: { cx: number; cy: number; nx: number; ny: number }, now: number): void {
+  function breakWall(
+    hit: Wall,
+    col: { cx: number; cy: number; nx: number; ny: number },
+    now: number,
+  ): void {
     brokenGroups.add(hit.group as number);
     wallsBrokenCurrent++;
     rebuildWalls();
@@ -656,7 +665,8 @@ export function init(
         // touches a wall — then use the start centre, or the player would be
         // screamed at for materializing.
         const safe = activeWalls.every(
-          (w) => distancePointSegment(target.x, target.y, w.x1, w.y1, w.x2, w.y2).dist > DOT_RADIUS + 1,
+          (w) =>
+            distancePointSegment(target.x, target.y, w.x1, w.y1, w.x2, w.y2).dist > DOT_RADIUS + 1,
         );
         const p = safe ? target : startPx;
         dot = { x: p.x, y: p.y, vx: 0, vy: 0, relaxMs: 0 };

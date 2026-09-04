@@ -180,13 +180,25 @@ describe('stepPhysics', () => {
 
   it('reports the nearest wall when two are in range', () => {
     const walls = [wall(0, -8, 100, -8), wall(0, 3, 100, 3, true)];
-    const r = stepPhysics({ x: 50, y: 0, vx: 0, vy: 60, relaxMs: 0 }, { x: 50, y: 50 }, 1 / 60, walls, P);
+    const r = stepPhysics(
+      { x: 50, y: 0, vx: 0, vy: 60, relaxMs: 0 },
+      { x: 50, y: 50 },
+      1 / 60,
+      walls,
+      P,
+    );
     expect(r.collision?.wallIndex).toBe(1);
   });
 
   it('normal points from the wall towards the dot', () => {
     const walls = [wall(0, 0, 100, 0)];
-    const r = stepPhysics({ x: 50, y: -5, vx: 0, vy: 60, relaxMs: 0 }, { x: 50, y: 50 }, 1 / 60, walls, P);
+    const r = stepPhysics(
+      { x: 50, y: -5, vx: 0, vy: 60, relaxMs: 0 },
+      { x: 50, y: 50 },
+      1 / 60,
+      walls,
+      P,
+    );
     expect(r.collision).toBeDefined();
     expect(r.collision?.ny).toBeCloseTo(-1);
   });
@@ -224,11 +236,14 @@ describe('generateMaze', () => {
       for (const density of DENSITIES)
         for (const seed of SEEDS) cases.push([type, size, density, seed]);
 
-  it.each(cases)('honest path exists: %s size=%i density=%f seed=%i', (type, size, density, seed) => {
-    const maze = generateMaze({ type, size, breakableDensity: density, seed });
-    // solvePath treats breakable walls as walls — the path must need no breaking.
-    expect(solvePath(maze)).not.toBeNull();
-  });
+  it.each(cases)(
+    'honest path exists: %s size=%i density=%f seed=%i',
+    (type, size, density, seed) => {
+      const maze = generateMaze({ type, size, breakableDensity: density, seed });
+      // solvePath treats breakable walls as walls — the path must need no breaking.
+      expect(solvePath(maze)).not.toBeNull();
+    },
+  );
 
   it('is deterministic for the same seed and differs for another', () => {
     for (const type of TYPES) {
@@ -273,11 +288,60 @@ describe('generateMaze', () => {
     }
   });
 
+  it('breakableGroups fixes exact authored shortcuts instead of density selection', () => {
+    const d = generateMazeDetailed({
+      type: 'square',
+      size: 10,
+      breakableDensity: 1,
+      seed: 3005,
+      breakableGroups: [63, 96],
+    });
+    const groups = [...new Set(d.maze.walls.filter((w) => w.breakable).map((w) => w.group))];
+    expect(groups).toEqual([63, 96]);
+    expect(d.breakableTreeDist.sort((a, b) => a - b)).toEqual([15, 27]);
+  });
+
+  it('finishAtCenter puts the circular finish in the central chamber', () => {
+    const d = generateMazeDetailed({
+      type: 'circular',
+      size: 6,
+      breakableDensity: 0,
+      seed: 2206,
+      breakableGroups: [6, 66, 108, 114],
+      finishAtCenter: true,
+    });
+    expect(d.maze.finish).toEqual({ x: 0.5, y: 0.5 });
+    expect(d.routeSteps).toBe(59);
+    expect([...new Set(d.maze.walls.filter((w) => w.breakable).map((w) => w.group))]).toEqual([
+      6, 66, 108, 114,
+    ]);
+
+    const groups = new Map<number, Wall[]>();
+    for (const w of d.maze.walls) {
+      if (!w.breakable) continue;
+      const list = groups.get(w.group as number) ?? [];
+      list.push(w);
+      groups.set(w.group as number, list);
+    }
+    for (const [group, pieces] of groups) {
+      const w = pieces[Math.floor(pieces.length / 2)] as Wall;
+      const mx = (w.x1 + w.x2) / 2;
+      const my = (w.y1 + w.y2) / 2;
+      const ex = w.x2 - w.x1;
+      const ey = w.y2 - w.y1;
+      const len = Math.hypot(ex, ey);
+      const others = d.maze.walls.filter((candidate) => candidate.group !== group);
+      expect(raycast(others, mx, my, -ey / len, ex / len)).toBeGreaterThan(d.cellSize * 2);
+      expect(raycast(others, mx, my, ey / len, -ex / len)).toBeGreaterThan(d.cellSize * 2);
+    }
+  });
+
   it('every breakable wall is a real short-cut', () => {
     for (const type of TYPES)
       for (const seed of SEEDS) {
         const d = generateMazeDetailed({ type, size: 10, breakableDensity: 0.5, seed });
-        for (const dist of d.breakableTreeDist) expect(dist).toBeGreaterThanOrEqual(BREAK_MIN_TREE_DIST);
+        for (const dist of d.breakableTreeDist)
+          expect(dist).toBeGreaterThanOrEqual(BREAK_MIN_TREE_DIST);
       }
   });
 
@@ -360,9 +424,15 @@ describe('patrol posts', () => {
   });
 
   it('returns nothing for a maze with no path or a non-positive count', () => {
-    const sealed = { walls: [wall(0.5, 0, 0.5, 1)], start: { x: 0.2, y: 0.5 }, finish: { x: 0.8, y: 0.5 } };
+    const sealed = {
+      walls: [wall(0.5, 0, 0.5, 1)],
+      start: { x: 0.2, y: 0.5 },
+      finish: { x: 0.8, y: 0.5 },
+    };
     expect(placeRoutePosts(sealed, 2)).toEqual([]);
-    expect(placeRoutePosts(generateMaze({ type: 'square', size: 8, breakableDensity: 0, seed: 1 }), 0)).toEqual([]);
+    expect(
+      placeRoutePosts(generateMaze({ type: 'square', size: 8, breakableDensity: 0, seed: 1 }), 0),
+    ).toEqual([]);
   });
 
   it('another phase gives other points, still on the route and clear of the ends', () => {
@@ -422,7 +492,6 @@ describe('quiet spots', () => {
       expect(generateMaze({ ...p, quietSpots: 0 }).quietSpots).toBeUndefined();
     }
   });
-
 });
 
 // ---------------------------------------------------------------------------

@@ -93,7 +93,12 @@
       "maxItems": 3,
       "default": [
         {
-          "generatorParams": { "type": "square", "size": 8, "breakableDensity": 0.15, "seed": 1001 },
+          "generatorParams": {
+            "type": "square",
+            "size": 8,
+            "breakableDensity": 0.15,
+            "seed": 1001
+          },
           "walls": [],
           "scale": 1,
           "scorePerMaze": 100
@@ -105,7 +110,12 @@
           "scorePerMaze": 100
         },
         {
-          "generatorParams": { "type": "circular", "size": 5, "breakableDensity": 0.15, "seed": 1003 },
+          "generatorParams": {
+            "type": "circular",
+            "size": 5,
+            "breakableDensity": 0.15,
+            "seed": 1003
+          },
           "walls": [],
           "scale": 1,
           "scorePerMaze": 150
@@ -145,6 +155,19 @@
                 "default": 0.15,
                 "minimum": 0,
                 "maximum": 1
+              },
+              "breakableGroups": {
+                "type": "array",
+                "title": "Точные группы ломаемых стен",
+                "description": "Если задано, заменяет случайный выбор по доле для вручную подобранной карты.",
+                "uniqueItems": true,
+                "items": { "type": "integer", "minimum": 0 }
+              },
+              "finishAtCenter": {
+                "type": "boolean",
+                "title": "Финиш в центре",
+                "description": "Для кругового лабиринта добавляет центральную камеру и помещает финиш в неё.",
+                "default": false
               },
               "seed": {
                 "type": "integer",

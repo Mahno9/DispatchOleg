@@ -41,6 +41,10 @@ export interface GeneratorParams {
   size: number;
   breakableDensity: number;
   seed: number;
+  /** Exact logical wall groups to make breakable; overrides density when present. */
+  breakableGroups?: number[];
+  /** Circular mazes only: use the central chamber as the finish. */
+  finishAtCenter?: boolean;
   /** Searchlight patrol count, 0..3. Absent = 0. */
   patrols?: number;
   /** Bark trigger count on the honest route, 0..3. Absent = 0. */
@@ -269,11 +273,7 @@ export function classifyHit(
 }
 
 /** Kick the dot back along the wall normal and relax the spring for a while. */
-export function applyBounce(
-  state: DotState,
-  col: Collision,
-  params: PhysicsParams,
-): DotState {
+export function applyBounce(state: DotState, col: Collision, params: PhysicsParams): DotState {
   const sp = Math.hypot(state.vx, state.vy);
   const out = Math.max(params.bounceSpeed, 1.15 * sp);
   return {
@@ -289,7 +289,10 @@ export function applyBounce(
 // Scoring
 // ---------------------------------------------------------------------------
 
-export function computeStyleTag(wallsBroken: number, breakerThreshold: number): 'ghost' | 'breaker' {
+export function computeStyleTag(
+  wallsBroken: number,
+  breakerThreshold: number,
+): 'ghost' | 'breaker' {
   return wallsBroken < breakerThreshold ? 'ghost' : 'breaker';
 }
 
@@ -429,17 +432,17 @@ function arcSegs(r: number, a0: number, a1: number): Seg[] {
   return out;
 }
 
-function buildCircular(size: number): Grid {
+function buildCircular(size: number, includeCenter = false): Grid {
   const ringW = 0.5 / (size + 1);
   const rad = (i: number): number => ringW * (i + 1);
   const sect = (i: number): number => 6 + 4 * i;
   const base: number[] = [];
-  let acc = 0;
+  let acc = includeCenter ? 1 : 0;
   for (let i = 0; i < size; i++) {
     base.push(acc);
     acc += sect(i);
   }
-  const centers: Pt[] = [];
+  const centers: Pt[] = includeCenter ? [{ x: 0.5, y: 0.5 }] : [];
   for (let i = 0; i < size; i++) {
     const rm = (rad(i) + rad(i + 1)) / 2;
     const step = (Math.PI * 2) / sect(i);
@@ -452,6 +455,15 @@ function buildCircular(size: number): Grid {
   const border: Seg[][] = [];
   for (let i = 0; i < size; i++) {
     const step = (Math.PI * 2) / sect(i);
+    if (i === 0 && includeCenter) {
+      for (let j = 0; j < sect(i); j++) {
+        edges.push({
+          a: 0,
+          b: (base[i] as number) + j,
+          segs: arcSegs(rad(0), j * step, (j + 1) * step),
+        });
+      }
+    }
     // radial walls inside a ring
     for (let j = 0; j < sect(i); j++) {
       const a = (j + 1) * step;
@@ -496,7 +508,7 @@ function buildCircular(size: number): Grid {
       }
     }
   }
-  border.push(arcSegs(rad(0), 0, Math.PI * 2));
+  if (!includeCenter) border.push(arcSegs(rad(0), 0, Math.PI * 2));
   border.push(arcSegs(rad(size), 0, Math.PI * 2));
   return { centers, edges, border, cellSize: ringW };
 }
@@ -525,7 +537,7 @@ export function generateMazeDetailed(params: GeneratorParams): MazeDetails {
     params.type === 'hex'
       ? buildHex(size)
       : params.type === 'circular'
-        ? buildCircular(size)
+        ? buildCircular(size, params.finishAtCenter === true)
         : buildSquare(size);
   const rng = mulberry32(params.seed | 0);
   const n = grid.centers.length;
@@ -595,9 +607,13 @@ export function generateMazeDetailed(params: GeneratorParams): MazeDetails {
   };
 
   // Endpoints of the tree diameter: the longest honest route the maze can offer.
-  const startCell = far(bfs(root).dist);
+  const startCell =
+    params.type === 'circular' && params.finishAtCenter === true
+      ? far(bfs(0).dist)
+      : far(bfs(root).dist);
   const fromStart = bfs(startCell);
-  const finishCell = far(fromStart.dist);
+  const finishCell =
+    params.type === 'circular' && params.finishAtCenter === true ? 0 : far(fromStart.dist);
   const depth = fromStart.dist;
   const parent = fromStart.parent;
 
@@ -649,15 +665,17 @@ export function generateMazeDetailed(params: GeneratorParams): MazeDetails {
     const l = Math.hypot(ex, ey) || 1;
     const nx = -ey / l;
     const ny = ex / l;
-    return (
-      raycast(walls, mx, my, nx, ny) >= clear && raycast(walls, mx, my, -nx, -ny) >= clear
-    );
+    return raycast(walls, mx, my, nx, ny) >= clear && raycast(walls, mx, my, -nx, -ny) >= clear;
   });
   shuffle(roomy, rng);
-  const take = Math.round(density * roomy.length);
+  const forced = Array.isArray(params.breakableGroups)
+    ? new Set(params.breakableGroups.map((v) => Math.floor(v)))
+    : null;
+  const selected = forced
+    ? roomy.filter((c) => forced.has(c.group))
+    : roomy.slice(0, Math.round(density * roomy.length));
   const breakableTreeDist: number[] = [];
-  for (let i = 0; i < take; i++) {
-    const c = roomy[i] as { group: number; dist: number; first: number; count: number };
+  for (const c of selected) {
     for (let j = 0; j < c.count; j++) (walls[c.first + j] as Wall).breakable = true;
     breakableTreeDist.push(c.dist);
   }

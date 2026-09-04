@@ -90,4 +90,11 @@ describe('данные инструктажа', () => {
       }
     }
   });
+
+  it('инструктаж подземки прямо объясняет первый безопасный пролом', () => {
+    const lesson = TUTORIALS['three-mazes']?.[2]?.text ?? '';
+    expect(lesson).toMatch(/Первый уровень/);
+    expect(lesson).toMatch(/пунктирную стену/);
+    expect(lesson).toMatch(/разогнать точку/);
+  });
 });
