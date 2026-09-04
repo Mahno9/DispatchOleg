@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   applyInput,
   createState,
+  CRITICAL_LEAD,
   landingIn,
   multiplierOf,
   progressText,
@@ -203,6 +204,120 @@ describe('spawn', () => {
   it('arms the next spawn with the accelerated interval', () => {
     const s = { ...mk({ controlVariant: 'inverted' }), rescued: 10 };
     expect(trySpawn(s).nextSpawnIn).toBeCloseTo(1.7);
+  });
+});
+
+describe('event: spawn', () => {
+  it('a successful spawn emits exactly one spawn event whose point matches the new victim', () => {
+    const after = trySpawn(mk());
+    expect(types(after)).toEqual(['spawn']);
+    const victim = after.victims[after.victims.length - 1]!;
+    expect(after.events[0]!.point).toBe(victim.target);
+  });
+
+  it('a refused spawn (every reachable point taken) emits no spawn event', () => {
+    let s = mk({ maxAirborne: 4, controlVariant: 'inverted' });
+    for (let i = 0; i < 6; i++) s = withVictim(s, i);
+    const after = trySpawn({ ...s, cfg: { ...s.cfg, maxAirborne: 10 } });
+    expect(types(after)).toEqual([]);
+  });
+});
+
+describe('event: fall', () => {
+  it('emits exactly one fall event on the telegraph -> falling frame, with the right point; the next frame does not repeat it', () => {
+    const s = mk();
+    const target = 3;
+    let st = withVictim(s, target, 'telegraph', s.cfg.hangTime - DT / 2);
+    st = update(st, DT);
+    expect(types(st)).toEqual(['fall']);
+    expect(st.events[0]!.point).toBe(target);
+    st = update(st, DT);
+    expect(types(st)).not.toContain('fall');
+  });
+
+  it('a victim created already falling never emits fall over its whole life', () => {
+    let st = withVictim(mk(), 2, 'falling', 0);
+    for (let i = 0; i < 10000; i++) {
+      st = update(st, DT);
+      expect(types(st)).not.toContain('fall');
+      if (st.events.some((e) => e.type === 'catch' || e.type === 'miss')) break;
+    }
+  });
+
+  it('a long frame covering the whole hangTime in one update emits fall exactly once', () => {
+    const s = mk();
+    const st = update(withVictim(s, 1, 'telegraph', 0), s.cfg.hangTime + 0.05);
+    expect(types(st).filter((t) => t === 'fall')).toHaveLength(1);
+  });
+});
+
+describe('event: critical', () => {
+  it('fires exactly once over a victim\'s whole life', () => {
+    let st = withVictim(mk(), 4);
+    let count = 0;
+    for (let i = 0; i < 10000; i++) {
+      st = update(st, DT);
+      count += types(st).filter((t) => t === 'critical').length;
+      if (st.events.some((e) => e.type === 'catch' || e.type === 'miss')) break;
+    }
+    expect(count).toBe(1);
+  });
+
+  it('fires within [hangTime + fallTime - CRITICAL_LEAD, ...+DT) of the victim spawning', () => {
+    const s = mk();
+    let st = withVictim(s, 4);
+    let firedAt = -1;
+    for (let i = 0; i < 10000; i++) {
+      st = update(st, DT);
+      if (types(st).includes('critical')) firedAt = st.now;
+      if (st.events.some((e) => e.type === 'catch' || e.type === 'miss')) break;
+    }
+    const expected = s.cfg.hangTime + s.cfg.fallTime - CRITICAL_LEAD;
+    expect(firedAt).toBeGreaterThanOrEqual(expected);
+    expect(firedAt).toBeLessThan(expected + DT);
+  });
+
+  it('two victims airborne with different spawn times each get their own critical event with the right point', () => {
+    const s = mk({ maxAirborne: 2 });
+    let st = withVictim(s, 1);
+    const fired: Array<number | undefined> = [];
+    for (let i = 0; i < 10000; i++) {
+      st = update(st, DT);
+      if (i === 20) st = withVictim(st, 3);
+      for (const e of st.events) if (e.type === 'critical') fired.push(e.point);
+      if (i > 20 && st.victims.length === 0) break;
+    }
+    expect(fired.sort()).toEqual([1, 3]);
+  });
+
+  it('update(s, 0) in a loop never emits critical', () => {
+    const s = mk();
+    // parked exactly on the threshold — the likeliest false-positive spot
+    let st = withVictim(s, 2, 'telegraph', s.cfg.hangTime + s.cfg.fallTime - CRITICAL_LEAD);
+    for (let i = 0; i < 50; i++) {
+      st = update(st, 0);
+      expect(types(st)).not.toContain('critical');
+    }
+  });
+
+  it('regression: never fires on the frame a victim lands, even when the threshold is crossed within that same frame (the check must stay inside the if/else)', () => {
+    const s = mk();
+    const leadAbove = CRITICAL_LEAD + 0.01; // pre-frame "left" safely above the threshold
+    const overshoot = 0.01; // land comfortably past fallTime, immune to float rounding
+    const dtFrame = leadAbove + overshoot;
+    const t0 = s.cfg.fallTime - leadAbove;
+    // target === starting position: deterministic catch, no RNG involved
+    const st = update(withVictim(s, s.position, 'falling', t0), dtFrame);
+    expect(types(st)).toEqual(['catch']);
+  });
+
+  it('accepted: a huge dt jumping a fresh victim straight to landed never emits critical, and does not throw', () => {
+    const s = mk();
+    let st!: GameState;
+    expect(() => {
+      st = update(withVictim(s, s.position, 'telegraph', 0), 1000);
+    }).not.toThrow();
+    expect(types(st)).not.toContain('critical');
   });
 });
 

@@ -68,6 +68,8 @@ export const DEFAULTS: EngineConfig = {
 
 /** Re-arm delay when a spawn attempt was refused (§1.5). */
 export const RETRY_DELAY = 0.2;
+/** Сколько секунд до касания точка и фигурка переходят в «критично». */
+export const CRITICAL_LEAD = 0.4;
 /** How many floors of the tower can host a victim (render-only detail). */
 export const WINDOW_ROWS = 5;
 
@@ -121,7 +123,17 @@ export interface Victim {
 }
 
 export type GameEventType =
-  'catch' | 'miss' | 'deny' | 'step' | 'inversionWarn' | 'inverted' | 'win' | 'lose';
+  | 'catch'
+  | 'miss'
+  | 'deny'
+  | 'step'
+  | 'spawn'
+  | 'fall'
+  | 'critical'
+  | 'inversionWarn'
+  | 'inverted'
+  | 'win'
+  | 'lose';
 
 export interface GameEvent {
   type: GameEventType;
@@ -302,6 +314,7 @@ function doSpawn(s: GameState): void {
   ];
   s.nextVictimId += 1;
   s.nextSpawnIn = spawnInterval(s);
+  s.events.push({ type: 'spawn', point: target });
 }
 
 /** Exposed for the spawn-constraint tests (§1.5). */
@@ -427,9 +440,19 @@ export function update(state: GameState, dt: number): GameState {
     if (v.phase === 'telegraph' && v.t >= cfg.hangTime) {
       v.phase = 'falling';
       v.t -= cfg.hangTime;
+      s.events.push({ type: 'fall', point: v.target });
     }
-    if (v.phase === 'falling' && v.t >= cfg.fallTime) landed.push(v);
-    else alive.push(v);
+    if (v.phase === 'falling' && v.t >= cfg.fallTime) {
+      landed.push(v);
+    } else {
+      // ponytail: пересечение порога вместо флага в Victim — лишнее состояние.
+      // landingIn убывает ровно на dt за кадр и не скачет на смене фазы,
+      // поэтому left + dt — значение прошлого кадра.
+      const left = landingIn(v, cfg);
+      if (left <= CRITICAL_LEAD && left + dt > CRITICAL_LEAD)
+        s.events.push({ type: 'critical', point: v.target });
+      alive.push(v);
+    }
   }
   s.victims = alive;
 
