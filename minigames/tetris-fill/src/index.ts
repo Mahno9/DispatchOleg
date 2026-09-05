@@ -1,3 +1,4 @@
+import { createAudio, type AudioValue } from './audio.js';
 import {
   EmptyShapeError,
   createFallState,
@@ -25,23 +26,23 @@ import {
 // Config / callbacks
 // ---------------------------------------------------------------------------
 
-type WeightedAudio = { url: string; weight: number; volume?: number };
-type AudioValue = string | WeightedAudio[];
-
 interface GameConfig extends LevelConfig {
   /** Уровни по нарастанию сложности; пусто — одна арена из полей верхнего уровня. */
   levels?: LevelConfig[];
   scoreThresholds?: ScoreThreshold[];
   errorPenalty?: number;
   sounds?: {
+    music?: AudioValue;
     rotate?: AudioValue;
+    move?: AudioValue;
     place?: AudioValue;
     error?: AudioValue;
     hint?: AudioValue;
+    levelDone?: AudioValue;
     win?: AudioValue;
   };
   muted?: boolean;
-  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. Музыки тут нет — только SFX. */
+  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. */
   musicVolume?: number;
   sfxVolume?: number;
 }
@@ -54,8 +55,9 @@ interface Callbacks {
 
 const PREFIX = 'tf-';
 const FADE_MS = 300;
-const WIN_MS = 400;
-/** Пауза между уровнями: собранный силуэт успевает вспыхнуть до следующего. */
+/** Пауза перед fadeOut: победный сигнал sfx-bridge-win (1.6 с) успевает доиграть до destroy. */
+const WIN_MS = 1600;
+/** Пауза между уровнями: собранный силуэт успевает вспыхнуть до следующего. Звук levelDone — не длиннее 0.9 с. */
 const LEVEL_MS = 900;
 const GAP = 1;
 const MIN_CELL = 16;
@@ -137,6 +139,7 @@ const STYLES = `
   border-color: #E9A928;
   box-shadow: inset 0 0 0 1px rgba(233,169,40,0.35);
 }
+/* Вспышка отказа: 160 мс x 2 = 320 мс, звук error — примерно 0.35 с. */
 .${PREFIX}cell.${PREFIX}flash { animation: ${PREFIX}flash 160ms steps(2, end) 2; }
 
 .${PREFIX}piece, .${PREFIX}shadow {
@@ -310,40 +313,13 @@ export function init(
   }
 
   // --- audio ---
+  // Создаётся до разбора конфига: звук гасится в baseDestroy, общем и для панели ошибки.
   let muted = config.muted === true;
-  const gainOf = (v: unknown, fallback: number): number =>
-    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
-  // Музыки в этой игре нет — только SFX, поэтому используется только sfxGain.
-  let sfxGain = gainOf(config.sfxVolume, 100);
-  const audioCache = new Map<string, HTMLAudioElement>();
-
-  function pickSound(value: AudioValue | undefined): { url: string; volume: number } | undefined {
-    if (!value) return undefined;
-    if (typeof value === 'string') return { url: value, volume: 100 };
-    if (!value.length) return undefined;
-    let r = Math.random() * value.reduce((s, v) => s + (Number(v.weight) || 0), 0);
-    for (const v of value) {
-      r -= Number(v.weight) || 0;
-      if (r <= 0) return { url: v.url, volume: Number(v.volume) || 100 };
-    }
-    const last = value[value.length - 1] as WeightedAudio;
-    return { url: last.url, volume: Number(last.volume) || 100 };
-  }
-
-  function play(value: AudioValue | undefined): void {
-    if (muted) return;
-    const sound = pickSound(value);
-    if (!sound) return;
-    let base = audioCache.get(sound.url);
-    if (!base) {
-      base = new Audio(sound.url);
-      base.preload = 'auto';
-      audioCache.set(sound.url, base);
-    }
-    const node = base.cloneNode() as HTMLAudioElement;
-    node.volume = Math.max(0, Math.min(1, (sound.volume / 100) * sfxGain));
-    node.play().catch(() => {});
-  }
+  const audio = createAudio(config.sounds?.music, config);
+  const { play } = audio;
+  // Автоплей заблокирован до первого жеста, а брифинговый оверлей его съедает — нужен добор.
+  window.addEventListener('pointerdown', audio.retryMusic, true);
+  audio.retryMusic();
 
   function stopRepeat(): void {
     if (repeatId) clearInterval(repeatId);
@@ -356,11 +332,8 @@ export function init(
     stopRepeat();
     if (rafId) cancelAnimationFrame(rafId);
     rafId = 0;
-    for (const audio of audioCache.values()) {
-      audio.pause();
-      audio.src = '';
-    }
-    audioCache.clear();
+    window.removeEventListener('pointerdown', audio.retryMusic, true);
+    audio.destroy();
     container.innerHTML = '';
   }
 
@@ -458,6 +431,7 @@ export function init(
   muteBtn.addEventListener('click', () => {
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
+    audio.setMuted(muted);
     root.focus({ preventScroll: true });
   });
   field.appendChild(muteBtn);
@@ -631,7 +605,10 @@ export function init(
 
   function doMove(dx: -1 | 1): void {
     if (finished || held) return;
-    if (move(state, dx)) renderActive();
+    if (move(state, dx)) {
+      play(config.sounds?.move);
+      renderActive();
+    }
   }
 
   // --- controls (touch first: pad under the field, keyboard in parallel) ---
@@ -705,7 +682,7 @@ export function init(
     }
     errorsDone += state.errors;
     piecesDone += total;
-    play(config.sounds?.place);
+    play(config.sounds?.levelDone);
     later(() => {
       root.classList.remove(`${PREFIX}won`);
       startLevel(levelIndex + 1);
@@ -716,6 +693,7 @@ export function init(
     if (finished) return;
     finished = true;
     renderActive();
+    audio.finishMusic();
     play(config.sounds?.win);
     const errors = errorsDone + state.errors;
     const elapsedSeconds = Math.round((performance.now() - startedAt) / 1000);
@@ -784,7 +762,7 @@ export function init(
       }
     },
     setVolume(v): void {
-      sfxGain = gainOf(v.sfxVolume, 100);
+      audio.setVolume(v);
       muted = v.muted === true;
       muteBtn.textContent = muted ? '🔇' : '🔊';
     },

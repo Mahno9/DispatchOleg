@@ -155,11 +155,14 @@
       "type": "object",
       "title": "Звуки",
       "properties": {
-        "rotate": { "type": "string", "title": "Поворот детали", "x-type": "asset:audio" },
-        "place": { "type": "string", "title": "Успешная установка", "x-type": "asset:audio" },
-        "error": { "type": "string", "title": "Отклонённая установка", "x-type": "asset:audio" },
-        "hint": { "type": "string", "title": "Включение подсказки", "x-type": "asset:audio" },
-        "win": { "type": "string", "title": "Силуэт собран", "x-type": "asset:audio" }
+        "music": { "type": "array", "title": "Музыка (луп)", "x-type": "asset:audio" },
+        "rotate": { "type": "array", "title": "Поворот детали", "x-type": "asset:audio" },
+        "move": { "type": "array", "title": "Сдвиг детали", "x-type": "asset:audio" },
+        "place": { "type": "array", "title": "Успешная установка", "x-type": "asset:audio" },
+        "error": { "type": "array", "title": "Отклонённая установка", "x-type": "asset:audio" },
+        "hint": { "type": "array", "title": "Включение подсказки", "x-type": "asset:audio" },
+        "levelDone": { "type": "array", "title": "Пробоина закрыта, есть следующая", "x-type": "asset:audio" },
+        "win": { "type": "array", "title": "Силуэт собран", "x-type": "asset:audio" }
       }
     }
   }
