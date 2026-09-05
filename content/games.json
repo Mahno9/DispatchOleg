@@ -868,97 +868,209 @@
           "id": "sup",
           "name": "суп",
           "image": "",
-          "unitName": "штук"
+          "unitName": "штук",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-liquid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "luk",
           "name": "лук",
           "image": "",
-          "unitName": "ложка"
+          "unitName": "ложка",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "perec",
           "name": "красный и чёрный перец",
           "image": "",
-          "unitName": "ложка"
+          "unitName": "ложка",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "muka",
           "name": "мука",
           "image": "",
-          "unitName": "стакан"
+          "unitName": "стакан",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "pasta",
           "name": "паста (томатная)",
           "image": "",
-          "unitName": "банка"
+          "unitName": "банка",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-mixed-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "mayo",
           "name": "майонез",
           "image": "",
-          "unitName": "ведро"
+          "unitName": "ведро",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-mixed-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "piza",
           "name": "пица",
           "image": "",
-          "unitName": "охапка"
+          "unitName": "охапка",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "sir",
           "name": "сыр",
           "image": "",
-          "unitName": "штука"
+          "unitName": "штука",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "pomidor",
           "name": "помидор",
           "image": "",
-          "unitName": "штука"
+          "unitName": "штука",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "ogurec",
           "name": "огурец",
           "image": "",
-          "unitName": "пакет"
+          "unitName": "пакет",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "perec_bolg",
           "name": "перец из болгарии",
           "image": "",
-          "unitName": "ложка"
+          "unitName": "ложка",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "chesnok",
           "name": "чеснок (для аромата)",
           "image": "",
-          "unitName": "ложка"
+          "unitName": "ложка",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "plv",
           "name": "паста лависта",
           "image": "",
-          "unitName": "ресторан"
+          "unitName": "ресторан",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "kopch",
           "name": "копчение",
           "image": "",
-          "unitName": "ложка"
+          "unitName": "ложка",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-liquid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "hleb",
           "name": "хлеб",
           "image": "",
-          "unitName": "кусочек"
+          "unitName": "кусочек",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         },
         {
           "id": "yaco",
           "name": "яйцо",
           "image": "",
-          "unitName": "штука"
+          "unitName": "штука",
+          "pourSound": [
+            {
+              "url": "/assets-store/sfx-kitchen-pour-liquid-loop.ogg",
+              "weight": 1,
+              "volume": 100
+            }
+          ]
         }
       ],
       "characters": [
@@ -1071,7 +1183,58 @@
           ]
         }
       ],
-      "fillRatePerSec": 1.4
+      "fillRatePerSec": 1.4,
+      "sounds": {
+        "music": [
+          {
+            "url": "/assets-store/mus-kitchen-heroes-loop.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "cookLoop": [
+          {
+            "url": "/assets-store/sfx-kitchen-cook-loop.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "pourOk": [
+          {
+            "url": "/assets-store/sfx-kitchen-dose-ok.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "orderDone": [
+          {
+            "url": "/assets-store/sfx-kitchen-order-done.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "pourLoop": [
+          {
+            "url": "/assets-store/sfx-kitchen-pour-solid-loop.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "fail": [
+          {
+            "url": "/assets-store/sfx-kitchen-fail-scorch.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "wipe": [
+          {
+            "url": "/assets-store/sfx-kitchen-wipe.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ]
+      }
     },
     "character_id": 53,
     "pre_dialogue_id": 134,
