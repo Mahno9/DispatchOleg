@@ -90,6 +90,15 @@
     "created_at": 1788600592242
   },
   {
+    "id": "mus-lobby-nightshift",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "lobby-L1-nightshift-loop.ogg",
+    "size_bytes": 1103180,
+    "created_at": 1788612040418
+  },
+  {
     "id": "mus-metro-vox",
     "kind": "audio",
     "mime": "audio/ogg",
