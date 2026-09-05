@@ -133,11 +133,7 @@ export function MetaScreen({ games, results, onCharacter, forceStageId = null }:
                       onClick={() => onCharacter({ character: c, dialogueId: c.metaDialogueId })}
                     >
                       <span className="meta-char-frame">
-                        <CharacterMedia character={c} />
-                        <span className="status status-active meta-char-tag">
-                          <i className="marker" />
-                          Диалог
-                        </span>
+                        <Figure character={c} tagged />
                       </span>
                       <span className="status meta-char-name">{c.name}</span>
                       {/* Outside the frame: it clips overflow, the note is wider. */}
@@ -158,6 +154,25 @@ function CharacterMedia({ character }: { character: Character }) {
     <img className="portrait-media" src={character.portraitAsset} alt="" />
   ) : (
     silhouetteFor(character.id)
+  );
+}
+
+/**
+ * The media plus its «Диалог» tag in one box sized by the picture itself, so
+ * the tag hangs just over the head — not over the dead air the 3:4 slot
+ * leaves above a square avatar.
+ */
+function Figure({ character, tagged }: { character: Character; tagged: boolean }) {
+  return (
+    <span className="meta-char-figure">
+      <CharacterMedia character={character} />
+      {tagged && (
+        <span className="status status-active meta-char-tag">
+          <i className="marker" />
+          Диалог
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -186,13 +201,7 @@ function PlacedCharacter({
   const body = (
     <>
       <span className="meta-char-frame">
-        <CharacterMedia character={character} />
-        {dialogueId !== null && (
-          <span className="status status-active meta-char-tag">
-            <i className="marker" />
-            Диалог
-          </span>
-        )}
+        <Figure character={character} tagged={dialogueId !== null} />
       </span>
       <span className="status meta-char-name">{character.name}</span>
       <CharacterInfo description={character.description} />

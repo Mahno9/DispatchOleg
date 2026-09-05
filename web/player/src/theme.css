@@ -603,18 +603,35 @@ h3 {
    "МЕТА"), and a bordered cell only framed dead space above the shorter assets.
    Hover reads off the name chip and the «ДИАЛОГ» tag instead. */
 .meta-char-frame {
+  --slot-h: clamp(120px, 26vh, 210px);
   position: relative;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   width: clamp(96px, 13vw, 150px);
-  height: clamp(120px, 26vh, 210px);
+  height: var(--slot-h);
 }
 
-/* «ДИАЛОГ» marker — only while the character is under the cursor. */
+/* The picture's own box, not the slot: the media keeps its aspect ratio
+   (square avatars in a 3:4 slot used to leave a third of it empty above the
+   head), and the tag anchors to the top of this box. */
+.meta-char-figure {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.meta-char-figure .portrait-media,
+.meta-char-figure .avatar-silhouette {
+  height: auto;
+  max-height: var(--slot-h);
+}
+
+/* «ДИАЛОГ» marker — just over the head, only while the character is under the
+   cursor. */
 .meta-char-tag {
   position: absolute;
-  top: 6px;
+  bottom: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
   opacity: 0;
