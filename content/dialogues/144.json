@@ -41,6 +41,7 @@
         "choices": null
       }
     },
-    "remote": false
+    "remote": false,
+    "music": "/assets-store/mus-comic-nostalgia.ogg"
   }
 }

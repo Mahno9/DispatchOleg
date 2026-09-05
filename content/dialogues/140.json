@@ -32,6 +32,7 @@
         "choices": null
       }
     },
-    "remote": false
+    "remote": false,
+    "music": "/assets-store/mus-comic-comedy.ogg"
   }
 }

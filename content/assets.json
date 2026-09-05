@@ -81,6 +81,51 @@
     "created_at": 1788496448137
   },
   {
+    "id": "mus-comic-alert",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "comic-AL2-alert-2-loop.ogg",
+    "size_bytes": 831677,
+    "created_at": 1788627610098
+  },
+  {
+    "id": "mus-comic-comedy",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "comic-CM2-comedy-2-loop.ogg",
+    "size_bytes": 768758,
+    "created_at": 1788627610098
+  },
+  {
+    "id": "mus-comic-lyric",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "comic-LY4-lyric-4-loop.ogg",
+    "size_bytes": 822485,
+    "created_at": 1788627610098
+  },
+  {
+    "id": "mus-comic-nostalgia",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "comic-NS7-nostalgia-7-loop.ogg",
+    "size_bytes": 832469,
+    "created_at": 1788627610098
+  },
+  {
+    "id": "mus-comic-routine",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "comic-RT2-routine-2-loop.ogg",
+    "size_bytes": 835271,
+    "created_at": 1788627610098
+  },
+  {
     "id": "mus-kitchen-heroes-loop",
     "kind": "audio",
     "mime": "audio/ogg",

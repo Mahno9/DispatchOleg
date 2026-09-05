@@ -107,6 +107,7 @@
         "y": 64,
         "choices": null
       }
-    }
+    },
+    "music": "/assets-store/mus-comic-routine.ogg"
   }
 }
