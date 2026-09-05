@@ -427,9 +427,7 @@
     "post_win_dialogue_id": 153,
     "post_lose_dialogue_id": 154,
     "style_dialogues_json": {},
-    "required_game_ids_json": [
-      20
-    ],
+    "required_game_ids_json": [],
     "sort_order": 20,
     "is_tutorial": 0
   },
@@ -726,9 +724,13 @@
     "post_lose_dialogue_id": 145,
     "style_dialogues_json": {},
     "required_game_ids_json": [
-      21
+      20,
+      21,
+      23,
+      24,
+      25
     ],
-    "sort_order": 30,
+    "sort_order": 60,
     "is_tutorial": 0
   },
   {
@@ -852,10 +854,8 @@
     "post_win_dialogue_id": 147,
     "post_lose_dialogue_id": 148,
     "style_dialogues_json": {},
-    "required_game_ids_json": [
-      20
-    ],
-    "sort_order": 40,
+    "required_game_ids_json": [],
+    "sort_order": 30,
     "is_tutorial": 0
   },
   {
@@ -1242,7 +1242,7 @@
     "post_lose_dialogue_id": 136,
     "style_dialogues_json": {},
     "required_game_ids_json": [],
-    "sort_order": 50,
+    "sort_order": 40,
     "is_tutorial": 0
   },
   {
@@ -1521,10 +1521,8 @@
     "post_win_dialogue_id": 150,
     "post_lose_dialogue_id": 151,
     "style_dialogues_json": {},
-    "required_game_ids_json": [
-      22
-    ],
-    "sort_order": 60,
+    "required_game_ids_json": [],
+    "sort_order": 50,
     "is_tutorial": 0
   }
 ]
