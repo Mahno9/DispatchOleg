@@ -438,6 +438,13 @@
     "title": "Три уровня подземки",
     "minigame_id": "three-mazes",
     "config_json": {
+      "screamerSound": [
+        {
+          "url": "/assets-store/sfx-metro-screamer.ogg",
+          "weight": 1,
+          "volume": 100
+        }
+      ],
       "screamerDurationMs": 900,
       "followSpeed": 560,
       "bounceSpeed": 420,
@@ -706,19 +713,12 @@
         ],
         "ambient": [
           {
-            "url": "/assets-store/mus-metro.ogg",
+            "url": "/assets-store/mus-metro-vox.ogg",
             "weight": 1,
             "volume": 100
           }
         ]
-      },
-      "screamerSound": [
-        {
-          "url": "/assets-store/sfx-metro-screamer.ogg",
-          "weight": 1,
-          "volume": 100
-        }
-      ]
+      }
     },
     "character_id": 58,
     "pre_dialogue_id": 139,
@@ -759,7 +759,7 @@
           "params": {
             "min": 0,
             "max": 10000,
-            "driftAmount": 2,
+            "driftAmount": 1,
             "driftIntervalMs": 700
           }
         },
