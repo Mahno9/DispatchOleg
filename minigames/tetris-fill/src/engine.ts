@@ -622,3 +622,57 @@ export function scoreForElapsed(thresholds: ScoreThreshold[], elapsedSeconds: nu
 
   return Math.round(last.points);
 }
+
+// ---------------------------------------------------------------------------
+// Barks — short trigger lines, played phrase by phrase
+// ---------------------------------------------------------------------------
+
+export interface BarkDialogue {
+  lines: string[];
+  phrasePauseMs: number;
+  finalHoldMs: number;
+}
+
+export interface BarkPlay {
+  lines: string[];
+  i: number;
+  msLeft: number;
+  phraseMs: number;
+  finalMs: number;
+}
+
+/** Drops blank phrases and clamps the timers; null when nothing is left to say. */
+export function startBark(d: BarkDialogue): BarkPlay | null {
+  const lines = (Array.isArray(d.lines) ? d.lines : []).filter(
+    (s) => typeof s === 'string' && s.trim() !== '',
+  );
+  if (lines.length === 0) return null;
+  const ms = (v: number): number => (Number.isFinite(v) ? Math.max(0, v) : 0);
+  const phraseMs = ms(d.phrasePauseMs);
+  const finalMs = ms(d.finalHoldMs);
+  return { lines, i: 0, msLeft: lines.length > 1 ? phraseMs : finalMs, phraseMs, finalMs };
+}
+
+/**
+ * One tick. Pure: returns a new play state, null once the last phrase expired.
+ * A dt longer than a phrase rolls over as many phrases as it covers — no phrase
+ * survives a lag spike just because it was on screen when the frame stalled.
+ */
+export function stepBark(b: BarkPlay, dtMs: number): BarkPlay | null {
+  let i = b.i;
+  let msLeft = b.msLeft - Math.max(0, dtMs);
+  while (msLeft <= 0) {
+    if (i >= b.lines.length - 1) return null;
+    i++;
+    msLeft += i >= b.lines.length - 1 ? b.finalMs : b.phraseMs;
+  }
+  return { ...b, i, msLeft };
+}
+
+/** Uniform pick among the indices not in `used`; -1 when exhausted. Never mutates `used`. */
+export function drawIndex(poolSize: number, used: Set<number>, rnd: number): number {
+  const free: number[] = [];
+  for (let i = 0; i < poolSize; i++) if (!used.has(i)) free.push(i);
+  if (free.length === 0) return -1;
+  return free[Math.min(free.length - 1, Math.floor(rnd * free.length))] as number;
+}

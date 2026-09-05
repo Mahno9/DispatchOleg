@@ -2,6 +2,7 @@ import { createAudio, type AudioValue } from './audio.js';
 import {
   EmptyShapeError,
   createFallState,
+  drawIndex,
   hardDrop,
   landingY,
   levelsOf,
@@ -11,8 +12,12 @@ import {
   scoreForElapsed,
   setSoftDrop,
   spawn,
+  startBark,
+  stepBark,
   update,
   type Active,
+  type BarkDialogue,
+  type BarkPlay,
   type Cell,
   type FallEvent,
   type FallState,
@@ -31,6 +36,15 @@ interface GameConfig extends LevelConfig {
   levels?: LevelConfig[];
   scoreThresholds?: ScoreThreshold[];
   errorPenalty?: number;
+  /** Реплики персонажа: советы невпопад. Каждый диалог звучит не более раза за запуск. */
+  barks?: {
+    /** Реплика после каждой N-й уложенной детали (сквозь уровни); 0 — выкл. */
+    pieceEvery?: number;
+    /** Реплика после каждой N-й ошибки (сквозь уровни); 0 — выкл. */
+    errorsEvery?: number;
+    onPieces?: BarkDialogue[];
+    onErrors?: BarkDialogue[];
+  };
   sounds?: {
     music?: AudioValue;
     rotate?: AudioValue;
@@ -51,6 +65,8 @@ interface Callbacks {
   onComplete: (result: { score: number; won: boolean; details?: Record<string, number | string> }) => void;
   onExit: () => void;
   onProgress?: (text: string, percent?: number) => void;
+  /** Show a bark in the platform bottom bar; null hides it. `onDismiss` is the game's own killer. */
+  onLine?: (text: string | null, onDismiss?: () => void) => void;
 }
 
 const PREFIX = 'tf-';
@@ -275,6 +291,20 @@ const intOr = (v: unknown, fallback: number, min: number, max: number): number =
   return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : fallback;
 };
 
+/** Admin arrays may be missing or half-filled: keep only dialogues that have something to say. */
+function normalizeBarks(raw: BarkDialogue[] | undefined): BarkDialogue[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((d) => ({
+      lines: (Array.isArray(d?.lines) ? d.lines : []).filter(
+        (s) => typeof s === 'string' && s.trim() !== '',
+      ),
+      phrasePauseMs: intOr(d?.phrasePauseMs, 2200, 0, 60000),
+      finalHoldMs: intOr(d?.finalHoldMs, 1500, 0, 60000),
+    }))
+    .filter((d) => d.lines.length > 0);
+}
+
 export function init(
   container: HTMLElement,
   config: GameConfig,
@@ -298,6 +328,38 @@ export function init(
   let rafId = 0;
   let repeatId = 0;
   let finished = false;
+
+  // --- barks: each dialogue plays at most once per launch, picked at random ---
+  // Declared here (before the fault-return below) so baseDestroy() can always
+  // call dismissBark() safely, even on the bad-config early exit.
+  let bark: BarkPlay | null = null;
+  let lineShown: string | null = null;
+
+  /** A click on the platform panel kills the whole remaining dialogue, not one phrase. */
+  function dismissBark(): void {
+    bark = null;
+    pushLine();
+  }
+
+  /** Push on a real text change only — the bottom bar is not a per-frame channel. */
+  function pushLine(): void {
+    const text = bark ? (bark.lines[bark.i] as string) : null;
+    if (text === lineShown) return;
+    lineShown = text;
+    if (text === null) callbacks.onLine?.(null);
+    else callbacks.onLine?.(text, dismissBark);
+  }
+
+  function say(pool: BarkDialogue[], used: Set<number>): void {
+    const i = drawIndex(pool.length, used, Math.random());
+    if (i < 0) return;
+    used.add(i);
+    const b = startBark(pool[i] as BarkDialogue);
+    if (b) {
+      bark = b;
+      pushLine();
+    }
+  }
 
   function later(fn: () => void, ms: number): void {
     const id = setTimeout(() => {
@@ -327,6 +389,7 @@ export function init(
   }
 
   function baseDestroy(): void {
+    dismissBark();
     for (const t of timers) clearTimeout(t);
     timers.clear();
     stopRepeat();
@@ -376,6 +439,13 @@ export function init(
   const errorPenalty = intOr(config.errorPenalty, 5, 0, Number.MAX_SAFE_INTEGER);
   const thresholds = Array.isArray(config.scoreThresholds) ? config.scoreThresholds : [];
   const rng = mulberry32(Date.now());
+
+  const pieceEvery = intOr(config.barks?.pieceEvery, 3, 0, Number.MAX_SAFE_INTEGER);
+  const errorsEvery = intOr(config.barks?.errorsEvery, 2, 0, Number.MAX_SAFE_INTEGER);
+  const piecePool = normalizeBarks(config.barks?.onPieces);
+  const errorPool = normalizeBarks(config.barks?.onErrors);
+  const usedPieces = new Set<number>();
+  const usedErrors = new Set<number>();
 
   // --- per-level state (пересобирается в startLevel) ---
   let levelIndex = 0;
@@ -556,6 +626,7 @@ export function init(
         paintPiece(state.pieces[painted++] as Piece);
         nextTurns = randomizeRotation ? Math.floor(rng() * 4) : 0;
         reportProgress();
+        if (pieceEvery > 0 && (piecesDone + painted) % pieceEvery === 0) say(piecePool, usedPieces);
       } else if (ev === 'rejected') {
         play(config.sounds?.error);
         if (snap) {
@@ -564,6 +635,7 @@ export function init(
         }
         // сработало ровно на пороге — подсказка только что зажглась
         if (hintAfterErrors > 0 && state.pieceErrors === hintAfterErrors) play(config.sounds?.hint);
+        if (errorsEvery > 0 && (errorsDone + state.errors) % errorsEvery === 0) say(errorPool, usedErrors);
       } else {
         levelDone();
         return;
@@ -583,6 +655,10 @@ export function init(
     const a = state.active;
     const snap: Active | null = a ? { shape: a.shape, x: a.x, y: a.y, turns: a.turns } : null;
     handle(update(state, dt), snap);
+    if (bark) {
+      bark = stepBark(bark, dt);
+      pushLine();
+    }
     renderActive();
   }
 
@@ -692,6 +768,7 @@ export function init(
   function win(): void {
     if (finished) return;
     finished = true;
+    dismissBark();
     renderActive();
     audio.finishMusic();
     play(config.sounds?.win);

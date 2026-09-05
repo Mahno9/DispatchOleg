@@ -151,6 +151,91 @@
       "default": "center",
       "x-enumLabels": { "center": "По центру", "target": "Над своим местом (проще)" }
     },
+    "barks": {
+      "type": "object",
+      "title": "Реплики персонажа",
+      "description": "Короткие советы невпопад. Каждый диалог звучит не более одного раза за запуск, выбор случайный. Текст показывает платформа в нижней панели; префикс «{player}:» — реплика Олега.",
+      "properties": {
+        "pieceEvery": {
+          "type": "integer",
+          "title": "Совет после каждой N-й детали",
+          "description": "0 — выкл.",
+          "default": 3,
+          "minimum": 0
+        },
+        "errorsEvery": {
+          "type": "integer",
+          "title": "Совет после каждой N-й ошибки",
+          "description": "0 — выкл.",
+          "default": 2,
+          "minimum": 0
+        },
+        "onPieces": {
+          "type": "array",
+          "title": "Реплики · по ходу сборки",
+          "default": [],
+          "items": {
+            "type": "object",
+            "title": "Диалог",
+            "properties": {
+              "lines": {
+                "type": "array",
+                "title": "Фразы",
+                "default": [],
+                "items": { "type": "string" }
+              },
+              "phrasePauseMs": {
+                "type": "integer",
+                "title": "Пауза между фразами, мс",
+                "default": 2200,
+                "minimum": 0,
+                "maximum": 60000
+              },
+              "finalHoldMs": {
+                "type": "integer",
+                "title": "Финальная пауза, мс",
+                "default": 1500,
+                "minimum": 0,
+                "maximum": 60000
+              }
+            },
+            "required": ["lines"]
+          }
+        },
+        "onErrors": {
+          "type": "array",
+          "title": "Реплики · после ошибок",
+          "default": [],
+          "items": {
+            "type": "object",
+            "title": "Диалог",
+            "properties": {
+              "lines": {
+                "type": "array",
+                "title": "Фразы",
+                "default": [],
+                "items": { "type": "string" }
+              },
+              "phrasePauseMs": {
+                "type": "integer",
+                "title": "Пауза между фразами, мс",
+                "default": 2200,
+                "minimum": 0,
+                "maximum": 60000
+              },
+              "finalHoldMs": {
+                "type": "integer",
+                "title": "Финальная пауза, мс",
+                "default": 1500,
+                "minimum": 0,
+                "maximum": 60000
+              }
+            },
+            "required": ["lines"]
+          }
+        }
+      }
+    },
     "sounds": {
       "type": "object",
       "title": "Звуки",
