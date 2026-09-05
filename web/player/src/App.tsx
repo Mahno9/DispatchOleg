@@ -15,7 +15,7 @@ import { AudioSettings } from './ui/AudioSettings';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { QrScanScreen } from './screens/QrScanScreen';
 import { useClickSound } from './ui/useClickSound';
-import { useLobbyMusic } from './ui/useLobbyMusic';
+import { useMusicLoop } from './ui/useMusicLoop';
 import { VictoryScreen } from './screens/VictoryScreen';
 import { testTarget } from './testMode';
 
@@ -178,7 +178,7 @@ export function App() {
   useClickSound({ value: clickSound, prefs: state.prefs });
 
   // Лобби — мета, скан и экран запуска; диалог, игра и победа звучат сами.
-  useLobbyMusic({
+  useMusicLoop({
     url: lobbyMusicUrl,
     active: screen === 'meta' || screen === 'qr-scan' || screen === 'launch',
     prefs: state.prefs,
@@ -306,6 +306,7 @@ export function App() {
         <DialogueScreen
           dialogueId={dialogue.id}
           characterId={dialogue.characterId ?? gameConfig?.characterId ?? null}
+          prefs={state.prefs}
           onContext={setSlotContext}
           onFinish={() => {
             setSlotContext(null);

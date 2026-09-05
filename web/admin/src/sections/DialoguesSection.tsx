@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   api,
   playerTestUrl,
+  type Asset,
   type Character,
   type DialogueChoice,
   type DialogueDoc,
@@ -61,8 +62,9 @@ function renameNode(doc: DialogueDoc, from: string, to: string): DialogueDoc {
   for (const [id, node] of Object.entries(doc.nodes)) {
     nodes[id === from ? to : id] = relink(node, from, to);
   }
-  // `...doc` carries `remote` through — a rebuilt-from-scratch doc silently
-  // dropped it, so renaming any node undid the scene's comms-panel flag.
+  // `...doc` carries `remote`/`music` through — a rebuilt-from-scratch doc
+  // silently dropped them, so renaming any node undid the scene's comms-panel
+  // flag and its background loop.
   return { ...doc, start: doc.start === from ? to : doc.start, nodes };
 }
 
@@ -92,7 +94,12 @@ function parseDoc(text: string): DialogueDoc | null {
     return null;
   }
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null;
-  const { start, nodes, remote } = raw as { start?: unknown; nodes?: unknown; remote?: unknown };
+  const { start, nodes, remote, music } = raw as {
+    start?: unknown;
+    nodes?: unknown;
+    remote?: unknown;
+    music?: unknown;
+  };
   if (nodes !== undefined && (typeof nodes !== 'object' || nodes === null || Array.isArray(nodes))) {
     return null;
   }
@@ -100,6 +107,7 @@ function parseDoc(text: string): DialogueDoc | null {
     start: typeof start === 'string' ? start : '',
     nodes: (nodes ?? {}) as Record<string, DialogueNode>,
     remote: remote === true,
+    music: typeof music === 'string' && music !== '' ? music : null,
   };
 }
 
@@ -132,10 +140,18 @@ export function validateDialogue(text: string): ValidationResult {
     return { errors: ['Ожидается объект { start, nodes }'], warnings, doc: null };
   }
 
-  const { start, nodes, remote } = raw as { start?: unknown; nodes?: unknown; remote?: unknown };
+  const { start, nodes, remote, music } = raw as {
+    start?: unknown;
+    nodes?: unknown;
+    remote?: unknown;
+    music?: unknown;
+  };
   if (typeof start !== 'string' || start === '') errors.push('Поле «start» должно быть строкой');
   if (remote !== undefined && typeof remote !== 'boolean') {
     errors.push('Поле «remote» должно быть true или false');
+  }
+  if (music !== undefined && music !== null && typeof music !== 'string') {
+    errors.push('Поле «music» должно быть строкой или null');
   }
   if (typeof nodes !== 'object' || nodes === null || Array.isArray(nodes)) {
     errors.push('Поле «nodes» должно быть объектом');
@@ -195,7 +211,15 @@ export function validateDialogue(text: string): ValidationResult {
   return {
     errors,
     warnings,
-    doc: errors.length === 0 ? ({ start, nodes: map, remote: remote === true } as DialogueDoc) : null,
+    doc:
+      errors.length === 0
+        ? ({
+            start,
+            nodes: map,
+            remote: remote === true,
+            music: typeof music === 'string' && music !== '' ? music : null,
+          } as DialogueDoc)
+        : null,
   };
 }
 
@@ -415,6 +439,8 @@ export function DialoguesSection() {
   const [confirmClose, setConfirmClose] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
+  /** Аудио-ассеты — из них выбирается фоновая петля сцены. */
+  const [audioAssets, setAudioAssets] = useState<Asset[]>([]);
   const [importErrors, setImportErrors] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -429,6 +455,9 @@ export function DialoguesSection() {
   );
   const currentNode = selected !== null ? (doc?.nodes[selected] ?? null) : null;
   const currentNodeId = currentNode ? selected : null;
+  /** Музыка документа, которой нет среди ассетов: показываем как есть, чтобы не затереть. */
+  const orphanMusic =
+    doc?.music && !audioAssets.some((a) => a.url === doc.music) ? doc.music : null;
 
   useEffect(() => {
     api
@@ -436,6 +465,10 @@ export function DialoguesSection() {
       .then(setList)
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Ошибка загрузки'));
     api.getCharacters().then(setCharacters).catch(() => undefined);
+    api
+      .getAssets()
+      .then((all) => setAudioAssets(all.filter((a) => a.kind === 'audio')))
+      .catch(() => undefined);
   }, []);
 
   // Esc закрывает окно редактора — как модалка конфига мини-игры. Открытый
@@ -509,6 +542,7 @@ export function DialoguesSection() {
     if (!doc) return;
     const id = freeId(doc.nodes);
     updateDoc((d) => ({
+      ...d,
       start: d.start in d.nodes ? d.start : id,
       nodes: { ...d.nodes, [id]: { ...BLANK_NODE, x, y } },
     }));
@@ -567,7 +601,11 @@ export function DialoguesSection() {
       for (const [id, node] of Object.entries(d.nodes)) {
         if (id !== currentNodeId) nodes[id] = relink(node, currentNodeId, null);
       }
-      return { start: d.start === currentNodeId ? (Object.keys(nodes)[0] ?? '') : d.start, nodes };
+      return {
+        ...d,
+        start: d.start === currentNodeId ? (Object.keys(nodes)[0] ?? '') : d.start,
+        nodes,
+      };
     });
     setSelected(null);
   }
@@ -821,6 +859,28 @@ export function DialoguesSection() {
                   />
                   Удалённо
                 </label>
+                {/* Фоновая петля всей сцены — docs/dialogue-system.md §1.1, §2. */}
+                <label className='poi-field-label' htmlFor='dlg-music'>
+                  Фон
+                </label>
+                <select
+                  id='dlg-music'
+                  className='poi-select'
+                  value={doc?.music ?? ''}
+                  disabled={!doc}
+                  title='Фоновая музыка сцены — играет петлёй, пока диалог на экране'
+                  onChange={(e) => updateDoc((d) => ({ ...d, music: e.target.value || null }))}
+                >
+                  <option value=''>— без музыки —</option>
+                  {audioAssets.map((a) => (
+                    <option key={a.id} value={a.url}>
+                      {a.originalName}
+                    </option>
+                  ))}
+                  {orphanMusic && (
+                    <option value={orphanMusic}>{orphanMusic} (нет среди ассетов)</option>
+                  )}
+                </select>
                 <span className='dlg-graph-hint'>
                   узлов: {ids.length} · старт: {doc?.start || '—'}
                 </span>

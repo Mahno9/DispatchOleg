@@ -3,7 +3,7 @@ import { createClickSound, normalizeClickSound } from './useClickSound';
 import { DEFAULT_AUDIO_PREFS, type AudioPrefs } from '../state/localState';
 
 // В плеере нет DOM-окружения (vitest в node, без jsdom), поэтому элемент
-// подставляем заглушкой — как в useLobbyMusic.test.ts.
+// подставляем заглушкой — как в useMusicLoop.test.ts.
 class FakeAudio {
   static nodes: FakeAudio[] = [];
   static rejectNext = false;

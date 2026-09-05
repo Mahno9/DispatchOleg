@@ -47,6 +47,10 @@ for (const row of db.prepare('SELECT id, title, nodes_json FROM dialogues').all(
     bad(`${where}: nodes_json не парсится`);
     continue;
   }
+  // Фоновая петля сцены — только зарегистрированный ассет: в плеере битый src
+  // молча не играет, и заметить это можно лишь на устройстве.
+  if (typeof doc?.music === 'string' && !assetUrls.has(doc.music))
+    bad(`${where}: фоновая музыка ${doc.music} не зарегистрирована в ассетах`);
   const nodes = doc?.nodes;
   if (!nodes || typeof nodes !== 'object') {
     bad(`${where}: нет объекта nodes`);

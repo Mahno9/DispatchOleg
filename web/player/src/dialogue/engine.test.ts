@@ -54,6 +54,19 @@ describe('parseDialogue', () => {
     expect(parseDialogue({ start: 'n1', nodes, remote: 1 })!.remote).toBe(false);
   });
 
+  it('reads `music` as a non-empty string, defaulting to silence', () => {
+    const nodes = { n1: { text: 'a' } };
+    expect(parseDialogue(RAW)!.music).toBeNull();
+    expect(parseDialogue({ start: 'n1', nodes, music: '/assets-store/mus.ogg' })!.music).toBe(
+      '/assets-store/mus.ogg',
+    );
+    // Мусор и пустая строка — тишина: пустой src резолвится в адрес страницы.
+    expect(parseDialogue({ start: 'n1', nodes, music: '' })!.music).toBeNull();
+    expect(parseDialogue({ start: 'n1', nodes, music: null })!.music).toBeNull();
+    expect(parseDialogue({ start: 'n1', nodes, music: 42 })!.music).toBeNull();
+    expect(parseDialogue({ start: 'n1', nodes, music: ['/a.ogg'] })!.music).toBeNull();
+  });
+
   it('keeps http(s) links and drops everything else', () => {
     const doc = parseDialogue({
       start: 'n1',

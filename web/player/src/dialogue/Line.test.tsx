@@ -139,8 +139,10 @@ describe('content: реплики лабиринта подписаны знак
   const game = games.find((g) => g.minigame_id === 'three-mazes');
   const character = castRows.find((c) => c.id === game?.character_id);
   const names = [character?.name ?? '', 'Олег'];
+  // У других игр в barks лежат и числа (pieceEvery у tetris-fill) — тип JSON
+  // общий на все игры, поэтому берём только списки диалогов.
   const lines = Object.values(game?.config_json.barks ?? {})
-    .flat()
+    .flatMap((v) => (Array.isArray(v) ? v : []))
     .flatMap((d) => d.lines as string[]);
 
   it('реплики вообще есть, и персонаж игры найден', () => {

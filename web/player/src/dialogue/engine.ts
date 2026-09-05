@@ -36,6 +36,10 @@ export interface DialogueDoc {
    * the stage. Default false, i.e. face to face.
    */
   remote: boolean;
+  /**
+   * Фоновая петля сцены — URL ассета (`/assets-store/<id>.ogg`). null — тишина.
+   */
+  music: string | null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -82,7 +86,13 @@ export function parseDialogue(raw: unknown): DialogueDoc | null {
 
   const start = doc.start;
   if (typeof start !== 'string' || !nodes[start]) return null;
-  return { start, nodes, remote: doc.remote === true };
+  return {
+    start,
+    nodes,
+    remote: doc.remote === true,
+    // Пустая строка — это «музыки нет», а не ассет по адресу страницы.
+    music: typeof doc.music === 'string' && doc.music !== '' ? doc.music : null,
+  };
 }
 
 /**

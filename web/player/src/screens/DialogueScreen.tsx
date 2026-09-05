@@ -2,11 +2,15 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api } from '../api';
 import { DialogueScene, type SceneCharacter } from '../dialogue/DialogueScene';
 import { parseDialogue, type DialogueDoc } from '../dialogue/engine';
+import type { AudioPrefs } from '../state/localState';
+import { useMusicLoop } from '../ui/useMusicLoop';
 
 interface DialogueScreenProps {
   dialogueId: number;
   /** `games.character_id` — the portrait facing Oleg when the doc names nobody. */
   characterId: number | null;
+  /** Громкость/мьют игрока — ими живёт фоновая петля сцены (`doc.music`). */
+  prefs: AudioPrefs;
   /** Bottom-bar slot 2, driven by the scene. */
   onContext: (node: ReactNode) => void;
   /** Dialogue played out (or turned out to be unusable) — move the chain on. */
@@ -21,6 +25,7 @@ interface DialogueScreenProps {
 export function DialogueScreen({
   dialogueId,
   characterId,
+  prefs,
   onContext,
   onFinish,
 }: DialogueScreenProps) {
@@ -65,6 +70,10 @@ export function DialogueScreen({
       live = false;
     };
   }, [dialogueId]);
+
+  // Фон сцены звучит, пока сцена на экране: уход на мини-игру или на мету
+  // размонтирует экран, и петля глохнет вместе с ним.
+  useMusicLoop({ url: doc?.music ?? null, active: true, prefs });
 
   if (!doc) {
     return (

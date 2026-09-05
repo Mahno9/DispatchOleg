@@ -92,6 +92,8 @@ export interface DialogueDoc {
   nodes: Record<string, DialogueNode>;
   /** Разговор удалённый — плеер рисует портреты экранами связи, а не фигурами. */
   remote?: boolean;
+  /** Фоновая петля сцены — url аудио-ассета; null/отсутствие — тишина. */
+  music?: string | null;
 }
 
 export interface Dialogue {

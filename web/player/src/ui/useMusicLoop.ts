@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react';
 import type { AudioPrefs } from '../state/localState';
 
 // ---------------------------------------------------------------------------
-// Фоновая петля лобби (мета / скан / запуск). Источник — глобальная настройка
-// `meta_music_url`; громкость — общая настройка игрока, как у мини-игр.
+// Фоновая петля экрана: лобби (мета / скан / запуск, настройка `meta_music_url`)
+// и диалоговая сцена (поле документа `music`). Громкость — общая настройка
+// игрока, как у мини-игр.
 // ---------------------------------------------------------------------------
 
 /** Ползунок 0…100 → [0,1]: вне диапазона `HTMLAudioElement.volume` бросает. */
@@ -11,20 +12,20 @@ function gain(value: unknown): number {
   return Math.max(0, Math.min(100, typeof value === 'number' && Number.isFinite(value) ? value : 0)) / 100;
 }
 
-export interface LobbyMusicState {
-  /** Лобби ли на экране: на диалоге, игре и победе музыка молчит. */
+export interface MusicLoopState {
+  /** Играть ли сейчас: в лобби — только на мете/скане/запуске; в сцене — пока она на экране. */
   active: boolean;
   prefs: AudioPrefs;
 }
 
 /**
- * Императивная часть хука: один элемент на всё лобби. Вынесена из хука, потому
+ * Императивная часть хука: один элемент на петлю. Вынесена из хука, потому
  * что vitest в плеере ходит в node без DOM — так логику видно тестам.
  */
-export function createLobbyMusic(url: string) {
+export function createMusicLoop(url: string) {
   const node = new Audio(url);
   node.loop = true;
-  let last: LobbyMusicState | null = null;
+  let last: MusicLoopState | null = null;
   let retry: (() => void) | null = null;
   let destroyed = false;
 
@@ -34,7 +35,7 @@ export function createLobbyMusic(url: string) {
     retry = null;
   }
 
-  function sync(state: LobbyMusicState): void {
+  function sync(state: MusicLoopState): void {
     if (destroyed) return;
     last = state;
     node.volume = gain(state.prefs.musicVolume);
@@ -71,12 +72,12 @@ export function createLobbyMusic(url: string) {
 }
 
 /** Играет `url` пока `active`, реагируя на prefs без пересоздания элемента. */
-export function useLobbyMusic({ url, active, prefs }: LobbyMusicState & { url: string | null }): void {
-  const musicRef = useRef<ReturnType<typeof createLobbyMusic> | null>(null);
+export function useMusicLoop({ url, active, prefs }: MusicLoopState & { url: string | null }): void {
+  const musicRef = useRef<ReturnType<typeof createMusicLoop> | null>(null);
 
   useEffect(() => {
     if (!url) return;
-    const music = createLobbyMusic(url);
+    const music = createMusicLoop(url);
     musicRef.current = music;
     return () => {
       musicRef.current = null;

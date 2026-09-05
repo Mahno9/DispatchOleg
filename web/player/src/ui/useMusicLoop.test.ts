@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createLobbyMusic } from './useLobbyMusic';
+import { createMusicLoop } from './useMusicLoop';
 import { DEFAULT_AUDIO_PREFS, type AudioPrefs } from '../state/localState';
 
 // В плеере нет DOM-окружения (vitest в node, без jsdom), поэтому и элемент, и
@@ -63,9 +63,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-describe('lobby music', () => {
+describe('music loop', () => {
   it('играет в лобби зацикленно и встаёт на паузу вне его', () => {
-    const music = createLobbyMusic('/assets-store/mus.ogg');
+    const music = createMusicLoop('/assets-store/mus.ogg');
     const node = FakeAudio.nodes[0]!;
     expect(node).toMatchObject({ src: '/assets-store/mus.ogg', loop: true, paused: true });
 
@@ -82,7 +82,7 @@ describe('lobby music', () => {
   });
 
   it('мьют и нулевая громкость — это пауза, а не игра в ноль', () => {
-    const music = createLobbyMusic('/assets-store/mus.ogg');
+    const music = createMusicLoop('/assets-store/mus.ogg');
     const node = FakeAudio.nodes[0]!;
 
     music.sync({ active: true, prefs: prefs({ muted: true }) });
@@ -99,7 +99,7 @@ describe('lobby music', () => {
   });
 
   it('клампит громкость вне диапазона', () => {
-    const music = createLobbyMusic('/assets-store/mus.ogg');
+    const music = createMusicLoop('/assets-store/mus.ogg');
     const node = FakeAudio.nodes[0]!;
     music.sync({ active: true, prefs: prefs({ musicVolume: 500 }) });
     expect(node.volume).toBe(1);
@@ -111,7 +111,7 @@ describe('lobby music', () => {
   });
 
   it('добирает заблокированный автоплей на первом pointerdown, ровно один раз', async () => {
-    const music = createLobbyMusic('/assets-store/mus.ogg');
+    const music = createMusicLoop('/assets-store/mus.ogg');
     const node = FakeAudio.nodes[0]!;
     FakeAudio.rejectNext = true;
     music.sync({ active: true, prefs: prefs() });
@@ -131,7 +131,7 @@ describe('lobby music', () => {
   });
 
   it('снимает добор автоплея, если игрок ушёл из лобби или выключил звук', async () => {
-    const music = createLobbyMusic('/assets-store/mus.ogg');
+    const music = createMusicLoop('/assets-store/mus.ogg');
     FakeAudio.rejectNext = true;
     music.sync({ active: true, prefs: prefs() });
     await Promise.resolve();
@@ -142,7 +142,7 @@ describe('lobby music', () => {
   });
 
   it('на выходе снимает src и зовёт load(), а не гасит пустым src', async () => {
-    const music = createLobbyMusic('/assets-store/mus.ogg');
+    const music = createMusicLoop('/assets-store/mus.ogg');
     const node = FakeAudio.nodes[0]!;
     music.sync({ active: true, prefs: prefs() });
     music.destroy();
@@ -153,7 +153,7 @@ describe('lobby music', () => {
     expect(node).toMatchObject({ plays: 1, loads: 1 });
 
     // Отвергнутый play, долетевший после выхода, слушателя уже не вешает.
-    const late = createLobbyMusic('/assets-store/late.ogg');
+    const late = createMusicLoop('/assets-store/late.ogg');
     FakeAudio.rejectNext = true;
     late.sync({ active: true, prefs: prefs() });
     late.destroy();
