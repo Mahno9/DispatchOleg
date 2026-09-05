@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { api, type Character, type Game, type GameConfig, type VerifiedGame } from './api';
+import { api, type Character, type Game, type GameConfig, type Settings, type VerifiedGame } from './api';
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from './camera/camera';
 import { pickPostDialogue } from './dialogue/engine';
 import { CrtOverlay } from './fx/CrtOverlay';
@@ -14,6 +14,7 @@ import { MinigameScreen } from './screens/MinigameScreen';
 import { AudioSettings } from './ui/AudioSettings';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { QrScanScreen } from './screens/QrScanScreen';
+import { useClickSound } from './ui/useClickSound';
 import { useLobbyMusic } from './ui/useLobbyMusic';
 import { VictoryScreen } from './screens/VictoryScreen';
 import { testTarget } from './testMode';
@@ -66,6 +67,7 @@ export function App() {
   const [tutorialConfig, setTutorialConfig] = useState<Record<string, unknown> | null>(null);
   /** Фоновая петля лобби из настроек (`meta_music_url`); null — тишина. */
   const [lobbyMusicUrl, setLobbyMusicUrl] = useState<string | null>(null);
+  const [clickSound, setClickSound] = useState<Settings['ui_click_sound_url']>(null);
 
   // -- game chain: config is fetched once per run, then pre → game → post --
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
@@ -158,7 +160,10 @@ export function App() {
   useEffect(() => {
     // Музыка — украшение: не доехали настройки, лобби просто останется тихим.
     api.getSettings().then(
-      (settings) => setLobbyMusicUrl(settings.meta_music_url || null),
+      (settings) => {
+        setLobbyMusicUrl(settings.meta_music_url || null);
+        setClickSound(settings.ui_click_sound_url ?? null);
+      },
       (err: unknown) => console.error('[app] failed to load settings', err),
     );
   }, []);
@@ -167,6 +172,10 @@ export function App() {
     void syncNow();
     return startSync(SYNC_INTERVAL_S);
   }, []);
+
+  // Щелчок по кнопкам — на всех экранах; у мини-игр в iframe свой звук, и их
+  // клики до этого документа не долетают.
+  useClickSound({ value: clickSound, prefs: state.prefs });
 
   // Лобби — мета, скан и экран запуска; диалог, игра и победа звучат сами.
   useLobbyMusic({

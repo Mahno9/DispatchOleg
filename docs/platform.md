@@ -339,6 +339,11 @@ SQLite, миграции последовательные (как `server/src/db
 `final_victory_text`. Список ключей — `SETTING_KEYS` в `server/src/repos/settings.ts`,
 чужой ключ `PUT /api/admin/settings` отвергает.
 
+Плеер играет `ui_click_sound_url` на нажатие любой `<button>` на всех экранах,
+громкостью ползунка эффектов (`sfxVolume`); значение — один файл или взвешенный
+список вариантов.
+
+
 ---
 
 ## 5. Блокировки

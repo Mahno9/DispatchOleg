@@ -72,6 +72,8 @@ export interface Settings {
   final_victory_text?: string | null;
   /** Фоновая петля лобби (мета/скан/запуск); null — без музыки. */
   meta_music_url?: string | null;
+  /** Щелчок по кнопке: один файл или взвешенный список вариантов из админки. */
+  ui_click_sound_url?: string | { url: string; weight?: number; volume?: number }[] | null;
   [key: string]: unknown;
 }
 
