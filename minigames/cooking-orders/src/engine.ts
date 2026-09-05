@@ -24,6 +24,8 @@ export interface Ingredient {
   name: string;
   image: string;
   unitName: string;
+  /** Validated by the audio player; empty or invalid values use the shared pour loop. */
+  pourSound?: unknown;
 }
 
 export interface Config {
@@ -291,6 +293,7 @@ export function normalize(raw: unknown): Normalized {
         name: str(item?.name) || id,
         image: str(item?.image),
         unitName: str(item?.unitName) || 'ложка',
+        pourSound: item?.pourSound,
       });
     }
   }

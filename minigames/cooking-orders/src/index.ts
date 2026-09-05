@@ -1,3 +1,4 @@
+import { createAudio, type AudioValue } from './audio.js';
 import {
   cancelHold,
   currentOrder,
@@ -24,8 +25,6 @@ import {
 // Config / callbacks
 // ---------------------------------------------------------------------------
 
-type WeightedAudio = { url: string; weight: number; volume?: number };
-type AudioValue = string | WeightedAudio[];
 
 interface GameConfig {
   ingredients?: unknown;
@@ -38,6 +37,7 @@ interface GameConfig {
   pointsPerOrder?: number;
   spoilAnimationMs?: number;
   sounds?: {
+    music?: AudioValue;
     place?: AudioValue;
     pourLoop?: AudioValue;
     pourOk?: AudioValue;
@@ -47,7 +47,7 @@ interface GameConfig {
     wipe?: AudioValue;
   };
   muted?: boolean;
-  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. Музыки тут нет — играют только SFX-петли. */
+  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. */
   musicVolume?: number;
   sfxVolume?: number;
 }
@@ -493,72 +493,11 @@ export function init(
   let renderedPotOrder = -1;
   let renderedPotStep = -1;
 
-  // --- audio ---
-  const gainOf = (v: unknown, fallback: number): number =>
-    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
-  // Тут нет музыки — только SFX-петли (pourLoop/cookLoop), масштабируются sfxGain.
-  let sfxGain = gainOf(config.sfxVolume, 100);
-  const audioCache = new Map<string, HTMLAudioElement>();
-  let loopAudio: HTMLAudioElement | null = null;
-  let loopSound: { url: string; volume: number } | undefined;
-
-  function pickSound(value: AudioValue | undefined): { url: string; volume: number } | undefined {
-    if (!value) return undefined;
-    if (typeof value === 'string') return { url: value, volume: 100 };
-    if (!value.length) return undefined;
-    let r = Math.random() * value.reduce((s, v) => s + (Number(v.weight) || 0), 0);
-    for (const v of value) {
-      r -= Number(v.weight) || 0;
-      if (r <= 0) return { url: v.url, volume: Number(v.volume) || 100 };
-    }
-    const last = value[value.length - 1]!;
-    return { url: last.url, volume: Number(last.volume) || 100 };
-  }
-
-  function audioFor(url: string): HTMLAudioElement {
-    let base = audioCache.get(url);
-    if (!base) {
-      base = new Audio(url);
-      base.preload = 'auto';
-      audioCache.set(url, base);
-    }
-    return base;
-  }
-
-  function play(value: AudioValue | undefined): void {
-    if (muted) return;
-    const sound = pickSound(value);
-    if (!sound) return;
-    const node = audioFor(sound.url).cloneNode() as HTMLAudioElement;
-    node.volume = Math.max(0, Math.min(1, (sound.volume / 100) * sfxGain));
-    node.play().catch(() => {});
-  }
-
-  function applyLoopVolume(): void {
-    if (!loopAudio || !loopSound) return;
-    loopAudio.volume = Math.max(0, Math.min(1, (loopSound.volume / 100) * sfxGain));
-  }
-
-  function startLoop(value: AudioValue | undefined): void {
-    stopLoop();
-    if (muted) return;
-    const sound = pickSound(value);
-    if (!sound) return;
-    const node = audioFor(sound.url).cloneNode() as HTMLAudioElement;
-    node.loop = true;
-    loopSound = sound;
-    loopAudio = node;
-    applyLoopVolume();
-    node.play().catch(() => {});
-  }
-
-  function stopLoop(): void {
-    if (!loopAudio) return;
-    loopAudio.pause();
-    loopAudio.currentTime = 0;
-    loopAudio = null;
-    loopSound = undefined;
-  }
+  // Audio is created only after config validation: the fallback owns no media.
+  const audio = createAudio(config.sounds?.music, config);
+  const { play, startLoop, stopLoop } = audio;
+  window.addEventListener('pointerdown', audio.retryMusic, true);
+  audio.retryMusic();
 
   // --- chrome -------------------------------------------------------------
   const queue = el('div', `${PREFIX}queue`);
@@ -581,7 +520,7 @@ export function init(
   muteBtn.addEventListener('click', () => {
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
-    if (muted) stopLoop();
+    audio.setMuted(muted);
   });
   aside.append(failsEl, muteBtn);
   queue.append(cardsEl, aside);
@@ -916,7 +855,7 @@ export function init(
           finish();
           break;
         case 'pouring':
-          startLoop(config.sounds?.pourLoop);
+          startLoop(byId.get(currentStep(state, cfg)!.ingredientId)?.pourSound, config.sounds?.pourLoop);
           startRaf();
           break;
         case 'cooking':
@@ -967,6 +906,7 @@ export function init(
   function finish(): void {
     if (finished) return;
     finished = true;
+    audio.finishMusic();
     releasePointer();
     const p = progress(state, cfg);
     callbacks.onProgress?.('СМЕНА ЗАКРЫТА', p.percent);
@@ -1087,11 +1027,9 @@ export function init(
 
   return {
     setVolume(v): void {
-      sfxGain = gainOf(v.sfxVolume, 100);
+      audio.setVolume(v);
       muted = v.muted === true;
       muteBtn.textContent = muted ? '🔇' : '🔊';
-      if (muted) stopLoop();
-      applyLoopVolume();
     },
     destroy(): void {
       stopRaf();
@@ -1104,11 +1042,8 @@ export function init(
       window.removeEventListener('pointercancel', onPointerCancel);
       window.removeEventListener('blur', abortHold);
       document.removeEventListener('visibilitychange', onVisibility);
-      for (const audio of audioCache.values()) {
-        audio.pause();
-        audio.src = '';
-      }
-      audioCache.clear();
+      window.removeEventListener('pointerdown', audio.retryMusic, true);
+      audio.destroy();
       container.innerHTML = '';
     },
   };

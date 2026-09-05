@@ -28,6 +28,7 @@
           },
           "name": { "type": "string", "title": "Название" },
           "image": { "type": "string", "title": "Изображение", "x-type": "asset:image" },
+          "pourSound": { "type": "array", "title": "Звук дозирования", "description": "Пустое поле использует общий звук наполнения", "x-type": "asset:audio" },
           "unitName": {
             "type": "string",
             "title": "Единица",
@@ -169,6 +170,7 @@
       "type": "object",
       "title": "Звуки",
       "properties": {
+        "music": { "type": "array", "title": "Музыка смены (луп)", "x-type": "asset:audio" },
         "place": { "type": "array", "title": "Ингредиент положен", "x-type": "asset:audio" },
         "pourLoop": { "type": "array", "title": "Наполнение (луп)", "x-type": "asset:audio" },
         "pourOk": { "type": "array", "title": "Доза в допуске", "x-type": "asset:audio" },
