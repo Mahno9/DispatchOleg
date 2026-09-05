@@ -4,6 +4,8 @@
 
 export interface Settings {
   ui_click_sound_url: { url: string; weight: number; volume?: number }[] | string | null;
+  /** Фоновая петля лобби (мета/скан/запуск); null — без музыки. */
+  meta_music_url: string | null;
   sync_interval_s: number;
   /** Текст, показываемый игроку после прохождения всех игр. */
   final_victory_text: string | null;

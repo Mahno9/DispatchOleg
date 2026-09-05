@@ -334,6 +334,10 @@ SQLite, миграции последовательные (как `server/src/db
 ### `assets`, `settings`
 Как в GameService без изменений: `assets` — метаданные загруженных файлов (upload/serve),
 `settings` — key-value для глобальных настроек (звуки интерфейса и т.п.).
+Ключи: `ui_click_sound_url` (звук нажатия кнопок в мете), `meta_music_url` (фоновая
+петля лобби — мета, скан, экран запуска; `null` — тишина), `sync_interval_s`,
+`final_victory_text`. Список ключей — `SETTING_KEYS` в `server/src/repos/settings.ts`,
+чужой ключ `PUT /api/admin/settings` отвергает.
 
 ---
 

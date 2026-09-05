@@ -14,6 +14,7 @@ import { MinigameScreen } from './screens/MinigameScreen';
 import { AudioSettings } from './ui/AudioSettings';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { QrScanScreen } from './screens/QrScanScreen';
+import { useLobbyMusic } from './ui/useLobbyMusic';
 import { VictoryScreen } from './screens/VictoryScreen';
 import { testTarget } from './testMode';
 
@@ -63,6 +64,8 @@ export function App() {
   const [onboardStatus, setOnboardStatus] = useState('');
   /** Texts/timings of the tutorial game — null until (or unless) it loads. */
   const [tutorialConfig, setTutorialConfig] = useState<Record<string, unknown> | null>(null);
+  /** Фоновая петля лобби из настроек (`meta_music_url`); null — тишина. */
+  const [lobbyMusicUrl, setLobbyMusicUrl] = useState<string | null>(null);
 
   // -- game chain: config is fetched once per run, then pre → game → post --
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
@@ -153,9 +156,24 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // Музыка — украшение: не доехали настройки, лобби просто останется тихим.
+    api.getSettings().then(
+      (settings) => setLobbyMusicUrl(settings.meta_music_url || null),
+      (err: unknown) => console.error('[app] failed to load settings', err),
+    );
+  }, []);
+
+  useEffect(() => {
     void syncNow();
     return startSync(SYNC_INTERVAL_S);
   }, []);
+
+  // Лобби — мета, скан и экран запуска; диалог, игра и победа звучат сами.
+  useLobbyMusic({
+    url: lobbyMusicUrl,
+    active: screen === 'meta' || screen === 'qr-scan' || screen === 'launch',
+    prefs: state.prefs,
+  });
 
   // Onboarding is a one-way gate: leaving it is what sets `onboarded`.
   useEffect(() => {

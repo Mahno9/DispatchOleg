@@ -70,6 +70,8 @@ export interface MetaStage {
 /** GET /api/settings — admin-editable knobs; only the keys we read are typed. */
 export interface Settings {
   final_victory_text?: string | null;
+  /** Фоновая петля лобби (мета/скан/запуск); null — без музыки. */
+  meta_music_url?: string | null;
   [key: string]: unknown;
 }
 

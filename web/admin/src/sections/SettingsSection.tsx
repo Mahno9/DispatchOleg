@@ -14,8 +14,9 @@ export function SettingsSection() {
   const [sound, setSound] = useState('');
   const [savedSound, setSavedSound] = useState('');
   const [weighted, setWeighted] = useState(false);
+  const [music, setMusic] = useState('');
   const [victoryText, setVictoryText] = useState('');
-  const [picking, setPicking] = useState(false);
+  const [picking, setPicking] = useState<'click' | 'music' | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +26,7 @@ export function SettingsSection() {
     setSound(firstSoundUrl(s.ui_click_sound_url));
     setSavedSound(firstSoundUrl(s.ui_click_sound_url));
     setWeighted(Array.isArray(s.ui_click_sound_url) && s.ui_click_sound_url.length > 1);
+    setMusic(s.meta_music_url ?? '');
     setVictoryText(s.final_victory_text ?? '');
   }
 
@@ -48,6 +50,7 @@ export function SettingsSection() {
       apply(
         await api.updateSettings({
           sync_interval_s: seconds,
+          meta_music_url: music || null,
           final_victory_text: victoryText.trim() ? victoryText : null,
           ...(sound === savedSound ? {} : { ui_click_sound_url: sound || null }),
         }),
@@ -79,7 +82,7 @@ export function SettingsSection() {
         <label className='poi-field-label'>Звук нажатия кнопок</label>
         <div className='char-portrait-row'>
           {sound ? <audio controls preload='none' src={sound} /> : <span className='minigames-empty'>не выбран</span>}
-          <button onClick={() => setPicking(true)}>Выбрать…</button>
+          <button onClick={() => setPicking('click')}>Выбрать…</button>
           {sound && <button onClick={() => setSound('')}>Очистить</button>}
         </div>
         {weighted && (
@@ -88,6 +91,13 @@ export function SettingsSection() {
             один. Взвешенный список правится во вкладке «Ассеты».
           </p>
         )}
+
+        <label className='poi-field-label'>Фоновая музыка лобби</label>
+        <div className='char-portrait-row'>
+          {music ? <audio controls preload='none' src={music} /> : <span className='minigames-empty'>не выбрана</span>}
+          <button onClick={() => setPicking('music')}>Выбрать…</button>
+          {music && <button onClick={() => setMusic('')}>Очистить</button>}
+        </div>
 
         <label className='poi-field-label'>Текст финальной победы</label>
         <textarea
@@ -109,10 +119,11 @@ export function SettingsSection() {
         <AssetPickerModal
           kinds={['audio']}
           onPick={(url) => {
-            setSound(url);
-            setPicking(false);
+            if (picking === 'music') setMusic(url);
+            else setSound(url);
+            setPicking(null);
           }}
-          onClose={() => setPicking(false)}
+          onClose={() => setPicking(null)}
         />
       )}
     </div>

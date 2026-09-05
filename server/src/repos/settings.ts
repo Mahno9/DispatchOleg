@@ -2,6 +2,7 @@ import type { Database } from 'better-sqlite3';
 
 export const SETTING_KEYS = [
   'ui_click_sound_url',
+  'meta_music_url',
   'sync_interval_s',
   'final_victory_text',
 ] as const;
