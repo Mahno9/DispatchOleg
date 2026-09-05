@@ -19,8 +19,8 @@ interface MinigameScreenProps {
   speaker?: string;
   /** Имя игрока: им подписаны реплики Олега в двухголосых репликах игр. */
   playerName?: string;
-  /** Персонаж говорит (true) или слушает — портрет в панели гаснет вслед. */
-  onSpeaker?: (characterSpeaking: boolean) => void;
+  /** Кто говорит в слоте 2: персонаж, игрок или никто (реплики нет). */
+  onSpeaker?: (who: 'character' | 'player' | null) => void;
   /** Bottom-bar slot 2 — fed by the game's onProgress (docs/platform.md §3.1). */
   onContext: (node: ReactNode) => void;
   /** Result of the run, or null when the player exited without finishing. */
@@ -125,7 +125,7 @@ export function MinigameScreen({
               onClick={onDismiss}
             />
           );
-        cb.current.onSpeaker?.(!fromPlayer);
+        cb.current.onSpeaker?.(said === null ? null : fromPlayer ? 'player' : 'character');
         if (briefedRef.current) cb.current.onContext(lineRef.current ?? progressRef.current);
       },
       onFinished: (result) => {

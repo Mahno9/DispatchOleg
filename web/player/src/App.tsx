@@ -72,8 +72,11 @@ export function App() {
   );
   /** Slot 2 rented out to the dialogue scene / the running minigame. */
   const [slotContext, setSlotContext] = useState<ReactNode>(null);
-  /** Персонаж игры говорит или слушает: в двухголосых репликах портрет гаснет. */
-  const [charSpeaking, setCharSpeaking] = useState(true);
+  /**
+   * Кто говорит в слоте 2 во время мини-игры. `null` — реплик нет вовсе
+   * (кухня, тетрис): портрета в панели тогда тоже нет, ему нечего озвучивать.
+   */
+  const [speaking, setSpeaking] = useState<'character' | 'player' | null>(null);
 
   // Onboarding hands this to timer-driven screens: it must be referentially
   // stable, or their setTimeout effects restart on every App re-render (the
@@ -89,13 +92,14 @@ export function App() {
     setGameConfig(null);
     setSelectedGame(null);
     setSlotContext(null);
+    setSpeaking(null);
     setScreen('meta');
   }, []);
 
   // pre-dialogue → minigame → post-dialogue, entered from a QR scan or a test run.
   const startGame = useCallback((game: VerifiedGame) => {
     setSelectedGame(game);
-    setCharSpeaking(true);
+    setSpeaking(null);
     setScreen('launch');
     api.getGameConfig(game.id).then(
       (config) => {
@@ -303,7 +307,7 @@ export function App() {
           speaker={gameCharacter?.name ?? ''}
           playerName={state.profile.name || DEFAULT_PLAYER_NAME}
           onContext={setSlotContext}
-          onSpeaker={setCharSpeaking}
+          onSpeaker={setSpeaking}
           onFinished={(result) => {
             if (!result) return endChain();
             localState.recordGameResult(selectedGame.id, result);
@@ -318,8 +322,8 @@ export function App() {
       );
       context = slotContext;
       // В диалоге персонажи стоят в рабочей области — там панели портрет не нужен.
-      portrait = gameCharacter && (
-        <BarPortrait character={gameCharacter} speaking={charSpeaking} />
+      portrait = speaking !== null && gameCharacter && (
+        <BarPortrait character={gameCharacter} speaking={speaking === 'character'} />
       );
       action = (
         <button type="button" className="btn btn-key btn-danger" onClick={endChain}>

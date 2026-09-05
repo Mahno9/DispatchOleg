@@ -292,11 +292,17 @@ const STYLES = `
 }
 .${PREFIX}pot svg { width: 100%; display: block; fill: none; stroke: #16A69B; stroke-width: 2; stroke-linecap: square; }
 .${PREFIX}pot svg .${PREFIX}steam { stroke: #759C96; opacity: 0.35; }
+/* Коробка заливки — внутренность котелка в единицах POT_SVG (120x96): стенки
+   x 15..105, дно y 83, донные углы — четверть круга r~19. Проценты считаются от
+   самой коробки (90 x 40.3 единицы), поэтому радиус разный по осям: 19/90 ~ 21%
+   по горизонтали и 19/40.3 ~ 47% по вертикали. Без скругления прямоугольная
+   заливка вылезала нижними углами за изгиб дна. */
 .${PREFIX}pot__stack {
-  position: absolute; left: 14%; right: 14%; bottom: 13%;
+  position: absolute; left: 12.5%; right: 12.5%; bottom: 13.5%;
   height: 42%;
   display: flex; flex-direction: column-reverse;
   overflow: hidden;
+  border-radius: 0 0 21% 21% / 0 0 47% 47%;
   pointer-events: none;
 }
 .${PREFIX}pot__layer {

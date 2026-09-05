@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import schema from '../schema.json';
+import games from '../../../content/games.json' with { type: 'json' };
 import {
   cancelHold,
   currentOrder,
@@ -283,4 +284,23 @@ describe('win', () => {
     expect(progress({ ...initialState(), stepIndex: 3 }, cfg).percent).toBe(Math.round((3 / 14) * 100));
     expect(progress({ ...initialState(), orderIndex: 1 }, cfg).text).toBe('ЗАКАЗ 2/3 · ШАГ 1/5');
   });
+});
+
+// Контентный сторож: очередь наверху — это карточки-досье, и заказчик без
+// портрета вырождается в безликий плейсхолдер с одной буквой.
+describe('content: у заказчиков «Кухни для героев» есть лица', () => {
+  const game = games.find((g) => g.minigame_id === 'cooking-orders');
+  const { cfg, error } = normalize(game?.config_json);
+
+  it('уровень вообще собирается', () => {
+    expect(error).toBeNull();
+    expect(cfg.orders.length).toBeGreaterThan(0);
+  });
+
+  it.each(cfg.orders.map((o) => [o.name, o.orderName, o.portrait] as const))(
+    '%s · %s — портрет задан',
+    (_name, _dish, portrait) => {
+      expect(portrait).not.toBe('');
+    },
+  );
 });
