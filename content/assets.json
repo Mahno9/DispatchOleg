@@ -72,15 +72,6 @@
     "created_at": 1788496448137
   },
   {
-    "id": "mus-metro",
-    "kind": "audio",
-    "mime": "audio/ogg",
-    "ext": "ogg",
-    "original_name": "music-3.ogg",
-    "size_bytes": 1486884,
-    "created_at": 1788522063250
-  },
-  {
     "id": "mus-metro-vox",
     "kind": "audio",
     "mime": "audio/ogg",
