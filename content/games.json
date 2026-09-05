@@ -964,7 +964,7 @@
       "characters": [
         {
           "name": "Фламбэ",
-          "portrait": "",
+          "portrait": "/assets-store/rJBYLkjgSU.svg",
           "orderName": "Жареный батин суп",
           "cookSeconds": 20,
           "steps": [
@@ -996,7 +996,7 @@
         },
         {
           "name": "Фламбэ",
-          "portrait": "",
+          "portrait": "/assets-store/rJBYLkjgSU.svg",
           "orderName": "Пица 4 сыра мазерати",
           "cookSeconds": 12,
           "steps": [
@@ -1012,7 +1012,7 @@
         },
         {
           "name": "Фламбэ",
-          "portrait": "",
+          "portrait": "/assets-store/rJBYLkjgSU.svg",
           "orderName": "Гаспачо из пасты лависты",
           "cookSeconds": 6,
           "steps": [
@@ -1040,7 +1040,7 @@
         },
         {
           "name": "Фламбэ",
-          "portrait": "",
+          "portrait": "/assets-store/rJBYLkjgSU.svg",
           "orderName": "семдвич с копченым айоли",
           "cookSeconds": 2,
           "steps": [
@@ -1060,7 +1060,7 @@
         },
         {
           "name": "Фламбэ",
-          "portrait": "",
+          "portrait": "/assets-store/rJBYLkjgSU.svg",
           "orderName": "Сырая иячьница",
           "cookSeconds": 1,
           "steps": [
