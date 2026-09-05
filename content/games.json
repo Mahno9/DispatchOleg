@@ -1353,7 +1353,65 @@
           "lockDelayMs": 350,
           "hintAfterErrors": 5
         }
-      ]
+      ],
+      "sounds": {
+        "music": [
+          {
+            "url": "/assets-store/mus-breach-repair-loop.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "move": [
+          {
+            "url": "/assets-store/sfx-breach-move.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "rotate": [
+          {
+            "url": "/assets-store/sfx-breach-rotate.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "place": [
+          {
+            "url": "/assets-store/sfx-breach-place.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "error": [
+          {
+            "url": "/assets-store/sfx-breach-reject.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "hint": [
+          {
+            "url": "/assets-store/sfx-breach-hint.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "levelDone": [
+          {
+            "url": "/assets-store/sfx-breach-level-done.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "win": [
+          {
+            "url": "/assets-store/sfx-bridge-win.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ]
+      }
     },
     "character_id": 57,
     "pre_dialogue_id": 149,

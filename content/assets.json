@@ -63,6 +63,15 @@
     "created_at": 1785884564151
   },
   {
+    "id": "mus-breach-repair-loop",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "mus-breach-repair-loop.ogg",
+    "size_bytes": 1159630,
+    "created_at": 1788608554953
+  },
+  {
     "id": "mus-bridge",
     "kind": "audio",
     "mime": "audio/ogg",
@@ -115,6 +124,60 @@
     "original_name": "flambae-silhouette.svg",
     "size_bytes": 13221,
     "created_at": 1785884554696
+  },
+  {
+    "id": "sfx-breach-hint",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-breach-hint.ogg",
+    "size_bytes": 7075,
+    "created_at": 1788608554953
+  },
+  {
+    "id": "sfx-breach-level-done",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-breach-level-done.ogg",
+    "size_bytes": 18262,
+    "created_at": 1788608554953
+  },
+  {
+    "id": "sfx-breach-move",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-breach-move.ogg",
+    "size_bytes": 5697,
+    "created_at": 1788608554953
+  },
+  {
+    "id": "sfx-breach-place",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-breach-place.ogg",
+    "size_bytes": 8812,
+    "created_at": 1788608554953
+  },
+  {
+    "id": "sfx-breach-reject",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-breach-reject.ogg",
+    "size_bytes": 10396,
+    "created_at": 1788608554953
+  },
+  {
+    "id": "sfx-breach-rotate",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-breach-rotate.ogg",
+    "size_bytes": 6480,
+    "created_at": 1788608554953
   },
   {
     "id": "sfx-bridge-catch-1",
