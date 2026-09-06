@@ -26,7 +26,7 @@
 | `maxAttempts` | `0` | Общий пул ошибок на партию, `0` — бесконечно |
 | `errorPenalty` | `10` | Снимается за каждый неверный ввод; итог клампится к нулю |
 | `prizeImage` | — | Что лежит в сейфе, показывается на экране победы (`asset:image`) |
-| `sounds.dialClick` / `lockOpen` / `lockFail` / `victory` | — | `asset:audio`, глушатся при `config.muted` |
+| `sounds.music` / `dialClick` / `lockOpen` / `lockFail` / `victory` | — | `asset:audio`, глушатся при `config.muted`; `music` — луп |
 | `locks[]` | 4 ригеля | `question`, `widget`, `answer`, `points`, `params` |
 
 ## `params` — какие поля читает какой виджет

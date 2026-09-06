@@ -12,15 +12,13 @@ import {
 import { STYLES } from './styles.js';
 import { el, P } from './widgets/common.js';
 import { createWidget, SELF_SUBMIT, type LockWidget } from './widgets/index.js';
-
-type WeightedAudio = { url: string; weight: number; volume?: number };
-type AudioValue = string | WeightedAudio[];
+import { createAudio, type AudioValue } from './audio.js';
 
 interface RawConfig {
   prizeImage?: string;
   sounds?: Record<string, AudioValue | undefined>;
   muted?: boolean;
-  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. Музыки тут нет — только SFX. */
+  /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. */
   musicVolume?: number;
   sfxVolume?: number;
   [key: string]: unknown;
@@ -75,10 +73,6 @@ export function init(
   let muted = rawConfig.muted === true;
   let finished = false;
   let held = false; // заморозка платформой на время инструктажа
-  const gainOf = (v: unknown, fallback: number): number =>
-    Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
-  // Музыки в этой игре нет — только SFX, поэтому используется только sfxGain.
-  let sfxGain = gainOf(rawConfig.sfxVolume, 100);
 
   function later(fn: () => void, ms: number): void {
     const id = setTimeout(() => {
@@ -89,34 +83,14 @@ export function init(
   }
 
   // --- звук -----------------------------------------------------------------
-  const audioCache = new Map<string, HTMLAudioElement>();
-
-  function pickSound(value: AudioValue | undefined): { url: string; volume: number } | undefined {
-    if (!value) return undefined;
-    if (typeof value === 'string') return { url: value, volume: 100 };
-    if (!value.length) return undefined;
-    let r = Math.random() * value.reduce((sum, v) => sum + (Number(v.weight) || 0), 0);
-    for (const v of value) {
-      r -= Number(v.weight) || 0;
-      if (r <= 0) return { url: v.url, volume: Number(v.volume) || 100 };
-    }
-    const last = value[value.length - 1]!;
-    return { url: last.url, volume: Number(last.volume) || 100 };
-  }
+  // Создаётся до разбора конфига: звук гасится в destroy(), общем для всех выходов.
+  const audio = createAudio(rawConfig.sounds?.music, rawConfig);
+  // Автоплей заблокирован до первого жеста игрока — добираем на первом pointerdown.
+  window.addEventListener('pointerdown', audio.retryMusic, true);
+  audio.retryMusic();
 
   function play(name: string): void {
-    if (muted) return;
-    const sound = pickSound(rawConfig.sounds?.[name]);
-    if (!sound) return;
-    let base = audioCache.get(sound.url);
-    if (!base) {
-      base = new Audio(sound.url);
-      base.preload = 'auto';
-      audioCache.set(sound.url, base);
-    }
-    const node = base.cloneNode() as HTMLAudioElement;
-    node.volume = Math.max(0, Math.min(1, (sound.volume / 100) * sfxGain));
-    node.play().catch(() => {});
+    audio.play(rawConfig.sounds?.[name]);
   }
 
   // --- HUD ------------------------------------------------------------------
@@ -132,6 +106,7 @@ export function init(
   muteBtn.addEventListener('click', () => {
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
+    audio.setMuted(muted);
   });
   hud.append(hudTitle, hudLock, hudScore, hudAttempts, hudTime, el('div', `${P}hud__spacer`), muteBtn);
 
@@ -291,6 +266,7 @@ export function init(
     stopTicker();
     widget?.destroy();
     widget = undefined;
+    audio.finishMusic();
     play(won ? 'victory' : 'lockFail');
     // Пока реплика висит, платформа прячет прогресс — снимаем её под итог.
     pushLine();
@@ -396,7 +372,7 @@ export function init(
     // Общий регулятор в шапке плеера; локальная кнопка 🔊 остаётся быстрым
     // переключателем, но глобальная настройка её перебивает.
     setVolume(v): void {
-      sfxGain = gainOf(v.sfxVolume, 100);
+      audio.setVolume(v);
       muted = v.muted === true;
       muteBtn.textContent = muted ? '🔇' : '🔊';
     },
@@ -407,11 +383,8 @@ export function init(
       timers.clear();
       widget?.destroy();
       widget = undefined;
-      for (const audio of audioCache.values()) {
-        audio.pause();
-        audio.src = '';
-      }
-      audioCache.clear();
+      window.removeEventListener('pointerdown', audio.retryMusic, true);
+      audio.destroy();
       container.innerHTML = '';
     },
   };

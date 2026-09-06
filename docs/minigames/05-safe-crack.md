@@ -397,6 +397,7 @@ onComplete({
 | `maxAttempts` | integer | — | `0` | Общий пул ошибок на партию. `0` — бесконечно |
 | `errorPenalty` | integer | — | `10` | Сколько очков снимается за каждый неверный ввод |
 | `prizeImage` | string | `asset:image` | — | Что лежит в сейфе — показывается на экране `victory` |
+| `sounds.music` | WeightedAudio[] | `asset:audio` | — | Музыка (луп), играет с начала партии |
 | `sounds.dialClick` | WeightedAudio[] | `asset:audio` | — | Щелчок лимба / диска / барабана |
 | `sounds.lockOpen` | WeightedAudio[] | `asset:audio` | — | Ригель поддался |
 | `sounds.lockFail` | WeightedAudio[] | `asset:audio` | — | Ошибка, сирена |

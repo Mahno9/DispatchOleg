@@ -42,6 +42,7 @@
       "type": "object",
       "title": "Звуки",
       "properties": {
+        "music": { "type": "array", "title": "Музыка (луп)", "x-type": "asset:audio" },
         "dialClick": { "type": "array", "title": "Щелчок лимба / диска / барабана", "x-type": "asset:audio" },
         "lockOpen": { "type": "array", "title": "Ригель поддался", "x-type": "asset:audio" },
         "lockFail": { "type": "array", "title": "Ошибка, сирена", "x-type": "asset:audio" },
