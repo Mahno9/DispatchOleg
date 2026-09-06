@@ -9,15 +9,64 @@ export const DEFAULT_PLAYER_NAME = 'Олег';
  * ключевое слово, игрок видит своё имя. Рекурсивно, потому что подставлять надо
  * не только в верхние поля (`playerName`), но и внутрь массивов вроде
  * `tasks[].assignee` — иначе задача «моя» только для того, кого зовут Олегом.
+ * `tasks[].assignee` — иначе задача «моя» только для того, кого зовут как
  */
 export function fillPlaceholders<T>(value: T, playerName: string): T {
-  if (typeof value === 'string') return value.replaceAll('{player}', playerName) as T;
-  if (Array.isArray(value)) return value.map((v) => fillPlaceholders(v, playerName)) as T;
+  return mapStrings(value, (s) => s.replaceAll('{player}', playerName));
+}
+
+/** Та же рекурсия по конфигу, что и у плейсхолдеров: применить `fn` к каждой строке. */
+function mapStrings<T>(value: T, fn: (s: string) => string): T {
+  if (typeof value === 'string') return fn(value) as T;
+  if (Array.isArray(value)) return value.map((v) => mapStrings(v, fn)) as T;
   if (value && typeof value === 'object')
     return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, fillPlaceholders(v, playerName)]),
+      Object.entries(value).map(([k, v]) => [k, mapStrings(v, fn)]),
     ) as T;
   return value;
+}
+
+/** Загруженные в админке файлы (звук, картинки) — по этому префиксу их видно в конфиге. */
+const ASSET_PREFIX = '/assets-store/';
+
+export interface PreloadedAssets<T> {
+  /** Тот же конфиг, но адреса ассетов заменены на blob: — уже в памяти. */
+  config: T;
+  /** Освободить память: blob-адреса отзываются, повторно их не открыть. */
+  release: () => void;
+}
+
+/**
+ * Игры создают `new Audio(url)` прямо в момент play(): первый звук каждого вида
+ * ждал сети, отсюда задержка. Тянем все ассеты конфига заранее, целиком в
+ * память, и отдаём игре blob-адреса — для неё ничего не меняется, а
+ * воспроизведение мгновенное. Что не скачалось, остаётся оригинальным адресом:
+ * звук тогда опоздает, как раньше, но игра не сломается.
+ */
+export async function preloadAssets<T>(config: T): Promise<PreloadedAssets<T>> {
+  const urls = new Set<string>();
+  mapStrings(config, (s) => {
+    if (s.startsWith(ASSET_PREFIX)) urls.add(s);
+    return s;
+  });
+  const blobs = new Map<string, string>();
+  await Promise.all(
+    [...urls].map(async (url) => {
+      try {
+        const res = await fetch(url);
+        if (res.ok) blobs.set(url, URL.createObjectURL(await res.blob()));
+      } catch (err) {
+        console.warn('[minigameLoader] asset preload failed', url, err);
+      }
+    }),
+  );
+  return {
+    config: mapStrings(config, (s) => blobs.get(s) ?? s),
+    release: () => {
+      for (const blob of blobs.values()) URL.revokeObjectURL(blob);
+      blobs.clear();
+    },
+  };
 }
 
 export interface MinigameResult {
@@ -95,6 +144,7 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
 
   let handle: MinigameHandle | null = null;
   let settled = false;
+  let releaseAssets: (() => void) | null = null;
 
   // Каждый запуск живёт в собственном узле, а не прямо в общем контейнере.
   // Под StrictMode эффект монтируется дважды: отменённый первый запуск
@@ -122,6 +172,10 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
       console.error('[minigameLoader] destroy failed', err);
     }
     handle = null;
+    // После destroy игры её элементы Audio уже отпущены — теперь можно
+    // отзывать blob-адреса, иначе память под звук висела бы до перезагрузки.
+    releaseAssets?.();
+    releaseAssets = null;
     host.remove();
     if (!settled) finish(null);
   }
@@ -131,10 +185,8 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
     const meta = minigames.find((m) => m.id === gameConfig.minigameId);
     if (!meta) throw new Error(`Unknown minigame: ${gameConfig.minigameId}`);
 
-    const mod = (await import(/* @vite-ignore */ meta.entryUrl)) as MinigameModule;
-
     // Effective config = game defaults ⊕ per-game override (top-level keys).
-    const config: Record<string, unknown> = fillPlaceholders(
+    const raw: Record<string, unknown> = fillPlaceholders(
       {
         ...(meta.defaultConfig ?? {}),
         ...gameConfig.config,
@@ -144,6 +196,14 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
       },
       localState.getSnapshot().profile.name || DEFAULT_PLAYER_NAME,
     );
+
+    // Бандл и ассеты — параллельно; init только когда всё уже в памяти.
+    const [mod, assets] = await Promise.all([
+      import(/* @vite-ignore */ meta.entryUrl) as Promise<MinigameModule>,
+      preloadAssets(raw),
+    ]);
+    releaseAssets = assets.release;
+    const config = assets.config;
 
     handle = mod.init(host, config, {
       onComplete: (result) => finish(result),
@@ -170,6 +230,7 @@ export async function launchMinigame(opts: LaunchOptions): Promise<MinigameHandl
     };
   } catch (err) {
     console.error('[minigameLoader] failed to launch minigame', err);
+    releaseAssets?.();
     host.remove();
     throw err;
   }

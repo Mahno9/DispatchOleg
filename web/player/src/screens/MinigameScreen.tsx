@@ -53,6 +53,10 @@ export function MinigameScreen({
 }: MinigameScreenProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // Бандл и все его ассеты в памяти, init отработал. До этого — экран загрузки,
+  // а не полусобранная игра: инструктаж целится в живой DOM и не должен
+  // показываться раньше, чем он есть.
+  const [loaded, setLoaded] = useState(false);
 
   const steps = TUTORIALS[minigameId] ?? [];
   // Игра без инструктажа стартует сразу, как и раньше.
@@ -95,6 +99,7 @@ export function MinigameScreen({
     if (!container) return;
 
     let live = true;
+    setLoaded(false);
 
     launchMinigame({
       container,
@@ -161,6 +166,7 @@ export function MinigameScreen({
           return;
         }
         handleRef.current = h;
+        setLoaded(true);
         h.setPaused?.(!briefedRef.current);
         // Бандл грузится асинхронно: всё, что игрок накрутил регулятором за
         // это время, ушло в никуда — handleRef был ещё пуст.
@@ -186,16 +192,29 @@ export function MinigameScreen({
   useEffect(() => {
     handleRef.current?.setPaused?.(!briefed);
     cb.current.onContext(
-      briefed
-        ? (lineRef.current ?? progressRef.current)
-        : <div className="label">Инструктаж · перед запуском</div>,
+      briefed ? (
+        lineRef.current ?? progressRef.current
+      ) : (
+        <div className="label">{loaded ? 'Инструктаж · перед запуском' : 'Загрузка · подождите'}</div>
+      ),
     );
-  }, [briefed]);
+  }, [briefed, loaded]);
 
   return (
     <div className="minigame-host">
       <div className="minigame-container" ref={containerRef} />
-      {!briefed && (
+      {!loaded && !error && (
+        <div className="minigame-loading">
+          <div className="panel">
+            <h2>Загрузка</h2>
+            <span className="label">Бандл и звук операции · подождите</span>
+            <div className="progress">
+              <div className="progress-fill" />
+            </div>
+          </div>
+        </div>
+      )}
+      {loaded && !briefed && (
         <Briefing steps={steps} hostRef={containerRef} onStart={() => setBriefed(true)} />
       )}
       {error && (

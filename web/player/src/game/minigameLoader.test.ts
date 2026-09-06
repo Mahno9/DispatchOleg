@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fillPlaceholders, launchMinigame } from './minigameLoader';
+import { fillPlaceholders, launchMinigame, preloadAssets } from './minigameLoader';
 import { api } from '../api';
 
 vi.mock('../api', () => ({
@@ -87,5 +87,64 @@ describe('launchMinigame — onLine', () => {
     // dismiss — замыкание самой игры (см. фикстуру): гасит себя onLine(null).
     onLine.mock.calls[0]![1]!();
     expect(onLine).toHaveBeenNthCalledWith(2, null, undefined);
+  });
+});
+
+describe('preloadAssets', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function stubNet(failing: string[] = []) {
+    const fetch = vi.fn(async (url: string) => {
+      if (failing.includes(url)) throw new Error('net');
+      return { ok: true, blob: async () => ({ url }) };
+    });
+    const created: unknown[] = [];
+    const revoked: string[] = [];
+    vi.stubGlobal('fetch', fetch);
+    vi.stubGlobal('URL', {
+      createObjectURL: (b: { url: string }) => {
+        created.push(b);
+        return `blob:${b.url}`;
+      },
+      revokeObjectURL: (u: string) => revoked.push(u),
+    });
+    return { fetch, created, revoked };
+  }
+
+  it('тянет каждый ассет один раз и подменяет адреса на blob на любой глубине', async () => {
+    const { fetch, revoked } = stubNet();
+    const config = {
+      music: '/assets-store/m.ogg',
+      sounds: {
+        hit: [{ url: '/assets-store/a.ogg', weight: 1 }, { url: '/assets-store/m.ogg', weight: 1 }],
+      },
+      title: 'не адрес',
+      icon: '/other/x.svg',
+      n: 3,
+    };
+    const { config: out, release } = await preloadAssets(config);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(out).toEqual({
+      music: 'blob:/assets-store/m.ogg',
+      sounds: {
+        hit: [
+          { url: 'blob:/assets-store/a.ogg', weight: 1 },
+          { url: 'blob:/assets-store/m.ogg', weight: 1 },
+        ],
+      },
+      title: 'не адрес',
+      icon: '/other/x.svg',
+      n: 3,
+    });
+    expect(config.music).toBe('/assets-store/m.ogg'); // исходник не тронут
+    release();
+    expect(revoked.sort()).toEqual(['blob:/assets-store/a.ogg', 'blob:/assets-store/m.ogg']);
+  });
+
+  it('несдачавшийся ассет оставляет оригинальный адрес, остальные подменяются', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    stubNet(['/assets-store/bad.ogg']);
+    const { config } = await preloadAssets({ a: '/assets-store/bad.ogg', b: '/assets-store/ok.ogg' });
+    expect(config).toEqual({ a: '/assets-store/bad.ogg', b: 'blob:/assets-store/ok.ogg' });
   });
 });

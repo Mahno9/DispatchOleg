@@ -1376,8 +1376,41 @@ h3 {
   background: var(--page);
 }
 
-.minigame-loading .label {
-  animation: blink 1s steps(1, end) infinite;
+.minigame-loading .panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(520px, 90%);
+  padding: 20px;
+  text-align: center;
+}
+
+.minigame-loading h2 {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  color: var(--glow);
+  text-shadow: var(--halo);
+}
+
+.minigame-loading .progress {
+  width: 100%;
+}
+
+/* Бегущий сегмент: прогресса в процентах нет, но шкала показывает, что живо. */
+.minigame-loading .progress-fill {
+  width: 30%;
+  transition: none;
+  animation: loading-sweep 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes loading-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(333%);
+  }
 }
 
 /* Инструктаж перед запуском: стрелки на проценты рабочей области. Лежит перед
