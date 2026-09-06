@@ -162,6 +162,15 @@
     "created_at": 1788437898206
   },
   {
+    "id": "mus-safe-detective-loop",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "mus-safe-detective-loop.ogg",
+    "size_bytes": 1155709,
+    "created_at": 1788719147381
+  },
+  {
     "id": "pntUBTSH_W",
     "kind": "image",
     "mime": "image/svg+xml",
@@ -547,6 +556,60 @@
     "original_name": "ready-2.ogg",
     "size_bytes": 9685,
     "created_at": 1788437898202
+  },
+  {
+    "id": "sfx-safe-bolt-1",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-safe-bolt-1.ogg",
+    "size_bytes": 10944,
+    "created_at": 1788719147381
+  },
+  {
+    "id": "sfx-safe-bolt-2",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-safe-bolt-2.ogg",
+    "size_bytes": 12249,
+    "created_at": 1788719147381
+  },
+  {
+    "id": "sfx-safe-click",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-safe-click.ogg",
+    "size_bytes": 5987,
+    "created_at": 1788719147381
+  },
+  {
+    "id": "sfx-safe-door",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-safe-door.ogg",
+    "size_bytes": 19506,
+    "created_at": 1788719147381
+  },
+  {
+    "id": "sfx-safe-fail-buzz",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-safe-fail-buzz.ogg",
+    "size_bytes": 15191,
+    "created_at": 1788719147381
+  },
+  {
+    "id": "sfx-safe-fail-relock",
+    "kind": "audio",
+    "mime": "audio/ogg",
+    "ext": "ogg",
+    "original_name": "sfx-safe-fail-relock.ogg",
+    "size_bytes": 10832,
+    "created_at": 1788719147381
   },
   {
     "id": "sfx-scan",

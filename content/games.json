@@ -847,7 +847,54 @@
           }
         }
       ],
-      "prizeImage": ""
+      "prizeImage": "",
+      "sounds": {
+        "music": [
+          {
+            "url": "/assets-store/mus-safe-detective-loop.ogg",
+            "weight": 1,
+            "volume": 50
+          }
+        ],
+        "dialClick": [
+          {
+            "url": "/assets-store/sfx-safe-click.ogg",
+            "weight": 1,
+            "volume": 80
+          }
+        ],
+        "lockOpen": [
+          {
+            "url": "/assets-store/sfx-safe-bolt-1.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-safe-bolt-2.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "lockFail": [
+          {
+            "url": "/assets-store/sfx-safe-fail-buzz.ogg",
+            "weight": 1,
+            "volume": 100
+          },
+          {
+            "url": "/assets-store/sfx-safe-fail-relock.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "victory": [
+          {
+            "url": "/assets-store/sfx-safe-door.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ]
+      }
     },
     "character_id": 56,
     "pre_dialogue_id": 146,
