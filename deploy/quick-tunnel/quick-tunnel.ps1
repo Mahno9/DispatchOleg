@@ -16,6 +16,8 @@ Quick tunnel бесплатный и без аккаунта, но адрес ж
   -Stop    выключить: погасить супервизор, сервер и туннель, снять автозапуск,
            первой строкой в $OutFile написать «ВЫКЛЮЧЕНО»
   -Status  что сейчас работает и какой адрес
+  -Update  накатить правки: `npm run build` в корне проекта и перезапуск
+           сервера; адрес туннеля при этом не меняется
   -Autostart on|off — только ярлык в автозагрузке, ничего не запуская
 
 Пути без имени пользователя: проект — от расположения скрипта, состояние,
@@ -25,6 +27,7 @@ param(
   [switch]$Start,
   [switch]$Stop,
   [switch]$Status,
+  [switch]$Update,
   [ValidateSet('on', 'off')][string]$Autostart,
   [int]$Port = 8090,
   [string]$OutFile = 'C:\YandexDisk\Configs\dispatch.txt',
@@ -155,6 +158,32 @@ if ($Autostart) {
 }
 
 if ($Status) { Show-Status; exit 0 }
+
+if ($Update) {
+  # Публичный экземпляр работает с собранного: server/dist, web/*/dist,
+  # server/static/minigames. Правки в исходниках сами не подтягиваются —
+  # только контент из БД (общая data/). Собираем всё, потом снимаем сервер:
+  # супервизор поднимет его заново уже с новым dist, туннель не трогается.
+  Push-Location $root
+  try { npm run build; $ok = $LASTEXITCODE -eq 0 } finally { Pop-Location }
+  if (-not $ok) { ''; 'сборка не удалась — старый билд остался как был, сервер не трогаю'; exit 1 }
+  $pids = Read-Pids
+  $srv = if ($pids) { Get-Tracked $pids.server 'node.exe' 'dist/index.js' }
+  if ($srv) {
+    Stop-Process -Id $srv.ProcessId -Force -ErrorAction SilentlyContinue
+    "сервер pid $($srv.ProcessId) снят — супервизор поднимет его с новым билдом"
+    for ($i = 0; $i -lt 60; $i++) {
+      Start-Sleep -Seconds 2
+      $p2 = Read-Pids
+      if ($p2 -and $p2.server -and $p2.server -ne $srv.ProcessId -and (Test-Health $local)) { break }
+    }
+  } else {
+    'сервер не под присмотром (не запущен переключателем?) — собрал, но не перезапускал'
+  }
+  Log 'update: пересборка и перезапуск сервера'
+  Show-Status
+  exit 0
+}
 
 if ($Stop) {
   Set-Autostart 'off'
