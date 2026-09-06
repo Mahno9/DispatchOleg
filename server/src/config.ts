@@ -15,6 +15,8 @@ export const config = {
   // cookie secret so a single-secret deployment still works.
   qrSecret: env.QR_SECRET ?? cookieSecret,
   logLevel: env.LOG_LEVEL ?? 'info',
+  // Режим тестирования без печатных QR: плеер сам выбирает мини-игру.
+  noQr: env.NO_QR === '1',
 } as const;
 
 export const paths = {

@@ -9,6 +9,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:?set in .env}
       - COOKIE_SECRET=${COOKIE_SECRET:?set in .env}
       - QR_SECRET=${QR_SECRET:?set in .env}
+      - NO_QR=${NO_QR:-}
     volumes:
       - ../data:/data
     ports:

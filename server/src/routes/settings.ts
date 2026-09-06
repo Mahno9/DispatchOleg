@@ -1,9 +1,12 @@
 import type { FastifyInstance } from 'fastify';
+import { config } from '../config.js';
 import { getDb } from '../db/connection.js';
 import { getAllSettings, updateSettings } from '../repos/settings.js';
 
 export async function settingsRoutes(app: FastifyInstance) {
-  app.get('/api/settings', async () => getAllSettings(getDb()));
+  // no_qr — из env (config.noQr), не из БД: не в SETTING_KEYS, значит и не редактируется
+  // через PUT /api/admin/settings ниже.
+  app.get('/api/settings', async () => ({ ...getAllSettings(getDb()), no_qr: config.noQr }));
 
   app.put<{ Body: Record<string, unknown> }>(
     '/api/admin/settings',
