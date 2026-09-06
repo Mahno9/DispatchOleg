@@ -224,6 +224,14 @@ h3 {
   flex: none;
 }
 
+/* Галочка на месте маркера — «дело сделано», а не «событие». */
+.marker-check {
+  font-style: normal;
+  font-size: 0.8rem;
+  line-height: 1;
+  flex: none;
+}
+
 .marker-blink {
   animation: blink 1.2s steps(1, end) infinite;
 }
@@ -301,6 +309,12 @@ h3 {
   height: 100%;
   font-size: 1.6rem;
   letter-spacing: 0.18em;
+}
+
+/* Тревога на кнопке: START мигает, как .status-alert, пока игрок не ушёл в
+   операцию — «квест открыт, пора». Гаснет вместе с disabled. */
+.btn-alert:not(:disabled) {
+  animation: blink 1s steps(1, end) infinite;
 }
 
 /* Dangerous / exit actions. */
@@ -627,19 +641,25 @@ h3 {
   max-height: var(--slot-h);
 }
 
-/* «ДИАЛОГ» marker — just over the head, only while the character is under the
-   cursor. */
+/* «ДИАЛОГ» marker — just over the head. Непрочитанный горит всегда: пока он
+   виден, игрока не пустят в следующую операцию, и он должен это видеть. */
 .meta-char-tag {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 50%;
   transform: translateX(-50%);
-  opacity: 0;
+  white-space: nowrap;
   transition: opacity var(--t) linear;
 }
 
-.meta-char:hover .meta-char-tag,
-.meta-char:focus-visible .meta-char-tag {
+/* Прочитанный — отметка на память, а не задача: как и раньше, всплывает под
+   курсором и не засоряет сцену. */
+.meta-char-tag--read {
+  opacity: 0;
+}
+
+.meta-char:hover .meta-char-tag--read,
+.meta-char:focus-visible .meta-char-tag--read {
   opacity: 1;
 }
 

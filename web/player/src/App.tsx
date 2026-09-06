@@ -1,5 +1,20 @@
-import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { api, type Character, type Game, type GameConfig, type Settings, type VerifiedGame } from './api';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
+import {
+  api,
+  type Character,
+  type Game,
+  type GameConfig,
+  type MetaStage,
+  type Settings,
+  type VerifiedGame,
+} from './api';
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from './camera/camera';
 import { pickPostDialogue } from './dialogue/engine';
 import { CrtOverlay } from './fx/CrtOverlay';
@@ -9,7 +24,13 @@ import { getConnectivitySnapshot, startSync, subscribeConnectivity, syncNow } fr
 import { BarPortrait } from './ui/BarPortrait';
 import { BottomBar } from './ui/BottomBar';
 import { DialogueScreen } from './screens/DialogueScreen';
-import { MetaScreen, isUnlocked } from './screens/MetaScreen';
+import { MetaScreen, isUnlocked, pickRandomGame } from './screens/MetaScreen';
+import {
+  pendingDialogueIds,
+  requiredDialogueCount,
+  stageDialogueIds,
+  resolveStage,
+} from './screens/metaStage';
 import { MinigameScreen } from './screens/MinigameScreen';
 import { AudioSettings } from './ui/AudioSettings';
 import { OnboardingScreen } from './screens/OnboardingScreen';
@@ -68,6 +89,11 @@ export function App() {
   /** Фоновая петля лобби из настроек (`meta_music_url`); null — тишина. */
   const [lobbyMusicUrl, setLobbyMusicUrl] = useState<string | null>(null);
   const [clickSound, setClickSound] = useState<Settings['ui_click_sound_url']>(null);
+  /** Стадии меты живут здесь, а не в MetaScreen: сцена, значки «Диалог» и гейт
+   *  START обязаны смотреть на одну и ту же текущую стадию. */
+  const [stages, setStages] = useState<MetaStage[]>([]);
+  /** Сервер запущен с NO_QR=1 — операции выдаёт жребий, а не код на стене. */
+  const [noQr, setNoQr] = useState(false);
 
   // -- game chain: config is fetched once per run, then pre → game → post --
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
@@ -136,6 +162,10 @@ export function App() {
   useEffect(() => {
     // Портрет — украшение: не загрузился каст, панель просто останется без него.
     api.getCharacters().then(setCharacters, () => setCharacters([]));
+    // Не доехали стадии — мета покажет запасную раскладку, а гейт пропустит.
+    api
+      .getMetaStages()
+      .then(setStages, (err: unknown) => console.error('[app] failed to load meta stages', err));
   }, []);
 
   useEffect(() => {
@@ -163,6 +193,7 @@ export function App() {
       (settings) => {
         setLobbyMusicUrl(settings.meta_music_url || null);
         setClickSound(settings.ui_click_sound_url ?? null);
+        setNoQr(settings.no_qr === true);
       },
       (err: unknown) => console.error('[app] failed to load settings', err),
     );
@@ -194,6 +225,23 @@ export function App() {
   const unlocked = playable.filter((g) => isUnlocked(g, state.gameResults)).length;
   const allWon = playable.length > 0 && won === playable.length;
 
+  // Текущая стадия меты. ?test=meta:<id> форсит конкретную; ?test=meta (stageId
+  // null) оставляет обычный разбор триггеров, как и было в MetaScreen.
+  const forceStageId = testTarget?.kind === 'meta' ? testTarget.stageId : null;
+  const playableIds = useMemo(() => games.filter((g) => !g.isTutorial).map((g) => g.id), [games]);
+  const stage = useMemo(() => {
+    if (forceStageId !== null) return stages.find((s) => s.id === forceStageId) ?? null;
+    return resolveStage(stages, state.gameResults, playableIds);
+  }, [stages, state.gameResults, playableIds, forceStageId]);
+  // Пока каст и стадии не доехали, список пуст — гейт ошибается в сторону
+  // «пропустить», а не запирает игрока навсегда на упавшем запросе.
+  const pending = pendingDialogueIds(stage, characters, state.seenDialogues);
+  // Сцена, живущая несколько операций подряд, не требует всех перед каждой —
+  // порция растёт ступенями (см. requiredDialogueCount).
+  const stageDialogues = stageDialogueIds(stage, characters).length;
+  const required = requiredDialogueCount(stages, stage, won, stageDialogues);
+  const remaining = Math.max(0, required - (stageDialogues - pending.length));
+
   // The ending fires once per completed run. Falling short of a full clear —
   // an admin reset, a new game added — arms it again for the next time.
   useEffect(() => {
@@ -211,8 +259,7 @@ export function App() {
   let context;
   let action;
   let portrait;
-  const gameCharacter =
-    characters.find((c) => c.id === gameConfig?.characterId) ?? null;
+  const gameCharacter = characters.find((c) => c.id === gameConfig?.characterId) ?? null;
 
   switch (screen) {
     case 'onboarding':
@@ -221,7 +268,7 @@ export function App() {
           // Test run: the emergency skip lever is forced on, so the scan step
           // passes without a printed QR (a real scan still works too).
           config={
-            testTarget?.kind === 'onboarding'
+            testTarget?.kind === 'onboarding' || noQr
               ? { ...tutorialConfig, allowSkipScan: true }
               : tutorialConfig
           }
@@ -236,12 +283,16 @@ export function App() {
       workarea = (
         <MetaScreen
           games={games}
-          results={state.gameResults}
-          forceStageId={testTarget?.kind === 'meta' ? testTarget.stageId : null}
+          characters={characters}
+          stage={stage}
+          seen={state.seenDialogues}
           // Meta chatter: no game, no results — the dialogue just leads back
           // here. The id comes with the click: a stage placement may point the
           // same character at a different dialogue than their default one.
           onCharacter={({ character, dialogueId }) => {
+            // Отметка — за открытую сцену, не за дочитанную: заглянул — засчитано.
+            localState.markDialogueSeen(dialogueId);
+            void syncNow();
             setDialogue({ id: dialogueId, then: 'meta', characterId: character.id });
             setScreen('dialogue');
           }}
@@ -261,10 +312,24 @@ export function App() {
               />
             ))}
           </div>
+          {remaining > 0 && (
+            <div className="label">Сначала опросите персонал · осталось {remaining}</div>
+          )}
         </>
       );
       action = (
-        <button type="button" className="btn btn-key" onClick={() => setScreen('qr-scan')}>
+        <button
+          type="button"
+          // Открылась — мигает как тревога: диалоги прочитаны, квест ждёт.
+          className={`btn btn-key ${remaining === 0 ? 'btn-alert' : ''}`}
+          disabled={remaining > 0}
+          onClick={() => {
+            // Без QR: код на стене заменяет жребий по разблокированным операциям.
+            if (!noQr) return setScreen('qr-scan');
+            const next = pickRandomGame(games, state.gameResults);
+            if (next) startGame(next);
+          }}
+        >
           START
         </button>
       );
@@ -385,6 +450,12 @@ export function App() {
           <span className="status status-offline">
             <i className="marker" />
             ТЕСТ-РЕЖИМ
+          </span>
+        )}
+        {noQr && (
+          <span className="status status-offline">
+            <i className="marker" />
+            БЕЗ QR
           </span>
         )}
         <AudioSettings prefs={state.prefs} />

@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { MetaStage, MetaStageBackground, MetaStageTrigger } from '../api';
+import type { Character, MetaStage, MetaStageBackground, MetaStageTrigger } from '../api';
 import type { GameResult } from '../state/localState';
 
 // ---------------------------------------------------------------------------
@@ -40,6 +40,66 @@ export function resolveStage(
     if (stageMatches(stage.trigger, results, playableIds)) current = stage;
   }
   return current;
+}
+
+/**
+ * Every dialogue the stage on screen offers, in placement order and without
+ * repeats: one dialogue is deliberately hung on several characters in the
+ * content, and the gate must count it once. A placement may override the
+ * character's own `metaDialogueId`; a character missing from the roster has
+ * nothing to click, so it is dropped.
+ *
+ * `stage === null` is the fallback two-column layout of `MetaScreen`: there the
+ * cast itself is the placement.
+ */
+export function stageDialogueIds(stage: MetaStage | null, characters: Character[]): number[] {
+  const byId = new Map(characters.map((c) => [c.id, c]));
+  const ids = stage
+    ? stage.characters.flatMap((entry) => {
+        const character = byId.get(entry.characterId);
+        if (!character) return [];
+        const id = entry.dialogueId ?? character.metaDialogueId;
+        return id === null || id === undefined ? [] : [id];
+      })
+    : characters.flatMap((c) => (c.metaDialogueId === null ? [] : [c.metaDialogueId]));
+  return [...new Set(ids)];
+}
+
+/** What is left to read on the current stage, in the same order. */
+export function pendingDialogueIds(
+  stage: MetaStage | null,
+  characters: Character[],
+  seen: number[],
+): number[] {
+  const read = new Set(seen);
+  return stageDialogueIds(stage, characters).filter((id) => !read.has(id));
+}
+
+/**
+ * Сколько диалогов сцены нужно открыть перед следующей операцией.
+ *
+ * Сцена с порогом `wonCount` держится на экране до порога следующей сцены —
+ * то есть `span` операций подряд. Требовать «всех» перед каждой из них нельзя:
+ * после первой опрашивать уже некого, и задание падало бы даром. Поэтому
+ * порция растёт ступенями: перед k-й операцией внутри сцены нужно
+ * ceil(total · k / span) — при span = 2 половина, потом все; при 3 — треть,
+ * две трети, все. Сцена на одну операцию, `games`-триггер у неё или у
+ * следующей, последняя сцена — всё это span = 1: нужны все.
+ */
+export function requiredDialogueCount(
+  stages: MetaStage[],
+  stage: MetaStage | null,
+  wonCount: number,
+  total: number,
+): number {
+  if (!stage || stage.trigger.type !== 'wonCount') return total;
+  const ordered = [...stages].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
+  const next = ordered[ordered.indexOf(stage) + 1];
+  if (!next || next.trigger.type !== 'wonCount') return total;
+  const span = next.trigger.value - stage.trigger.value;
+  if (span <= 1) return total;
+  const step = Math.min(span, Math.max(1, wonCount - stage.trigger.value + 1));
+  return Math.ceil((total * step) / span);
 }
 
 /**

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Game } from '../api';
-import { isUnlocked, metaSide } from './MetaScreen';
+import type { GameResult } from '../state/localState';
+import { isUnlocked, metaSide, pickRandomGame } from './MetaScreen';
 
 function game(id: number, requiredGameIds: number[] = []): Game {
   return {
@@ -26,6 +27,51 @@ describe('isUnlocked', () => {
     expect(isUnlocked(game(2, [1]), played)).toBe(false);
     expect(isUnlocked(game(2, [1]), beaten)).toBe(true);
     expect(isUnlocked(game(3, [1, 2]), beaten)).toBe(false);
+  });
+});
+
+describe('pickRandomGame', () => {
+  function won(...ids: number[]): Record<string, GameResult> {
+    return Object.fromEntries(
+      ids.map((id) => [String(id), { bestScore: 5, won: true, attempts: 1, firstCompletedAt: 0 }]),
+    );
+  }
+
+  const tutorial: Game = { ...game(0), isTutorial: true };
+
+  it('returns null when nothing is unlocked', () => {
+    expect(pickRandomGame([], {}, () => 0)).toBe(null);
+    expect(pickRandomGame([tutorial], {}, () => 0)).toBe(null);
+    expect(pickRandomGame([game(2, [1])], {}, () => 0)).toBe(null);
+  });
+
+  it('never offers the tutorial', () => {
+    expect(pickRandomGame([tutorial, game(1)], {}, () => 0)?.id).toBe(1);
+    expect(pickRandomGame([tutorial, game(1)], {}, () => 0.99)?.id).toBe(1);
+  });
+
+  it('picks across the unlocked and unbeaten pool', () => {
+    const games = [game(1), game(2), game(3)];
+    expect(pickRandomGame(games, {}, () => 0)?.id).toBe(1);
+    expect(pickRandomGame(games, {}, () => 0.99)?.id).toBe(3);
+    expect(pickRandomGame(games, {}, () => 0.5)?.id).toBe(2);
+  });
+
+  it('prefers a game that has not been won yet', () => {
+    const games = [game(1), game(2)];
+    expect(pickRandomGame(games, won(1), () => 0)?.id).toBe(2);
+    expect(pickRandomGame(games, won(1), () => 0.99)?.id).toBe(2);
+  });
+
+  it('lets an all-clear player replay any unlocked game', () => {
+    const games = [game(1), game(2)];
+    expect(pickRandomGame(games, won(1, 2), () => 0)?.id).toBe(1);
+    expect(pickRandomGame(games, won(1, 2), () => 0.99)?.id).toBe(2);
+  });
+
+  it('skips a game whose prerequisites are not won', () => {
+    const games = [game(1), game(2, [3])];
+    expect(pickRandomGame(games, {}, () => 0.99)?.id).toBe(1);
   });
 });
 

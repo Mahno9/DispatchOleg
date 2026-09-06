@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { api, type Character, type Game, type MetaStage, type MetaStageCharacter } from '../api';
+import type { CSSProperties } from 'react';
+import type { Character, Game, MetaStage, MetaStageCharacter } from '../api';
 import { CharacterInfo } from '../dialogue/CharacterInfo';
 import { silhouetteFor } from '../dialogue/Silhouettes';
 import type { GameResult } from '../state/localState';
-import { bgStyle, resolveStage } from './metaStage';
+import { bgStyle } from './metaStage';
 
 /** A character worth drawing on the default meta scene: one with something to say. */
 export type MetaCharacter = Character & { metaDialogueId: number };
@@ -17,16 +17,38 @@ export interface MetaCharacterPick {
 
 interface MetaScreenProps {
   games: Game[];
-  results: Record<string, GameResult>;
+  /** Полный ростер: стадия может поставить персонажа без собственной болтовни. */
+  characters: Character[];
+  /** Текущая стадия. Её выбирает App — сцена, значки и гейт обязаны смотреть на одну. */
+  stage: MetaStage | null;
+  /** Уже прочитанные диалоги, из прогресса игрока. */
+  seen: number[];
   /** Click on a character — App plays the given dialogue and comes back here. */
   onCharacter: (pick: MetaCharacterPick) => void;
-  /** Admin test mode: show this stage regardless of triggers. */
-  forceStageId?: number | null;
 }
 
 /** True when every prerequisite game has been won. Mirrors the server check. */
 export function isUnlocked(game: Game, results: Record<string, GameResult>): boolean {
   return game.requiredGameIds.every((id) => results[String(id)]?.won === true);
+}
+
+/**
+ * Режим без QR: следующую операцию выдаёт жребий, а не код на стене. Кандидаты
+ * — разблокированные не-туториалы, ещё не выигранные; если невыигранных не
+ * осталось, отдаём любую разблокированную (переигрывать можно), а когда не
+ * открыто вообще ничего — null, и START просто ничего не запускает.
+ */
+export function pickRandomGame(
+  games: Game[],
+  results: Record<string, GameResult>,
+  rand: () => number = Math.random,
+): Game | null {
+  const open = games.filter((g) => !g.isTutorial && isUnlocked(g, results));
+  const fresh = open.filter((g) => results[String(g.id)]?.won !== true);
+  const pool = fresh.length > 0 ? fresh : open;
+  if (pool.length === 0) return null;
+  const i = Math.min(pool.length - 1, Math.max(0, Math.floor(rand() * pool.length)));
+  return pool[i] ?? null;
 }
 
 /**
@@ -48,43 +70,12 @@ const SIDES = ['left', 'right'] as const;
  * and its hand-placed cast. Otherwise the scene falls back to the built-in
  * two-column arrangement by `metaPosition`.
  */
-export function MetaScreen({ games, results, onCharacter, forceStageId = null }: MetaScreenProps) {
+export function MetaScreen({ games, characters, stage, seen, onCharacter }: MetaScreenProps) {
   const playable = games.filter((g) => !g.isTutorial);
-  // The full roster: a stage may place a character who has no meta chatter of
-  // their own, so the cast cannot be pre-filtered to metaDialogueId !== null.
-  const [cast, setCast] = useState<Character[]>([]);
-  const [stages, setStages] = useState<MetaStage[]>([]);
+  const isRead = (id: number) => seen.includes(id);
 
-  useEffect(() => {
-    let live = true;
-    api.getCharacters().then(
-      (list) => {
-        // A cast that fails to load costs the chatter, not the meta screen.
-        if (live) setCast(list);
-      },
-      (err: unknown) => console.error('[meta] failed to load characters', err),
-    );
-    api.getMetaStages().then(
-      // Stages that fail to load cost the staged scene, not the meta screen:
-      // an empty list resolves to null and the default layout stands in.
-      (list) => {
-        if (live) setStages(list);
-      },
-      (err: unknown) => console.error('[meta] failed to load meta stages', err),
-    );
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  const playableIds = useMemo(() => games.filter((g) => !g.isTutorial).map((g) => g.id), [games]);
-  const stage = useMemo(() => {
-    if (forceStageId !== null) return stages.find((s) => s.id === forceStageId) ?? null;
-    return resolveStage(stages, results, playableIds);
-  }, [stages, results, playableIds, forceStageId]);
-
-  const chatty = cast.filter((c): c is MetaCharacter => c.metaDialogueId !== null);
-  const byId = new Map(cast.map((c) => [c.id, c]));
+  const chatty = characters.filter((c): c is MetaCharacter => c.metaDialogueId !== null);
+  const byId = new Map(characters.map((c) => [c.id, c]));
 
   /** Stage placements paired with the roster; unknown ids are dropped. */
   const placed = stage
@@ -118,6 +109,7 @@ export function MetaScreen({ games, results, onCharacter, forceStageId = null }:
                 key={`${entry.characterId}-${entry.x}-${entry.y}`}
                 entry={entry}
                 character={character}
+                isRead={isRead}
                 onCharacter={onCharacter}
               />
             ))
@@ -133,11 +125,9 @@ export function MetaScreen({ games, results, onCharacter, forceStageId = null }:
                       onClick={() => onCharacter({ character: c, dialogueId: c.metaDialogueId })}
                     >
                       <span className="meta-char-frame">
-                        <Figure character={c} tagged />
+                        <Figure character={c} tag={isRead(c.metaDialogueId) ? 'read' : 'unread'} />
                       </span>
                       <span className="status meta-char-name">{c.name}</span>
-                      {/* Outside the frame: it clips overflow, the note is wider. */}
-                      <CharacterInfo description={c.description} />
                     </button>
                   ))}
               </div>
@@ -161,15 +151,25 @@ function CharacterMedia({ character }: { character: Character }) {
  * The media plus its «Диалог» tag in one box sized by the picture itself, so
  * the tag hangs just over the head — not over the dead air the 3:4 slot
  * leaves above a square avatar.
+ *
+ * Непрочитанный диалог — дело игрока, его значок горит всегда; прочитанный
+ * гаснет до приглушённой отметки и всплывает по наведению, как раньше.
  */
-function Figure({ character, tagged }: { character: Character; tagged: boolean }) {
+function Figure({ character, tag }: { character: Character; tag: 'none' | 'unread' | 'read' }) {
   return (
     <span className="meta-char-figure">
       <CharacterMedia character={character} />
-      {tagged && (
-        <span className="status status-active meta-char-tag">
-          <i className="marker" />
-          Диалог
+      {/* ⓘ — в коробке самой картинки: угол образует верхняя кромка персонажа,
+          а не пустой верх 3:4-слота. Ничто снаружи не клипает — заметка целая. */}
+      <CharacterInfo description={character.description} />
+      {tag !== 'none' && (
+        <span
+          className={`status meta-char-tag ${
+            tag === 'read' ? 'status-idle meta-char-tag--read' : 'status-active'
+          }`}
+        >
+          {tag === 'read' ? <i className="marker-check">✓</i> : <i className="marker" />}
+          {tag === 'read' ? 'Завершено' : 'Диалог'}
         </span>
       )}
     </span>
@@ -185,10 +185,12 @@ function Figure({ character, tagged }: { character: Character; tagged: boolean }
 function PlacedCharacter({
   entry,
   character,
+  isRead,
   onCharacter,
 }: {
   entry: MetaStageCharacter;
   character: Character;
+  isRead: (id: number) => boolean;
   onCharacter: (pick: MetaCharacterPick) => void;
 }) {
   const dialogueId = entry.dialogueId ?? character.metaDialogueId;
@@ -201,10 +203,12 @@ function PlacedCharacter({
   const body = (
     <>
       <span className="meta-char-frame">
-        <Figure character={character} tagged={dialogueId !== null} />
+        <Figure
+          character={character}
+          tag={dialogueId === null ? 'none' : isRead(dialogueId) ? 'read' : 'unread'}
+        />
       </span>
       <span className="status meta-char-name">{character.name}</span>
-      <CharacterInfo description={character.description} />
     </>
   );
 
