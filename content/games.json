@@ -322,7 +322,7 @@
         {
           "url": "/assets-store/mus-nightshift.ogg",
           "weight": 1,
-          "volume": 100
+          "volume": 143
         }
       ]
     },
@@ -418,7 +418,7 @@
         {
           "url": "/assets-store/mus-bridge.ogg",
           "weight": 1,
-          "volume": 180
+          "volume": 125
         }
       ]
     },
@@ -1189,7 +1189,7 @@
           {
             "url": "/assets-store/mus-kitchen-heroes-loop.ogg",
             "weight": 1,
-            "volume": 100
+            "volume": 50
           }
         ],
         "cookLoop": [
@@ -1359,7 +1359,7 @@
           {
             "url": "/assets-store/mus-breach-repair-loop.ogg",
             "weight": 1,
-            "volume": 100
+            "volume": 50
           }
         ],
         "move": [
