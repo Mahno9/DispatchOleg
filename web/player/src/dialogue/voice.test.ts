@@ -6,8 +6,10 @@ import {
   normalizeVoices,
   planBlip,
   questionRise,
+  voiceGain,
   type VoicePreset,
 } from './voice';
+import { DEFAULT_AUDIO_PREFS, type AudioPrefs } from '../state/localState';
 
 /** Пресет Чейза (58) с демо-страницы — эталон, по нему сверяются числа. */
 const CHASE_RAW = {
@@ -231,5 +233,42 @@ describe('questionRise', () => {
 
   it('хвост не длиннее шести букв', () => {
     expect(Object.keys(questionRise('хранилищесмотришь?', 1.2)).length).toBe(6);
+  });
+});
+
+describe('voiceGain', () => {
+  const audio = (over: Partial<AudioPrefs> = {}): AudioPrefs => ({
+    ...DEFAULT_AUDIO_PREFS,
+    ...over,
+  });
+
+  it('на полной громкости голос идёт мастером −12 дБ', () => {
+    expect(voiceGain(audio({ voiceVolume: 100 }))).toBeCloseTo(0.25, 6);
+  });
+
+  it('ползунок линеен: 50 — это половина мастера', () => {
+    expect(voiceGain(audio({ voiceVolume: 50 }))).toBeCloseTo(0.125, 6);
+    expect(voiceGain(audio({ voiceVolume: 0 }))).toBe(0);
+  });
+
+  it('общий мьют глушит голос', () => {
+    expect(voiceGain(audio({ muted: true, voiceVolume: 100 }))).toBe(0);
+  });
+
+  it('свой мьют голоса глушит его отдельно от остальных каналов', () => {
+    expect(voiceGain(audio({ voiceMuted: true, voiceVolume: 100 }))).toBe(0);
+  });
+
+  // Голос — независимый канал: ползунок эффектов на него больше не влияет.
+  it('sfxVolume не влияет на голос', () => {
+    expect(voiceGain(audio({ sfxVolume: 0, voiceVolume: 80 }))).toBeCloseTo(0.2, 6);
+    expect(voiceGain(audio({ sfxVolume: 100, voiceVolume: 80 }))).toBeCloseTo(0.2, 6);
+  });
+
+  it('мусор и выход за диапазон не выпускают gain из 0…1', () => {
+    expect(voiceGain(audio({ voiceVolume: 500 }))).toBe(0.25);
+    expect(voiceGain(audio({ voiceVolume: -20 }))).toBe(0);
+    expect(voiceGain(audio({ voiceVolume: NaN }))).toBe(0);
+    expect(voiceGain({ muted: false } as AudioPrefs)).toBe(0);
   });
 });

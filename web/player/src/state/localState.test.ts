@@ -9,7 +9,36 @@ describe('normalizeAudioPrefs', () => {
       muted: true,
       musicVolume: DEFAULT_AUDIO_PREFS.musicVolume,
       sfxVolume: DEFAULT_AUDIO_PREFS.sfxVolume,
+      voiceVolume: DEFAULT_AUDIO_PREFS.voiceVolume,
+      voiceMuted: DEFAULT_AUDIO_PREFS.voiceMuted,
     });
+  });
+
+  // Голос появился ещё позже громкостей: у тех, кто уже двигал музыку и
+  // эффекты, в prefs нет voiceVolume/voiceMuted — голос обязан звучать, а не
+  // молчать на undefined.
+  it('fills the voice channel in for prefs saved before it existed', () => {
+    const p = normalizeAudioPrefs({ muted: false, musicVolume: 40, sfxVolume: 55 });
+    expect(p).toEqual({
+      muted: false,
+      musicVolume: 40,
+      sfxVolume: 55,
+      voiceVolume: 100,
+      voiceMuted: false,
+    });
+  });
+
+  it('clamps and rounds the voice volume the same way', () => {
+    expect(normalizeAudioPrefs({ voiceVolume: 150 }).voiceVolume).toBe(100);
+    expect(normalizeAudioPrefs({ voiceVolume: -5 }).voiceVolume).toBe(0);
+    expect(normalizeAudioPrefs({ voiceVolume: 42.6 }).voiceVolume).toBe(43);
+    expect(normalizeAudioPrefs({ voiceVolume: 'громко' }).voiceVolume).toBe(100);
+  });
+
+  it('treats only a real true as voiceMuted', () => {
+    expect(normalizeAudioPrefs({ voiceMuted: 'yes' }).voiceMuted).toBe(false);
+    expect(normalizeAudioPrefs({ voiceMuted: 1 }).voiceMuted).toBe(false);
+    expect(normalizeAudioPrefs({ voiceMuted: true }).voiceMuted).toBe(true);
   });
 
   it('clamps to 0…100 and rounds', () => {
@@ -75,5 +104,24 @@ describe('setAudioPrefs', () => {
   it('normalises what it stores', () => {
     localState.setAudioPrefs({ musicVolume: 999 });
     expect(localState.getSnapshot().prefs.musicVolume).toBe(100);
+  });
+
+  // Голос — свой канал: его правка обязана доехать до снимка и не задеть
+  // соседние громкости, а повтор того же значения — не дёргать ссылку.
+  it('stores the voice channel independently of the others', () => {
+    localState.setAudioPrefs({ voiceVolume: 50, voiceMuted: false });
+    const before = localState.getSnapshot();
+    expect(before.prefs.voiceVolume).toBe(50);
+
+    localState.setAudioPrefs({ voiceVolume: 50 });
+    expect(localState.getSnapshot()).toBe(before);
+
+    localState.setAudioPrefs({ voiceMuted: true });
+    const after = localState.getSnapshot();
+    expect(after).not.toBe(before);
+    expect(after.prefs.voiceMuted).toBe(true);
+    expect(after.prefs.voiceVolume).toBe(50);
+    expect(after.prefs.sfxVolume).toBe(before.prefs.sfxVolume);
+    expect(after.prefs.musicVolume).toBe(before.prefs.musicVolume);
   });
 });

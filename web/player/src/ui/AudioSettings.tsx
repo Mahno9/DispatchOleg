@@ -33,7 +33,9 @@ export function AudioSettings({ prefs }: AudioSettingsProps) {
     };
   }, [open]);
 
-  const silent = prefs.muted || (prefs.musicVolume === 0 && prefs.sfxVolume === 0);
+  const voiceOff = prefs.voiceMuted || prefs.voiceVolume === 0;
+  const silent =
+    prefs.muted || (prefs.musicVolume === 0 && prefs.sfxVolume === 0 && voiceOff);
 
   return (
     <div className="audio" ref={rootRef}>
@@ -47,47 +49,83 @@ export function AudioSettings({ prefs }: AudioSettingsProps) {
         {silent ? '🔇' : '🔊'}
       </button>
 
-      {open && (
-        <div className="audio-panel" role="group" aria-label="Настройки звука">
-          <button
-            type="button"
-            className={`audio-toggle ${prefs.muted ? 'audio-toggle-off' : ''}`}
-            aria-pressed={!prefs.muted}
-            onClick={() => localState.setAudioPrefs({ muted: !prefs.muted })}
-          >
-            {prefs.muted ? 'Звук выключен' : 'Звук включён'}
-          </button>
+      {open && <AudioPanel prefs={prefs} />}
+    </div>
+  );
+}
 
-          <Slider
-            label="Музыка"
-            value={prefs.musicVolume}
-            disabled={prefs.muted}
-            onChange={(musicVolume) => localState.setAudioPrefs({ musicVolume })}
-          />
-          <Slider
-            label="Эффекты"
-            value={prefs.sfxVolume}
-            disabled={prefs.muted}
-            onChange={(sfxVolume) => localState.setAudioPrefs({ sfxVolume })}
-          />
-        </div>
-      )}
+/**
+ * Содержимое раскрытой панели. Отдельным компонентом, потому что vitest в
+ * плеере рендерит разметку через SSR: у свёрнутой `AudioSettings` панели в
+ * выводе нет вовсе, и проверять в ней было бы нечего.
+ */
+export function AudioPanel({ prefs }: AudioSettingsProps) {
+  return (
+    <div className="audio-panel" role="group" aria-label="Настройки звука">
+      <button
+        type="button"
+        className={`audio-toggle ${prefs.muted ? 'audio-toggle-off' : ''}`}
+        aria-pressed={!prefs.muted}
+        onClick={() => localState.setAudioPrefs({ muted: !prefs.muted })}
+      >
+        {prefs.muted ? 'Звук выключен' : 'Звук включён'}
+      </button>
+
+      <Slider
+        id="audio-music"
+        label="Музыка"
+        value={prefs.musicVolume}
+        disabled={prefs.muted}
+        onChange={(musicVolume) => localState.setAudioPrefs({ musicVolume })}
+      />
+      <Slider
+        id="audio-sfx"
+        label="Эффекты"
+        value={prefs.sfxVolume}
+        disabled={prefs.muted}
+        onChange={(sfxVolume) => localState.setAudioPrefs({ sfxVolume })}
+      />
+      {/* Голос — свой канал: ползунок независим от «Эффектов», а мьют рядом
+          гасит только бубнёж, оставляя музыку и эффекты играть. */}
+      <Slider
+        id="audio-voice"
+        label="Голос"
+        value={prefs.voiceVolume}
+        disabled={prefs.muted || prefs.voiceMuted}
+        onChange={(voiceVolume) => localState.setAudioPrefs({ voiceVolume })}
+        mute={{
+          on: prefs.voiceMuted,
+          label: prefs.voiceMuted ? 'Включить голос' : 'Выключить голос',
+          onToggle: () => localState.setAudioPrefs({ voiceMuted: !prefs.voiceMuted }),
+        }}
+      />
     </div>
   );
 }
 
 interface SliderProps {
+  /** id ползунка: строка — уже не <label>, подпись связана через htmlFor. */
+  id: string;
   label: string;
   value: number;
   disabled: boolean;
   onChange: (value: number) => void;
+  /** Свой мьют канала (пока только у голоса). Без него ячейка кнопки пустая. */
+  mute?: { on: boolean; label: string; onToggle: () => void };
 }
 
-function Slider({ label, value, disabled, onChange }: SliderProps) {
+/**
+ * Строка регулятора. Именно `div`, а не `label`: кнопка мьюта внутри `label`
+ * ловила бы ещё и клик по подписи и переключалась бы дважды.
+ */
+function Slider({ id, label, value, disabled, onChange, mute }: SliderProps) {
   return (
-    <label className={`audio-row ${disabled ? 'audio-row-off' : ''}`}>
-      <span className="audio-label">{label}</span>
+    <div className={`audio-row ${disabled ? 'audio-row-off' : ''}`}>
+      <label className="audio-label" htmlFor={id}>
+        {label}
+      </label>
       <input
+        id={id}
         type="range"
         min={0}
         max={100}
@@ -97,6 +135,18 @@ function Slider({ label, value, disabled, onChange }: SliderProps) {
         onChange={(e) => onChange(Number(e.target.value))}
       />
       <span className="audio-val">{value}</span>
-    </label>
+      {mute ? (
+        <button
+          type="button"
+          className={`audio-mute ${mute.on ? 'audio-mute-off' : ''}`}
+          aria-pressed={mute.on}
+          aria-label={mute.label}
+          title={mute.label}
+          onClick={mute.onToggle}
+        >
+          {mute.on ? '🔇' : '🔉'}
+        </button>
+      ) : null}
+    </div>
   );
 }

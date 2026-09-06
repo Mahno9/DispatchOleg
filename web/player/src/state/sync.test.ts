@@ -53,12 +53,19 @@ describe('syncNow adopting the server payload', () => {
   it('still adopts a genuinely different value', async () => {
     vi.mocked(api.postSync).mockResolvedValue({
       outcome: 'server-newer',
-      state: serverPayload({ prefs: { muted: false, musicVolume: 10, sfxVolume: 20 } }),
+      state: serverPayload({
+        prefs: { muted: false, musicVolume: 10, sfxVolume: 20, voiceVolume: 30, voiceMuted: true },
+      }),
     } as never);
 
     await syncNow();
 
-    expect(localState.getSnapshot().prefs).toMatchObject({ musicVolume: 10, sfxVolume: 20 });
+    expect(localState.getSnapshot().prefs).toMatchObject({
+      musicVolume: 10,
+      sfxVolume: 20,
+      voiceVolume: 30,
+      voiceMuted: true,
+    });
   });
 
   // Ползунок, сдвинутый пока запрос был в полёте, не должен откатываться

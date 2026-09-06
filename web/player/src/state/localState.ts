@@ -21,9 +21,21 @@ export interface AudioPrefs {
   musicVolume: number;
   /** 0…100 */
   sfxVolume: number;
+  /**
+   * Голос персонажей (бубнёж) — отдельный канал, а не часть эффектов: реплики
+   * звучат поверх всей игры, и их глушат чаще, чем остальной звук. 0…100.
+   */
+  voiceVolume: number;
+  voiceMuted: boolean;
 }
 
-export const DEFAULT_AUDIO_PREFS: AudioPrefs = { muted: false, musicVolume: 70, sfxVolume: 100 };
+export const DEFAULT_AUDIO_PREFS: AudioPrefs = {
+  muted: false,
+  musicVolume: 70,
+  sfxVolume: 100,
+  voiceVolume: 100,
+  voiceMuted: false,
+};
 
 /**
  * У игроков со старой версией в localStorage лежит `prefs: { muted }` без
@@ -37,6 +49,8 @@ export function normalizeAudioPrefs(raw: unknown): AudioPrefs {
     muted: p.muted === true,
     musicVolume: num(p.musicVolume, DEFAULT_AUDIO_PREFS.musicVolume),
     sfxVolume: num(p.sfxVolume, DEFAULT_AUDIO_PREFS.sfxVolume),
+    voiceVolume: num(p.voiceVolume, DEFAULT_AUDIO_PREFS.voiceVolume),
+    voiceMuted: p.voiceMuted === true,
   };
 }
 
@@ -165,7 +179,9 @@ class LocalStateStore {
     const same =
       prefs.muted === cur.muted &&
       prefs.musicVolume === cur.musicVolume &&
-      prefs.sfxVolume === cur.sfxVolume;
+      prefs.sfxVolume === cur.sfxVolume &&
+      prefs.voiceVolume === cur.voiceVolume &&
+      prefs.voiceMuted === cur.voiceMuted;
     this.commit({ ...next, seenDialogues, prefs: same ? cur : prefs });
   }
 
@@ -221,7 +237,13 @@ class LocalStateStore {
   setAudioPrefs(patch: Partial<AudioPrefs>): void {
     const next = normalizeAudioPrefs({ ...this.state.prefs, ...patch });
     const cur = this.state.prefs;
-    if (next.muted === cur.muted && next.musicVolume === cur.musicVolume && next.sfxVolume === cur.sfxVolume)
+    if (
+      next.muted === cur.muted &&
+      next.musicVolume === cur.musicVolume &&
+      next.sfxVolume === cur.sfxVolume &&
+      next.voiceVolume === cur.voiceVolume &&
+      next.voiceMuted === cur.voiceMuted
+    )
       return;
     this.commit({ ...this.state, updatedAt: Date.now(), prefs: next });
   }

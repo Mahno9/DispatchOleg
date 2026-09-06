@@ -177,6 +177,17 @@ export function planBlip(
   return { hz: clamp(hz, 20, 12000), blipMs: preset.blipMs, decayMs: preset.decayMs };
 }
 
+/**
+ * Громкость бубнежа на мастере, 0…1. Голос — независимый канал: `sfxVolume`
+ * на него не влияет, свой мьют глушит его отдельно, общий `muted` — вместе со
+ * всем остальным. Мастер −12 дБ (`MASTER_GAIN`) — как на демо-странице.
+ */
+export function voiceGain(audio: AudioPrefs): number {
+  if (audio.muted || audio.voiceMuted) return 0;
+  const v = clamp(Number(audio.voiceVolume) || 0, 0, 100) / 100;
+  return clamp(v * MASTER_GAIN, 0, 1);
+}
+
 /** Проигрыватель бубнежа: один на модуль печати, контекст поднимается лениво. */
 export interface VoicePlayer {
   blip(preset: VoicePreset, text: string, index: number, audio: AudioPrefs): void;
@@ -234,15 +245,14 @@ export function createVoicePlayer(): VoicePlayer {
 
   function blip(preset: VoicePreset, text: string, index: number, audio: AudioPrefs): void {
     try {
-      if (audio.muted) return;
-      const sfx = clamp(Number(audio.sfxVolume) || 0, 0, 100) / 100;
-      if (sfx === 0) return;
+      const level = voiceGain(audio);
+      if (level === 0) return;
       const plan = planBlip(preset, text, index);
       if (!plan) return;
       const context = ensureCtx();
       if (!context || !master) return;
       resume(context);
-      master.gain.value = clamp(sfx * MASTER_GAIN, 0, 1);
+      master.gain.value = level;
 
       const when = context.currentTime;
       const len = Math.max(0.01, plan.blipMs / 1000);

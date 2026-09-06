@@ -78,7 +78,7 @@ describe('TypedLine', () => {
       questionMul: 1.15,
       consonantDip: true,
     }) as VoicePreset;
-    const audio = { muted: false, musicVolume: 70, sfxVolume: 100 };
+    const audio = { muted: false, musicVolume: 70, sfxVolume: 100, voiceVolume: 100, voiceMuted: false };
     const plain = html(<TypedLine name="Чейз" text="Хранилище смотришь?" side="right" />);
     expect(html(
       <TypedLine

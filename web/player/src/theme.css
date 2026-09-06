@@ -1366,6 +1366,20 @@ h3 {
   text-align: center;
 }
 
+/* Экран загрузки: непрозрачный, чтобы игра под ним собиралась невидимо. */
+.minigame-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--page);
+}
+
+.minigame-loading .label {
+  animation: blink 1s steps(1, end) infinite;
+}
+
 /* Инструктаж перед запуском: стрелки на проценты рабочей области. Лежит перед
    .minigame-error в DOM, поэтому панель сбоя всё равно перекрывает его.
    Затемнение слабое и намеренно: под ним видна игра — смонтированная, но
@@ -1536,7 +1550,9 @@ h3 {
 
 .audio-row {
   display: grid;
-  grid-template-columns: 4.6em 1fr 2.1em;
+  /* Четвёртая колонка — мьют канала. Пустая у музыки и эффектов, но ширина
+     задана явно: иначе ползунки в строках были бы разной длины. */
+  grid-template-columns: 4.6em 1fr 2.1em 1.5em;
   gap: 7px;
   align-items: center;
 }
@@ -1546,6 +1562,7 @@ h3 {
 }
 
 .audio-label {
+  cursor: pointer;
   font-family: var(--font-display);
   font-size: 0.76rem;
   letter-spacing: 0.06em;
@@ -1559,6 +1576,21 @@ h3 {
   color: var(--glow);
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+.audio-mute {
+  justify-self: end;
+  padding: 0;
+  font-size: 0.8rem;
+  line-height: 1;
+  color: var(--glow);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.audio-mute-off {
+  color: var(--amber);
 }
 
 .audio-row input[type='range'] {

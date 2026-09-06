@@ -2,10 +2,10 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import {
   DEFAULT_PLAYER_NAME,
   launchMinigame,
-  type AudioSettingsPatch,
   type MinigameHandle,
   type MinigameResult,
 } from '../game/minigameLoader';
+import type { AudioPrefs } from '../state/localState';
 import { TUTORIALS, resolveStep, type Dir, type TutorialStep } from '../game/tutorials';
 import { TypedLine, splitSpeaker } from '../dialogue/Line';
 import { OLEG } from '../dialogue/engine';
@@ -16,7 +16,9 @@ interface MinigameScreenProps {
   /** Какой бандл запустится — ключ инструктажа; игру грузит уже loader. */
   minigameId: string;
   /** Общий регулятор звука; меняется на лету, без перезапуска игры. */
-  audio: AudioSettingsPatch;
+  /** Целиком `AudioPrefs`, а не только каналы игры: реплики в слоте 2
+   *  печатает голос персонажа, и ему нужны свои громкость и мьют. */
+  audio: AudioPrefs;
   /** Имя персонажа игры — подписывает его реплики (onLine) в слоте 2. */
   speaker?: string;
   /** `games.character_id` — по нему берётся пресет бубнежа персонажа игры. */
