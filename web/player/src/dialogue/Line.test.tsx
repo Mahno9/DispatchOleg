@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { DialogueLine, TypedLine, splitSpeaker } from './Line';
+import { DialogueLine, EmphasisText, TypedLine, parseEmphasis, splitSpeaker } from './Line';
+import { fillPlaceholders } from '../game/minigameLoader';
 import { normalizeVoice, type VoicePreset } from './voice';
 import { BarPortrait } from '../ui/BarPortrait';
 import { BottomBar } from '../ui/BottomBar';
@@ -187,5 +188,100 @@ describe('content: реплики лабиринта подписаны знак
     // Плеер подставляет имя игрока в конфиг до init (docs/platform.md §3.4).
     const said = splitSpeaker(line.replaceAll('{player}', 'Олег'), names);
     expect(said.name).not.toBeNull();
+  });
+});
+
+describe('parseEmphasis — разметка `**…**`', () => {
+  it('обычный текст остаётся одним куском', () => {
+    expect(parseEmphasis('Стены нет.')).toEqual({
+      plain: 'Стены нет.',
+      segments: [{ text: 'Стены нет.', glow: false }],
+    });
+  });
+
+  it('выделенное слово выносится в свой кусок, а звёздочки уходят из plain', () => {
+    const { plain, segments } = parseEmphasis('А **Олег**. Точно?');
+    expect(plain).toBe('А Олег. Точно?');
+    expect(segments).toEqual([
+      { text: 'А ', glow: false },
+      { text: 'Олег', glow: true },
+      { text: '. Точно?', glow: false },
+    ]);
+  });
+
+  it('несколько выделений подряд', () => {
+    const { plain, segments } = parseEmphasis('**раз** и **два**');
+    expect(plain).toBe('раз и два');
+    expect(segments.filter((s) => s.glow).map((s) => s.text)).toEqual(['раз', 'два']);
+  });
+
+  it('непарные звёздочки остаются в тексте буквально', () => {
+    expect(parseEmphasis('Тут **не закрыто')).toEqual({
+      plain: 'Тут **не закрыто',
+      segments: [{ text: 'Тут **не закрыто', glow: false }],
+    });
+    // Пустое выделение — тоже не разметка: подсвечивать нечего.
+    expect(parseEmphasis('****').plain).toBe('****');
+  });
+
+  it('пустая строка — пустой разбор', () => {
+    expect(parseEmphasis('')).toEqual({ plain: '', segments: [] });
+  });
+});
+
+describe('подсветка в реплике', () => {
+  const marked = 'А **Олег**. Точно?';
+
+  it('дописанная реплика показывает слово в подсветке без звёздочек', () => {
+    const out = html(
+      <DialogueLine name="Чейз" text={marked} shown={parseEmphasis(marked).plain.length} done />,
+    );
+    expect(out).toContain('dialogue-glow');
+    expect(out).toContain('Олег');
+    expect(out).not.toContain('**');
+  });
+
+  it('срез печати посреди выделенного слова: начало видно, хвост спрятан', () => {
+    // shown=4 в координатах plain «А Олег. Точно?» — напечатано «А Ол».
+    const out = html(<DialogueLine name="Чейз" text={marked} shown={4} done={false} />);
+    const cut = out.indexOf('dialogue-hidden');
+    expect(cut).toBeGreaterThan(-1);
+    const typed = out.slice(0, cut);
+    const tail = out.slice(cut);
+    expect(typed).toContain('Ол');
+    expect(typed).toContain('dialogue-glow');
+    expect(typed).not.toContain('. Точно?');
+    // Хвост держит раскладку и тоже остаётся подсвеченным куском.
+    expect(tail).toContain('ег');
+    expect(tail).toContain('dialogue-glow');
+    expect(tail).toContain('. Точно?');
+  });
+
+  it('карточка выбора рисует подсветку тем же кодом', () => {
+    const out = html(<EmphasisText text="Сказать **правду**" />);
+    expect(out).toContain('<span class="dialogue-glow">правду');
+    expect(out).not.toContain('*');
+  });
+});
+
+describe('{player} в тексте диалога', () => {
+  it('подставляется в реплику ноды и в текст карточки выбора', () => {
+    // Ровно тот же помощник, которым плеер заполняет конфиги мини-игр.
+    expect(fillPlaceholders('Слушаю, {player}.', 'Маша')).toBe('Слушаю, Маша.');
+    expect(fillPlaceholders('Я — {player}, и {player} не спорит', 'Ким')).toBe(
+      'Я — Ким, и Ким не спорит',
+    );
+    const line = html(
+      <DialogueLine
+        name="Чейз"
+        text={fillPlaceholders('Слушаю, **{player}**.', 'Маша')}
+        shown={16}
+        done
+      />,
+    );
+    expect(line).toContain('<span class="dialogue-glow">Маша');
+    expect(line).not.toContain('{player}');
+    const choice = html(<EmphasisText text={fillPlaceholders('Я — {player}', 'Маша')} />);
+    expect(choice).toBe('Я — Маша');
   });
 });

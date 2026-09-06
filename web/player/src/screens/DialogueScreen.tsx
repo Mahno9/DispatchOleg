@@ -14,6 +14,8 @@ interface DialogueScreenProps {
   prefs: AudioPrefs;
   /** Пресеты бубнежа по id говорящего (настройка `character_voices`). */
   voices?: Record<string, VoicePreset>;
+  /** Имя игрока, им подписан диспетчер. */
+  playerName: string;
   /** Bottom-bar slot 2, driven by the scene. */
   onContext: (node: ReactNode) => void;
   /** Dialogue played out (or turned out to be unusable) — move the chain on. */
@@ -30,6 +32,7 @@ export function DialogueScreen({
   characterId,
   prefs,
   voices,
+  playerName,
   onContext,
   onFinish,
 }: DialogueScreenProps) {
@@ -95,6 +98,7 @@ export function DialogueScreen({
       partner={characterId === null ? null : String(characterId)}
       voices={voices ?? {}}
       audio={prefs}
+      playerName={playerName}
       onContext={onContext}
       onFinish={onFinish}
     />

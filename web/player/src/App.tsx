@@ -377,6 +377,7 @@ export function App() {
           characterId={dialogue.characterId ?? gameConfig?.characterId ?? null}
           prefs={state.prefs}
           voices={voices}
+          playerName={state.profile.name || DEFAULT_PLAYER_NAME}
           onContext={setSlotContext}
           onFinish={() => {
             setSlotContext(null);
@@ -433,7 +434,7 @@ export function App() {
       break;
 
     case 'victory':
-      workarea = <VictoryScreen />;
+      workarea = <VictoryScreen playerName={state.profile.name || DEFAULT_PLAYER_NAME} />;
       context = (
         <div className="label">
           Прогресс по всей игре · операций завершено {won} / {playable.length} · смена закрыта

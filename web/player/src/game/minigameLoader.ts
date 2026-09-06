@@ -2,14 +2,14 @@ import { api, type Minigame } from '../api';
 import { localState } from '../state/localState';
 
 /** Имя игрока, если он ещё не представился, — герой по умолчанию. */
-export const DEFAULT_PLAYER_NAME = 'Олег';
+export const DEFAULT_PLAYER_NAME = 'Диспетчер';
 
 /**
  * Подстановка `{player}` во все строки конфига мини-игры: в админке пишут
  * ключевое слово, игрок видит своё имя. Рекурсивно, потому что подставлять надо
  * не только в верхние поля (`playerName`), но и внутрь массивов вроде
- * `tasks[].assignee` — иначе задача «моя» только для того, кого зовут Олегом.
  * `tasks[].assignee` — иначе задача «моя» только для того, кого зовут как
+ * дефолтного игрока.
  */
 export function fillPlaceholders<T>(value: T, playerName: string): T {
   return mapStrings(value, (s) => s.replaceAll('{player}', playerName));

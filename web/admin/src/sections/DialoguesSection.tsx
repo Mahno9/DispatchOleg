@@ -278,7 +278,7 @@ function NodeForm({
         value={node.speaker}
         onChange={(e) => onPatch({ speaker: e.target.value })}
       >
-        <option value='oleg'>Олег</option>
+        <option value='oleg'>Диспетчер</option>
         {characters.map((c) => (
           <option key={c.id} value={String(c.id)}>
             {c.name}
@@ -485,7 +485,7 @@ export function DialoguesSection() {
   });
 
   function speakerLabel(speaker: string): string {
-    if (speaker === 'oleg') return 'Олег';
+    if (speaker === 'oleg') return 'Диспетчер';
     return characters.find((c) => String(c.id) === speaker)?.name ?? speaker;
   }
 

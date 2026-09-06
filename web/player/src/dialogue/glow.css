@@ -1,0 +1,96 @@
+/* ---------------------------------------------------------------------------
+   Подсветка слова в реплике: `**Олег**` из текста ноды диалога превращается в
+   .dialogue-glow — янтарное слово с гало и парой искр, летающих вокруг него.
+
+   Разметка не должна двигать строку: искры абсолютные, ширину слова держит
+   только сам текст. Орбита задана процентами left/top, то есть считается от
+   размеров слова: короткое «Олег» и длинное «Диспетчер» обводятся одинаково
+   аккуратно, без магических радиусов в em.
+   --------------------------------------------------------------------------- */
+
+.dialogue-glow {
+  position: relative;
+  display: inline-block;
+  color: var(--amber);
+  text-shadow:
+    0 0 6px rgba(233, 169, 40, 0.55),
+    0 0 14px rgba(233, 169, 40, 0.28);
+}
+
+.dialogue-glow::before,
+.dialogue-glow::after,
+.dialogue-glow .dialogue-spark {
+  position: absolute;
+  z-index: 1;
+  /* Глиф центрируется на точке орбиты, а не свисает с неё правым нижним углом. */
+  margin: -0.3em 0 0 -0.3em;
+  font-size: 0.6em;
+  font-style: normal;
+  line-height: 1;
+  color: var(--amber);
+  text-shadow: 0 0 6px rgba(233, 169, 40, 0.8);
+  pointer-events: none;
+  animation: dialogue-spark-orbit 4.2s linear infinite;
+}
+
+.dialogue-glow::before {
+  content: '✦';
+  left: 100%;
+  top: 40%;
+}
+
+.dialogue-glow::after {
+  content: '✧';
+  left: 50%;
+  top: 88%;
+  animation-delay: -1.4s;
+}
+
+.dialogue-glow .dialogue-spark::before {
+  content: '✦';
+}
+
+.dialogue-glow .dialogue-spark {
+  left: 0;
+  top: 40%;
+  animation-delay: -2.8s;
+}
+
+/* Оборот вокруг слова: left идёт по его ширине, top — по высоте строки. */
+@keyframes dialogue-spark-orbit {
+  0% {
+    left: 100%;
+    top: 40%;
+    opacity: 0.35;
+  }
+  25% {
+    left: 50%;
+    top: 88%;
+    opacity: 1;
+  }
+  50% {
+    left: 0%;
+    top: 40%;
+    opacity: 0.35;
+  }
+  75% {
+    left: 50%;
+    top: -8%;
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    top: 40%;
+    opacity: 0.35;
+  }
+}
+
+/* Кому движение мешает — слово всё равно светится, просто искры стоят. */
+@media (prefers-reduced-motion: reduce) {
+  .dialogue-glow::before,
+  .dialogue-glow::after,
+  .dialogue-glow .dialogue-spark {
+    animation: none;
+    opacity: 0.85;
+  }
+}

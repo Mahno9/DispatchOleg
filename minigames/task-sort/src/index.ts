@@ -442,7 +442,7 @@ export function init(
   requestAnimationFrame(() => requestAnimationFrame(() => root.classList.add(`${PREFIX}visible`)));
 
   // --- config ---
-  const playerName = (typeof config.playerName === 'string' && config.playerName.trim()) || 'Олег';
+  const playerName = (typeof config.playerName === 'string' && config.playerName.trim()) || 'Диспетчер';
   const attemptsAllowed = Math.max(1, Math.min(5, Math.round(Number(config.attempts)) || 2));
   const winThreshold = Number.isFinite(Number(config.winThresholdPercent))
     ? Math.max(0, Math.min(100, Math.round(Number(config.winThresholdPercent))))

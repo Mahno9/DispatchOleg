@@ -161,15 +161,15 @@ describe('default content', () => {
 
   it('14. maxScoreFor on the default content is 630', () => {
     expect(defaults).toHaveLength(30);
-    expect(defaults.filter((t) => isOwnActive(t, 'Олег'))).toHaveLength(12);
-    expect(maxScoreFor(defaults, 'Олег')).toBe(630);
+    expect(defaults.filter((t) => isOwnActive(t, '{player}'))).toHaveLength(12);
+    expect(maxScoreFor(defaults, '{player}')).toBe(630);
   });
 
   it('a correct layout of the default content is perfect', () => {
-    const own = defaults.filter((t) => isOwnActive(t, 'Олег'));
+    const own = defaults.filter((t) => isOwnActive(t, '{player}'));
     const queue = [...own].sort((a, b) => a.priority - b.priority).map((t) => t.id);
-    const archive = defaults.filter((t) => !isOwnActive(t, 'Олег')).map((t) => t.id);
-    const r = evaluate(queue, archive, defaults, 'Олег');
+    const archive = defaults.filter((t) => !isOwnActive(t, '{player}')).map((t) => t.id);
+    const r = evaluate(queue, archive, defaults, '{player}');
     expect(r.mistakes).toEqual([]);
     expect(r.score).toBe(630);
     expect(r.percent).toBe(100);

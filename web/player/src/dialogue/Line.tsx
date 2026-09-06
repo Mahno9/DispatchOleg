@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AudioPrefs } from '../state/localState';
 import { charDelayMs, createVoicePlayer, type VoicePreset } from './voice';
+import './glow.css';
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -110,11 +111,78 @@ export function splitSpeaker(
   return { name: match, text: text.slice(colon + 1).trim() };
 }
 
+/** Кусок реплики: обычный текст или слово под подсветкой (`**…**`). */
+export interface EmphasisSegment {
+  text: string;
+  glow: boolean;
+}
+
+/** Пары `**…**`; непарная звёздочка остаётся в тексте как есть. */
+const EMPHASIS = /\*\*([\s\S]+?)\*\*/g;
+
+/**
+ * Разбирает разметку выделения: `А **Олег**.` → куски текста плюс та же строка
+ * без звёздочек.
+ *
+ * `plain` нужен печати: `useTypewriter` считает символы, и звёздочки не должны
+ * тратить такты (а бубнёж — блипать на них). Поэтому счётчик `shown` живёт в
+ * координатах `plain`, а разметку раскладывает уже DialogueLine.
+ */
+export function parseEmphasis(text: string): { plain: string; segments: EmphasisSegment[] } {
+  const segments: EmphasisSegment[] = [];
+  let last = 0;
+  for (const m of text.matchAll(EMPHASIS)) {
+    const at = m.index ?? 0;
+    if (at > last) segments.push({ text: text.slice(last, at), glow: false });
+    segments.push({ text: m[1] ?? '', glow: true });
+    last = at + m[0].length;
+  }
+  if (last < text.length) segments.push({ text: text.slice(last), glow: false });
+  return { plain: segments.map((s) => s.text).join(''), segments };
+}
+
+/**
+ * Кусок разобранной реплики от `start` до `end` в символах `plain`. Печать
+ * может застать подсвеченное слово на середине — тогда оно приезжает двумя
+ * половинками, и каждая остаётся подсвеченной.
+ */
+function sliceSegments(segments: EmphasisSegment[], start: number, end: number): ReactNode[] {
+  const out: ReactNode[] = [];
+  let pos = 0;
+  for (const [i, seg] of segments.entries()) {
+    const from = Math.max(start, pos);
+    const to = Math.min(end, pos + seg.text.length);
+    if (to > from) {
+      const piece = seg.text.slice(from - pos, to - pos);
+      out.push(
+        seg.glow ? (
+          <span key={i} className="dialogue-glow">
+            {piece}
+            {/* Третья искра: у span всего два псевдоэлемента, а орбите нужен
+                ещё один огонёк. Пустой, вся отрисовка в glow.css. */}
+            <i className="dialogue-spark" aria-hidden="true" />
+          </span>
+        ) : (
+          piece
+        ),
+      );
+    }
+    pos += seg.text.length;
+  }
+  return out;
+}
+
+/** Текст с разметкой `**…**` как разметка — для мест без печати (карточки выбора). */
+export function EmphasisText({ text }: { text: string }) {
+  return <>{sliceSegments(parseEmphasis(text).segments, 0, Number.POSITIVE_INFINITY)}</>;
+}
+
 interface DialogueLineProps {
   /** Имя говорящего над репликой. Пустое — строка имени не рисуется. */
   name: string;
+  /** Текст с разметкой: `{player}` уже подставлен, `**…**` ещё нет. */
   text: string;
-  /** Сколько символов уже напечатано (`useTypewriter`). */
+  /** Сколько символов уже напечатано (`useTypewriter`), без учёта звёздочек. */
   shown: number;
   done: boolean;
   /** Сторона говорящего: правый прижимает текст к правому краю слота. */
@@ -134,6 +202,7 @@ export function DialogueLine({
   side = 'left',
   onClick,
 }: DialogueLineProps) {
+  const { segments } = parseEmphasis(text);
   return (
     <div
       className={`dialogue-context${side === 'right' ? ' dialogue-context-right' : ''}`}
@@ -141,14 +210,16 @@ export function DialogueLine({
     >
       {name && <div className="label dialogue-name">{name}</div>}
       <p className="dialogue-line">
-        {text.slice(0, shown)}
+        {sliceSegments(segments, 0, shown)}
         {/* Ненапечатанный хвост остаётся в DOM, просто невидимый: строка держит
             финальную раскладку с первого символа, а не расползается по мере
             печати (при выравнивании вправо это было нечитаемо). Курсор —
             залитый фоном NBSP, а не inline-block: атомарный inline добавил бы
             точку переноса посреди слова и дёргал бы текст вокруг себя. */}
         <span className={`dialogue-cursor${done ? ' dialogue-hidden' : ''}`}>{' '}</span>
-        <span className="dialogue-hidden">{text.slice(shown)}</span>
+        <span className="dialogue-hidden">
+          {sliceSegments(segments, shown, Number.POSITIVE_INFINITY)}
+        </span>
       </p>
     </div>
   );
@@ -173,7 +244,8 @@ export function TypedLine({
   voice?: LineVoice;
   onClick?: (() => void) | undefined;
 }) {
-  const { shown, done, skip } = useTypewriter(text, undefined, voice);
+  // Печатается текст без звёздочек — иначе разметка съедала бы такты печати.
+  const { shown, done, skip } = useTypewriter(parseEmphasis(text).plain, undefined, voice);
   return (
     <DialogueLine
       name={name}

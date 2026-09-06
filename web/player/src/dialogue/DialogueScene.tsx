@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from '../camera/camera';
 import { CharacterInfo } from './CharacterInfo';
-import { DialogueLine, useTypewriter } from './Line';
+import { DialogueLine, EmphasisText, parseEmphasis, useTypewriter } from './Line';
 import { silhouetteFor } from './Silhouettes';
 import { OLEG, advance, initialSides, type DialogueDoc } from './engine';
 import type { VoicePreset } from './voice';
 import type { AudioPrefs } from '../state/localState';
+import { fillPlaceholders } from '../game/minigameLoader';
 
 /** Portrait source for one speaker id (`characters` row, trimmed). */
 export interface SceneCharacter {
@@ -24,6 +25,8 @@ interface DialogueSceneProps {
   voices?: Record<string, VoicePreset>;
   /** Громкость/мьют игрока — ими живёт бубнёж печати. */
   audio: AudioPrefs;
+  /** Имя игрока, им подписан диспетчер. */
+  playerName: string;
   /** Feeds bottom-bar slot 2 with the current line (docs/platform.md §1.2). */
   onContext: (node: ReactNode) => void;
   onFinish: () => void;
@@ -57,12 +60,14 @@ interface PortraitProps {
   /** `doc.remote` — draw the portrait as a comms panel instead of a figure. */
   remote: boolean;
   cast: Record<string, SceneCharacter>;
+  /** Имя игрока, им подписан диспетчер. */
+  playerName: string;
 }
 
-function Portrait({ id, side, speaking, remote, cast }: PortraitProps) {
+function Portrait({ id, side, speaking, remote, cast, playerName }: PortraitProps) {
   if (id === null) return <div className="portrait portrait-empty" />;
   const character = cast[id];
-  const name = id === OLEG ? 'Олег' : (character?.name ?? '???');
+  const name = id === OLEG ? playerName : (character?.name ?? '???');
   // Oleg is always on a screen — his side of the terminal is the camera feed,
   // live or not. Everyone else only when the scene is a call.
   const framed = id === OLEG ? ' portrait-dispatcher' : remote ? ' portrait-remote' : '';
@@ -103,18 +108,24 @@ export function DialogueScene({
   partner,
   voices = {},
   audio,
+  playerName,
   onContext,
   onFinish,
 }: DialogueSceneProps) {
   const [nodeId, setNodeId] = useState(doc.start);
 
   const node = doc.nodes[nodeId] ?? null;
-  const text = node?.text ?? '';
+  // `{player}` в тексте ноды — то же ключевое слово, что и в конфигах мини-игр
+  // (docs/platform.md §3.4): в админке пишут его, игрок читает своё имя.
+  const text = fillPlaceholders(node?.text ?? '', playerName);
+  // Печать считает символы по тексту без разметки `**…**`: звёздочки не должны
+  // ни тратить такты, ни звучать бубнежом.
+  const plain = useMemo(() => parseEmphasis(text).plain, [text]);
   // Печать живёт в общем useTypewriter (dialogue/Line.tsx), там же её звук:
   // темп и блипы берутся из пресета говорящего (`speaker` → character_voices).
   // Ключ nodeId: две подряд ноды с одинаковым текстом печатаются заново.
   const preset = (node && voices[node.speaker]) ?? null;
-  const { shown, done, skip } = useTypewriter(text, nodeId, { preset, audio });
+  const { shown, done, skip } = useTypewriter(plain, nodeId, { preset, audio });
   // Misclick guard for nodes with an external link: the scene refuses to
   // advance until the player actually opened it.
   const [linkOpened, setLinkOpened] = useState(false);
@@ -139,7 +150,7 @@ export function DialogueScene({
   // Mirror the line into the bottom bar; clear the slot when the scene leaves.
   useEffect(() => {
     const speaker = node?.side === 'left' ? sides.left : sides.right;
-    const name = speaker === OLEG ? 'Олег' : (speaker !== null && cast[speaker]?.name) || '';
+    const name = speaker === OLEG ? playerName : (speaker !== null && cast[speaker]?.name) || '';
     cb.current.onContext(
       <DialogueLine
         name={name}
@@ -150,7 +161,7 @@ export function DialogueScene({
         onClick={onSceneClick}
       />,
     );
-  }, [text, shown, done, node, sides, cast]);
+  }, [text, shown, done, node, sides, cast, playerName]);
 
   useEffect(() => () => cb.current.onContext(null), []);
 
@@ -183,6 +194,7 @@ export function DialogueScene({
           speaking={node?.side === 'left'}
           remote={doc.remote}
           cast={cast}
+          playerName={playerName}
         />
         <Portrait
           id={node?.side === 'right' ? node.speaker : sides.right}
@@ -190,6 +202,7 @@ export function DialogueScene({
           speaking={node?.side === 'right'}
           remote={doc.remote}
           cast={cast}
+          playerName={playerName}
         />
       </div>
 
@@ -222,7 +235,7 @@ export function DialogueScene({
                 go(i);
               }}
             >
-              {choice.text}
+              <EmphasisText text={fillPlaceholders(choice.text, playerName)} />
             </button>
           ))}
         </div>

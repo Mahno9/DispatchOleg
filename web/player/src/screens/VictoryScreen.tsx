@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
+import { DEFAULT_PLAYER_NAME } from '../game/minigameLoader';
 
 // ---------------------------------------------------------------------------
 // Victory — the shift closes. Shown once, the first time every operation on the
@@ -9,7 +10,12 @@ import { api } from '../api';
 /** What the screen says when the admin has left `final_victory_text` empty. */
 export const FALLBACK_VICTORY_TEXT = 'ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ. СМЕНА ЗАКРЫТА. СПАСИБО, ОПЕРАТОР.';
 
-export function VictoryScreen() {
+interface VictoryScreenProps {
+  /** Имя игрока, им подписан диспетчерский терминал. */
+  playerName?: string;
+}
+
+export function VictoryScreen({ playerName = DEFAULT_PLAYER_NAME }: VictoryScreenProps) {
   const [text, setText] = useState(FALLBACK_VICTORY_TEXT);
 
   useEffect(() => {
@@ -51,7 +57,7 @@ export function VictoryScreen() {
         <div className="divider" />
 
         <div className="victory-foot label">
-          <span>Диспетчерский терминал ОЛЕГ</span>
+          <span>Диспетчерский терминал {playerName.toUpperCase()}</span>
           <span>Статус: ВСЕ ОПЕРАЦИИ ВЫПОЛНЕНЫ</span>
         </div>
       </div>
