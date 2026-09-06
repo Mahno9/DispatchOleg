@@ -12,6 +12,16 @@ function gain(value: unknown): number {
   return Math.max(0, Math.min(100, typeof value === 'number' && Number.isFinite(value) ? value : 0)) / 100;
 }
 
+/**
+ * Единый эффективный множитель громкости фоновой музыки (лобби, диалоги) —
+ * такой же, как у музыки в мини-играх после выравнивания их `volume` в
+ * конфиге (см. content/games.json): 20 task-sort 1.43×0.35, 21 rescue-catch
+ * 1.25×0.4, 22 three-mazes 1.0×0.5, 24 cooking-orders 0.5×1.0, 25 tetris-fill
+ * 0.5×1.0 — везде 0.5. Раньше здесь множителя не было (эффективно 1.0), и
+ * музыка лобби/диалогов звучала вдвое громче игровой и заглушала голоса.
+ */
+const MUSIC_GAIN = 0.5;
+
 export interface MusicLoopState {
   /** Играть ли сейчас: в лобби — только на мете/скане/запуске; в сцене — пока она на экране. */
   active: boolean;
@@ -38,7 +48,7 @@ export function createMusicLoop(url: string) {
   function sync(state: MusicLoopState): void {
     if (destroyed) return;
     last = state;
-    node.volume = gain(state.prefs.musicVolume);
+    node.volume = Math.max(0, Math.min(1, gain(state.prefs.musicVolume) * MUSIC_GAIN));
     // Мьют и нулевая громкость — это «не играть», а не «играть в ноль».
     if (!state.active || state.prefs.muted || node.volume === 0) {
       disarm();

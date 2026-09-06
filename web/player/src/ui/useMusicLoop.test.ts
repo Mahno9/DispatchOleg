@@ -70,7 +70,9 @@ describe('music loop', () => {
     expect(node).toMatchObject({ src: '/assets-store/mus.ogg', loop: true, paused: true });
 
     music.sync({ active: true, prefs: prefs() });
-    expect(node).toMatchObject({ paused: false, plays: 1, volume: 0.7 });
+    // musicVolume по умолчанию 70 → gain 0.7 × MUSIC_GAIN 0.5 = 0.35 (единый
+    // эффективный уровень с музыкой мини-игр, см. комментарий у MUSIC_GAIN).
+    expect(node).toMatchObject({ paused: false, plays: 1, volume: 0.35 });
 
     // Диалог/игра/победа — петля молчит, но элемент тот же.
     music.sync({ active: false, prefs: prefs() });
@@ -93,7 +95,7 @@ describe('music loop', () => {
 
     // Громкость доезжает вживую, элемент не пересоздаётся.
     music.sync({ active: true, prefs: prefs({ musicVolume: 40 }) });
-    expect(node).toMatchObject({ paused: false, plays: 1, volume: 0.4 });
+    expect(node).toMatchObject({ paused: false, plays: 1, volume: 0.2 });
     expect(FakeAudio.nodes).toHaveLength(1);
     music.destroy();
   });
@@ -102,11 +104,26 @@ describe('music loop', () => {
     const music = createMusicLoop('/assets-store/mus.ogg');
     const node = FakeAudio.nodes[0]!;
     music.sync({ active: true, prefs: prefs({ musicVolume: 500 }) });
-    expect(node.volume).toBe(1);
+    expect(node.volume).toBe(0.5);
     music.sync({ active: true, prefs: prefs({ musicVolume: -20 }) });
     expect(node).toMatchObject({ volume: 0, paused: true });
     music.sync({ active: true, prefs: prefs({ musicVolume: Number.NaN }) });
     expect(node.volume).toBe(0);
+    music.destroy();
+  });
+
+  it('множитель MUSIC_GAIN держит громкость на едином уровне с мини-играми', () => {
+    const music = createMusicLoop('/assets-store/mus.ogg');
+    const node = FakeAudio.nodes[0]!;
+
+    music.sync({ active: true, prefs: prefs({ musicVolume: 100 }) });
+    expect(node.volume).toBe(0.5);
+
+    music.sync({ active: true, prefs: prefs({ musicVolume: 70 }) });
+    expect(node.volume).toBe(0.35);
+
+    music.sync({ active: true, prefs: prefs({ musicVolume: 0 }) });
+    expect(node).toMatchObject({ volume: 0, paused: true });
     music.destroy();
   });
 
