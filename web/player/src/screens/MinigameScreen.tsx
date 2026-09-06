@@ -8,6 +8,8 @@ import {
 } from '../game/minigameLoader';
 import { TUTORIALS, resolveStep, type Dir, type TutorialStep } from '../game/tutorials';
 import { TypedLine, splitSpeaker } from '../dialogue/Line';
+import { OLEG } from '../dialogue/engine';
+import type { VoicePreset } from '../dialogue/voice';
 
 interface MinigameScreenProps {
   gameId: number;
@@ -17,6 +19,10 @@ interface MinigameScreenProps {
   audio: AudioSettingsPatch;
   /** Имя персонажа игры — подписывает его реплики (onLine) в слоте 2. */
   speaker?: string;
+  /** `games.character_id` — по нему берётся пресет бубнежа персонажа игры. */
+  characterId?: number | null;
+  /** Пресеты бубнежа по id говорящего (настройка `character_voices`). */
+  voices?: Record<string, VoicePreset>;
   /** Имя игрока: им подписаны реплики Олега в двухголосых репликах игр. */
   playerName?: string;
   /** Кто говорит в слоте 2: персонаж, игрок или никто (реплики нет). */
@@ -36,6 +42,8 @@ export function MinigameScreen({
   minigameId,
   audio,
   speaker = '',
+  characterId = null,
+  voices,
   playerName = DEFAULT_PLAYER_NAME,
   onContext,
   onSpeaker,
@@ -52,6 +60,11 @@ export function MinigameScreen({
   // один раз на запуске — читаем через ref, чтобы не перемонтировать игру.
   const namesRef = useRef({ character: speaker, player: playerName });
   namesRef.current = { character: speaker, player: playerName };
+
+  // Голоса приезжают настройкой, уже после запуска игры, — тоже через ref:
+  // колбэк onLine замкнулся на монтировании и свежее значение так и не увидел бы.
+  const voicesRef = useRef({ voices, characterId });
+  voicesRef.current = { voices, characterId };
 
   const cb = useRef({ onContext, onSpeaker, onFinished });
   cb.current = { onContext, onSpeaker, onFinished };
@@ -114,6 +127,12 @@ export function MinigameScreen({
         const { character, player } = namesRef.current;
         const said = text === null ? null : splitSpeaker(text, [character, player]);
         const fromPlayer = said?.name === player && player !== '';
+        // Бубнёж: реплику Олега печатает его голос, всё остальное — голос
+        // персонажа игры. Громкость снимаем на момент появления реплики —
+        // ползунок в её пределах (пара секунд) звук уже не догонит.
+        const v = voicesRef.current;
+        const voiceId = fromPlayer ? OLEG : String(v.characterId ?? '');
+        const preset = v.voices?.[voiceId] ?? null;
         // key — чтобы на смене текста печать начиналась заново, а не дописывалась.
         lineRef.current =
           said === null ? null : (
@@ -122,6 +141,7 @@ export function MinigameScreen({
               name={said.name ?? character}
               text={said.text}
               side={fromPlayer ? 'left' : 'right'}
+              voice={{ preset, audio: audioRef.current }}
               onClick={onDismiss}
             />
           );

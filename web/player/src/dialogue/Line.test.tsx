@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { DialogueLine, TypedLine, splitSpeaker } from './Line';
+import { normalizeVoice, type VoicePreset } from './voice';
 import { BarPortrait } from '../ui/BarPortrait';
 import { BottomBar } from '../ui/BottomBar';
 import type { Character } from '../api';
@@ -59,6 +60,38 @@ describe('TypedLine', () => {
       'dialogue-context-right',
     );
     expect(html(<TypedLine name="Малевола" text="код" />)).not.toContain('dialogue-context-right');
+  });
+
+  // Бубнёж живёт в эффекте печати, а SSR эффекты не гоняет — но разметка от
+  // голоса меняться не должна: реплика с пресетом рисуется ровно как без него.
+  it('с голосом рендерится так же, как без него', () => {
+    const preset = normalizeVoice({
+      source: 'osc',
+      wave: 'triangle',
+      hz: 273,
+      jitter: 3,
+      charMs: 57,
+      blipMs: 93,
+      decayMs: 20,
+      lowpass: 4250,
+      pauseMul: 1,
+      questionMul: 1.15,
+      consonantDip: true,
+    }) as VoicePreset;
+    const audio = { muted: false, musicVolume: 70, sfxVolume: 100 };
+    const plain = html(<TypedLine name="Чейз" text="Хранилище смотришь?" side="right" />);
+    expect(html(
+      <TypedLine
+        name="Чейз"
+        text="Хранилище смотришь?"
+        side="right"
+        voice={{ preset, audio }}
+      />,
+    )).toBe(plain);
+    // Немой пресет (голоса персонажа в настройке нет) тоже ничего не ломает.
+    expect(html(
+      <TypedLine name="Чейз" text="Хранилище смотришь?" side="right" voice={{ preset: null, audio }} />,
+    )).toBe(plain);
   });
 });
 

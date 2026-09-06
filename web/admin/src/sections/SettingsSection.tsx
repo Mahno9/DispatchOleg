@@ -16,6 +16,8 @@ export function SettingsSection() {
   const [weighted, setWeighted] = useState(false);
   const [music, setMusic] = useState('');
   const [victoryText, setVictoryText] = useState('');
+  const [voices, setVoices] = useState('');
+  const [voicesError, setVoicesError] = useState<string | null>(null);
   const [picking, setPicking] = useState<'click' | 'music' | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,6 +30,7 @@ export function SettingsSection() {
     setWeighted(Array.isArray(s.ui_click_sound_url) && s.ui_click_sound_url.length > 1);
     setMusic(s.meta_music_url ?? '');
     setVictoryText(s.final_victory_text ?? '');
+    setVoices(s.character_voices ? JSON.stringify(s.character_voices, null, 2) : '');
   }
 
   useEffect(() => {
@@ -44,6 +47,39 @@ export function SettingsSection() {
       showToast('Интервал синхронизации — положительное число секунд', 'error');
       return;
     }
+
+    const trimmedVoices = voices.trim();
+    let voicesPatch: Record<string, unknown> | null = null;
+    if (trimmedVoices) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(trimmedVoices);
+      } catch {
+        setVoicesError('Невалидный JSON');
+        return;
+      }
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        setVoicesError('Ожидается объект вида { [speakerId]: preset }');
+        return;
+      }
+      const allowedWaves = ['sine', 'triangle', 'square', 'sawtooth'];
+      for (const [speakerId, preset] of Object.entries(parsed as Record<string, unknown>)) {
+        const p = (preset ?? {}) as Record<string, unknown>;
+        if (typeof preset !== 'object' || preset === null || !allowedWaves.includes(p.wave as string)) {
+          setVoicesError(
+            `${speakerId}: поле wave должно быть одним из sine/triangle/square/sawtooth`,
+          );
+          return;
+        }
+        if (!Number.isFinite(p.hz) || !Number.isFinite(p.charMs) || !Number.isFinite(p.blipMs)) {
+          setVoicesError(`${speakerId}: поля hz/charMs/blipMs должны быть числами`);
+          return;
+        }
+      }
+      voicesPatch = parsed as Record<string, unknown>;
+    }
+    setVoicesError(null);
+
     setSaving(true);
     try {
       // Звук шлём, только если его меняли — иначе взвешенный список из «Ассетов» схлопнется в один.
@@ -52,6 +88,7 @@ export function SettingsSection() {
           sync_interval_s: seconds,
           meta_music_url: music || null,
           final_victory_text: victoryText.trim() ? victoryText : null,
+          character_voices: voicesPatch,
           ...(sound === savedSound ? {} : { ui_click_sound_url: sound || null }),
         }),
       );
@@ -107,6 +144,18 @@ export function SettingsSection() {
           placeholder='Показывается игроку, когда пройдены все игры'
           onChange={(e) => setVictoryText(e.target.value)}
         />
+
+        <label className='poi-field-label'>Голоса персонажей (JSON)</label>
+        <p className='minigames-empty'>
+          Вставьте JSON из демо-страницы бубнежа (кнопка «скопировать пресеты»)
+        </p>
+        <textarea
+          rows={8}
+          value={voices}
+          placeholder='{ "oleg": { "source": "osc", "wave": "triangle", "hz": 210, "charMs": 30, "blipMs": 50 } }'
+          onChange={(e) => setVoices(e.target.value)}
+        />
+        {voicesError && <p className='sf-asset-error'>{voicesError}</p>}
 
         <div className='poi-panel-actions'>
           <button className='modal-save-primary' disabled={saving} onClick={() => void save()}>

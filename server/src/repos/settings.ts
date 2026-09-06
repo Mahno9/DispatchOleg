@@ -5,6 +5,8 @@ export const SETTING_KEYS = [
   'meta_music_url',
   'sync_interval_s',
   'final_victory_text',
+  // Пресеты бубнежа персонажей, { [speakerId]: preset }.
+  'character_voices',
 ] as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[number];

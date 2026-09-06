@@ -32,6 +32,7 @@ import {
   resolveStage,
 } from './screens/metaStage';
 import { MinigameScreen } from './screens/MinigameScreen';
+import { normalizeVoices, type VoicePreset } from './dialogue/voice';
 import { AudioSettings } from './ui/AudioSettings';
 import { OnboardingScreen } from './screens/OnboardingScreen';
 import { QrScanScreen } from './screens/QrScanScreen';
@@ -89,6 +90,8 @@ export function App() {
   /** Фоновая петля лобби из настроек (`meta_music_url`); null — тишина. */
   const [lobbyMusicUrl, setLobbyMusicUrl] = useState<string | null>(null);
   const [clickSound, setClickSound] = useState<Settings['ui_click_sound_url']>(null);
+  // Голоса бубнежа: настройка админки, одна на терминал (dialogue/voice.ts).
+  const [voices, setVoices] = useState<Record<string, VoicePreset>>({});
   /** Стадии меты живут здесь, а не в MetaScreen: сцена, значки «Диалог» и гейт
    *  START обязаны смотреть на одну и ту же текущую стадию. */
   const [stages, setStages] = useState<MetaStage[]>([]);
@@ -193,6 +196,7 @@ export function App() {
       (settings) => {
         setLobbyMusicUrl(settings.meta_music_url || null);
         setClickSound(settings.ui_click_sound_url ?? null);
+        setVoices(normalizeVoices(settings.character_voices));
         setNoQr(settings.no_qr === true);
       },
       (err: unknown) => console.error('[app] failed to load settings', err),
@@ -372,6 +376,7 @@ export function App() {
           dialogueId={dialogue.id}
           characterId={dialogue.characterId ?? gameConfig?.characterId ?? null}
           prefs={state.prefs}
+          voices={voices}
           onContext={setSlotContext}
           onFinish={() => {
             setSlotContext(null);
@@ -398,6 +403,8 @@ export function App() {
           minigameId={selectedGame.minigameId}
           audio={state.prefs}
           speaker={gameCharacter?.name ?? ''}
+          characterId={gameConfig?.characterId ?? null}
+          voices={voices}
           playerName={state.profile.name || DEFAULT_PLAYER_NAME}
           onContext={setSlotContext}
           onSpeaker={setSpeaking}

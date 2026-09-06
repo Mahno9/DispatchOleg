@@ -1,46 +1,87 @@
-import { useEffect, useState } from 'react';
-
-/** Скорость печати, мс на символ. Общая для всех реплик — это и есть «голос» терминала. */
-const CHAR_MS = 22;
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { AudioPrefs } from '../state/localState';
+import { charDelayMs, createVoicePlayer, type VoicePreset } from './voice';
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 }
 
+/** Голос говорящего для печатаемой реплики. Без пресета печать беззвучная. */
+export interface LineVoice {
+  preset: VoicePreset | null;
+  audio: AudioPrefs;
+}
+
+/**
+ * Один проигрыватель бубнежа на весь плеер: контекст Web Audio поднимается
+ * лениво внутри, на первом же звучащем символе.
+ */
+const voicePlayer = createVoicePlayer();
+
 /**
  * Побуквенный вывод текста — единственное место в плеере, где реплика
- * «печатается». Сюда ходят и диалоговая сцена, и подсказки мини-игр: звук
- * печати, когда он придёт в систему диалогов, добавляется здесь один раз
- * и сразу звучит везде.
+ * «печатается». Сюда ходят и диалоговая сцена, и подсказки мини-игр, поэтому
+ * звук печати (бубнёж персонажа, `dialogue/voice.ts`) добавлен здесь один раз
+ * и звучит везде.
  *
  * `restartKey` — когда печать надо начать заново на том же тексте (две подряд
  * ноды диалога с одинаковой репликой: без ключа эффект бы не перезапустился).
+ *
+ * `voice` читается через ref, а не лежит в зависимостях: движение ползунка
+ * громкости не должно перезапускать печать с первого символа.
  */
 export function useTypewriter(
   text: string,
   restartKey?: string | number,
+  voice?: LineVoice,
 ): { shown: number; done: boolean; skip: () => void } {
   const [shown, setShown] = useState(0);
+  // Печать идёт цепочкой setTimeout (шаг зависит от знака перед символом),
+  // и «уже показано» нужно ей синхронно: между тиком и рендером игрок мог
+  // домотать строку кликом, и цепочка не должна отматывать её назад.
+  const shownRef = useRef(0);
+  const voiceRef = useRef(voice);
+  voiceRef.current = voice;
+
+  const reveal = useCallback((n: number) => {
+    shownRef.current = n;
+    setShown(n);
+  }, []);
 
   useEffect(() => {
     if (prefersReducedMotion()) {
-      setShown(text.length);
+      reveal(text.length);
       return;
     }
-    setShown(0);
-    const timer = setInterval(() => {
-      setShown((n) => {
-        if (n >= text.length) {
-          clearInterval(timer);
-          return n;
-        }
-        return n + 1;
-      });
-    }, CHAR_MS);
-    return () => clearInterval(timer);
-  }, [text, restartKey]);
+    reveal(0);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let live = true;
 
-  return { shown, done: shown >= text.length, skip: () => setShown(text.length) };
+    function step(): void {
+      const i = shownRef.current;
+      if (!live || i >= text.length) return;
+      const preset = voiceRef.current?.preset ?? null;
+      timer = setTimeout(
+        () => {
+          const at = shownRef.current;
+          if (!live || at >= text.length) return;
+          reveal(at + 1);
+          const v = voiceRef.current;
+          if (v?.preset) voicePlayer.blip(v.preset, text, at, v.audio);
+          step();
+        },
+        charDelayMs(preset, i === 0 ? null : text[i - 1], text[i]),
+      );
+    }
+    step();
+
+    return () => {
+      live = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [text, restartKey, reveal]);
+
+  return { shown, done: shown >= text.length, skip: () => reveal(text.length) };
 }
 
 /** Сравнение имён: регистр и «ё» не считаются. */
@@ -122,14 +163,17 @@ export function TypedLine({
   name,
   text,
   side = 'left',
+  voice,
   onClick,
 }: {
   name: string;
   text: string;
   side?: 'left' | 'right';
+  /** Голос говорящего: пресет бубнежа + громкость игрока. Нет — печать молча. */
+  voice?: LineVoice;
   onClick?: (() => void) | undefined;
 }) {
-  const { shown, done, skip } = useTypewriter(text);
+  const { shown, done, skip } = useTypewriter(text, undefined, voice);
   return (
     <DialogueLine
       name={name}

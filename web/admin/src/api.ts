@@ -9,6 +9,8 @@ export interface Settings {
   sync_interval_s: number;
   /** Текст, показываемый игроку после прохождения всех игр. */
   final_victory_text: string | null;
+  /** Пресеты бубнежа персонажей, { [speakerId]: preset }; правятся текстом (JSON). */
+  character_voices?: Record<string, unknown> | null;
 }
 
 export interface Asset {

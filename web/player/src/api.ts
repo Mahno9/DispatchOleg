@@ -74,6 +74,8 @@ export interface Settings {
   meta_music_url?: string | null;
   /** Щелчок по кнопке: один файл или взвешенный список вариантов из админки. */
   ui_click_sound_url?: string | { url: string; weight?: number; volume?: number }[] | null;
+  /** Пресеты бубнежа персонажей: `{ [speakerId]: preset }` (dialogue/voice.ts). */
+  character_voices?: unknown;
   /** Сервер запущен с NO_QR=1: операции выдаются жребием, сканер не нужен. */
   no_qr?: boolean;
   [key: string]: unknown;

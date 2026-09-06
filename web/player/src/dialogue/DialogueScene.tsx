@@ -4,6 +4,8 @@ import { CharacterInfo } from './CharacterInfo';
 import { DialogueLine, useTypewriter } from './Line';
 import { silhouetteFor } from './Silhouettes';
 import { OLEG, advance, initialSides, type DialogueDoc } from './engine';
+import type { VoicePreset } from './voice';
+import type { AudioPrefs } from '../state/localState';
 
 /** Portrait source for one speaker id (`characters` row, trimmed). */
 export interface SceneCharacter {
@@ -18,6 +20,10 @@ interface DialogueSceneProps {
   cast: Record<string, SceneCharacter>;
   /** Character of the running game — occupies the free side if nobody else does. */
   partner: string | null;
+  /** Пресеты бубнежа по id говорящего (`character_voices`); нет своего — молчит. */
+  voices?: Record<string, VoicePreset>;
+  /** Громкость/мьют игрока — ими живёт бубнёж печати. */
+  audio: AudioPrefs;
   /** Feeds bottom-bar slot 2 with the current line (docs/platform.md §1.2). */
   onContext: (node: ReactNode) => void;
   onFinish: () => void;
@@ -91,14 +97,24 @@ function Portrait({ id, side, speaking, remote, cast }: PortraitProps) {
  * the line typed out into bottom-bar slot 2, choices as cards in the work area.
  * A click either completes the typing or advances the graph.
  */
-export function DialogueScene({ doc, cast, partner, onContext, onFinish }: DialogueSceneProps) {
+export function DialogueScene({
+  doc,
+  cast,
+  partner,
+  voices = {},
+  audio,
+  onContext,
+  onFinish,
+}: DialogueSceneProps) {
   const [nodeId, setNodeId] = useState(doc.start);
 
   const node = doc.nodes[nodeId] ?? null;
   const text = node?.text ?? '';
-  // Печать живёт в общем useTypewriter (dialogue/Line.tsx) — там же появится
-  // её звук. Ключ nodeId: две подряд ноды с одинаковым текстом печатаются заново.
-  const { shown, done, skip } = useTypewriter(text, nodeId);
+  // Печать живёт в общем useTypewriter (dialogue/Line.tsx), там же её звук:
+  // темп и блипы берутся из пресета говорящего (`speaker` → character_voices).
+  // Ключ nodeId: две подряд ноды с одинаковым текстом печатаются заново.
+  const preset = (node && voices[node.speaker]) ?? null;
+  const { shown, done, skip } = useTypewriter(text, nodeId, { preset, audio });
   // Misclick guard for nodes with an external link: the scene refuses to
   // advance until the player actually opened it.
   const [linkOpened, setLinkOpened] = useState(false);
