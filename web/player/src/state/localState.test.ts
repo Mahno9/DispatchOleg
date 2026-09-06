@@ -36,6 +36,22 @@ describe('normalizeAudioPrefs', () => {
   });
 });
 
+describe('markDialogueSeen', () => {
+  it('records an id once and leaves updatedAt alone on a repeat', () => {
+    localState.markDialogueSeen(101);
+    expect(localState.getSnapshot().seenDialogues).toContain(101);
+
+    const before = localState.getSnapshot();
+    localState.markDialogueSeen(101);
+    // Тот же объект состояния: повторная отметка не должна дёргать ре-рендер
+    // и двигать updatedAt, иначе синк считает локальное состояние свежее.
+    expect(localState.getSnapshot()).toBe(before);
+
+    localState.markDialogueSeen(102);
+    expect(localState.getSnapshot().seenDialogues).toEqual([...before.seenDialogues, 102]);
+  });
+});
+
 describe('setAudioPrefs', () => {
   // MinigameScreen шлёт setVolume по изменению ссылки на prefs. Если бы стор
   // коммитил на каждый вызов, игра дёргалась бы на ровном месте.

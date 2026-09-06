@@ -25,6 +25,9 @@ export interface ClientStatePayload {
   /** Tutorial finished (name entered, camera granted, first QR scanned). Merge = OR. */
   onboarded: boolean;
   prefs: Record<string, unknown>;
+  /** Id диалогов, дочитанных до конца. Слияние — объединение множеств (как onboarded = OR).
+   *  Опционально ради старых клиентов, ещё не присылающих это поле. */
+  seenDialogues?: number[];
   /**
    * Admin-reset tombstones: gameId → removedAt (server clock, ms). Server-authoritative —
    * client echoes are ignored on merge. A merged gameResults entry is dropped when its
@@ -111,6 +114,16 @@ function mergeGameResults(
 }
 
 /**
+ * Union two seenDialogues lists, deduped and sorted ascending (stable order keeps
+ * "did anything change" comparisons cheap). Both sides empty/undefined → undefined,
+ * so the field isn't manufactured out of nothing.
+ */
+function mergeSeenDialogues(a?: number[], b?: number[]): number[] | undefined {
+  if ((a === undefined || a.length === 0) && (b === undefined || b.length === 0)) return undefined;
+  return Array.from(new Set([...(a ?? []), ...(b ?? [])])).sort((x, y) => x - y);
+}
+
+/**
  * Drop merged entries killed by admin-reset tombstones: an entry whose
  * firstCompletedAt <= removedAt is a stale pre-reset copy and must not survive.
  */
@@ -153,6 +166,10 @@ export function resolveSync(
       serverRow.payload.gameResults,
     );
     const { result: gameResults, changed: tombstoned } = applyTombstones(unionResults, tombstones);
+    const seenDialogues = mergeSeenDialogues(
+      incoming.state.seenDialogues,
+      serverRow.payload.seenDialogues,
+    );
     const mergedPayload: ClientStatePayload = {
       ...incoming.state,
       gameResults,
@@ -161,11 +178,16 @@ export function resolveSync(
     // Tombstones are server-authoritative — never keep the client's echo
     delete mergedPayload.removedGames;
     if (tombstones !== undefined) mergedPayload.removedGames = tombstones;
+    delete mergedPayload.seenDialogues;
+    if (seenDialogues !== undefined) mergedPayload.seenDialogues = seenDialogues;
     return {
       // A tombstone kill also forces 'merged' so the client adopts the reset now,
-      // not on the next sync cycle
+      // not on the next sync cycle; same for seenDialogues growing past what incoming sent.
       outcome:
-        changed || tombstoned || onboarded !== Boolean(incoming.state.onboarded)
+        changed ||
+        tombstoned ||
+        onboarded !== Boolean(incoming.state.onboarded) ||
+        (seenDialogues?.length ?? 0) !== (incoming.state.seenDialogues?.length ?? 0)
           ? 'merged'
           : 'accepted',
       merged: mergedPayload,
@@ -177,11 +199,17 @@ export function resolveSync(
       incoming.state.gameResults,
     );
     const { result: gameResults } = applyTombstones(unionResults, tombstones);
+    const seenDialogues = mergeSeenDialogues(
+      serverRow.payload.seenDialogues,
+      incoming.state.seenDialogues,
+    );
     const mergedPayload: ClientStatePayload = {
       ...serverRow.payload,
       gameResults,
       onboarded,
     };
+    delete mergedPayload.seenDialogues;
+    if (seenDialogues !== undefined) mergedPayload.seenDialogues = seenDialogues;
     return {
       outcome: 'server-newer',
       merged: mergedPayload,

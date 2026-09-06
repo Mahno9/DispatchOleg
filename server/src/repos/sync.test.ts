@@ -252,3 +252,45 @@ describe('resolveSync tombstones (admin reset)', () => {
     expect(result.merged.gameResults['g1']?.bestScore).toBe(50);
   });
 });
+
+describe('resolveSync seenDialogues', () => {
+  function withSeen(updatedAt: number, seenDialogues?: number[]): ClientStatePayload {
+    const payload = makePayload(updatedAt);
+    if (seenDialogues !== undefined) payload.seenDialogues = seenDialogues;
+    return payload;
+  }
+
+  it('unions in both directions, deduped and sorted', () => {
+    const server = makeServerRow(withSeen(500, [3, 1]));
+    const incoming = withSeen(1000, [2, 1]);
+    // incoming newer
+    expect(
+      resolveSync(server, { state: incoming, updatedAt: incoming.updatedAt }).merged.seenDialogues,
+    ).toEqual([1, 2, 3]);
+
+    // flip the clocks: server newer
+    const newerServer = makeServerRow(withSeen(3000, [3, 1]));
+    const olderIncoming = withSeen(1000, [2, 1]);
+    expect(
+      resolveSync(newerServer, {
+        state: olderIncoming,
+        updatedAt: olderIncoming.updatedAt,
+      }).merged.seenDialogues,
+    ).toEqual([1, 2, 3]);
+  });
+
+  it('server id absent from a newer incoming still merges in and forces outcome merged', () => {
+    const server = makeServerRow(withSeen(500, [5]));
+    const incoming = withSeen(1000, [1, 2]);
+    const result = resolveSync(server, { state: incoming, updatedAt: incoming.updatedAt });
+    expect(result.outcome).toBe('merged');
+    expect(result.merged.seenDialogues).toEqual([1, 2, 5]);
+  });
+
+  it('missing on both sides never manufactures the field', () => {
+    const server = makeServerRow(makePayload(500));
+    const incoming = makePayload(1000);
+    const result = resolveSync(server, { state: incoming, updatedAt: incoming.updatedAt });
+    expect(result.merged.seenDialogues).toBeUndefined();
+  });
+});

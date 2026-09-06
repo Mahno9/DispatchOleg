@@ -48,6 +48,8 @@ export interface ClientState {
   gameResults: Record<string, GameResult>;
   onboarded: boolean;
   prefs: AudioPrefs;
+  /** Ids of dialogues the player has read to the end (meta gate on the meta screen). */
+  seenDialogues: number[];
   /** Server-authoritative admin-reset tombstones; we only echo what we were given. */
   removedGames?: Record<string, number>;
 }
@@ -64,6 +66,7 @@ function createInitialState(): ClientState {
     gameResults: {},
     onboarded: false,
     prefs: { ...DEFAULT_AUDIO_PREFS },
+    seenDialogues: [],
   };
 }
 
@@ -151,6 +154,9 @@ class LocalStateStore {
     // там лежит prefs без громкостей. Без нормализации они прилетели бы как
     // undefined и обнулили бы настройку игрока при первой же синхронизации.
     const prefs = normalizeAudioPrefs(next.prefs);
+    // `seenDialogues` появилось позже сервера: у игроков, начавших раньше, его
+    // в полезной нагрузке просто нет — без подстановки список стал бы undefined.
+    const seenDialogues = Array.isArray(next.seenDialogues) ? next.seenDialogues : [];
     const cur = this.state.prefs;
     // Сервер отдаёт свежий объект на каждый ответ, а синк тикает раз в 20 с.
     // MinigameScreen шлёт setVolume по смене ссылки на prefs, поэтому при
@@ -160,7 +166,7 @@ class LocalStateStore {
       prefs.muted === cur.muted &&
       prefs.musicVolume === cur.musicVolume &&
       prefs.sfxVolume === cur.sfxVolume;
-    this.commit({ ...next, prefs: same ? cur : prefs });
+    this.commit({ ...next, seenDialogues, prefs: same ? cur : prefs });
   }
 
   // -- mutate helpers --
@@ -199,6 +205,17 @@ class LocalStateStore {
   setOnboarded(onboarded: boolean): void {
     if (this.state.onboarded === onboarded) return;
     this.commit({ ...this.state, updatedAt: Date.now(), onboarded });
+  }
+
+  /** Диалог дочитан до конца. Повтор — no-op: лишний commit дёргает ре-рендер
+   *  и без нужды двигает updatedAt, из-за чего синк считал бы состояние свежее. */
+  markDialogueSeen(id: number): void {
+    if (this.state.seenDialogues.includes(id)) return;
+    this.commit({
+      ...this.state,
+      updatedAt: Date.now(),
+      seenDialogues: [...this.state.seenDialogues, id],
+    });
   }
 
   setAudioPrefs(patch: Partial<AudioPrefs>): void {
