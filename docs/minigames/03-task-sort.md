@@ -354,15 +354,22 @@ callbacks.onComplete({
 | `tasks[].assignee` | string (enum) | — | `"{player}"` | `{player}` / `Марина` / `Тимур`. Enum, чтобы опечатка не превращала свою задачу в чужую. |
 | `tasks[].done` | boolean | — | `false` | `true` = статус `ВЫПОЛНЕНО`, место такой задачи всегда в архиве. |
 | `tasks[].priority` | integer (1…4) | — | `4` | 1 — самый срочный. Для чужих и выполненных задач заполняется для полноты, на зачёт не влияет. |
+| `music` | array | `asset:audio` | — | Фоновая музыка: петля на всю смену. Поле **верхнего уровня**, не внутри `sounds`. Играет подложкой — ползунок музыки домножается на `MUSIC_GAIN = 0.35`, чтобы фон не перекрывал щелчки карточек. |
+| `sounds.deal` | array | `asset:audio` | — | Раскладка стопки входящих в начале смены. |
 | `sounds.pick` | array | `asset:audio` | — | Взятие карточки. |
 | `sounds.drop` | array | `asset:audio` | — | Опускание карточки в зону. |
 | `sounds.shred` | array | `asset:audio` | — | Попадание в архив-шреддер. |
+| `sounds.probe` | array | `asset:audio` | — | Запрос приоритета (наведение на заштрихованную метку). |
+| `sounds.probeDone` | array | `asset:audio` | — | Приоритет получен, метка проявилась. |
+| `sounds.ready` | array | `asset:audio` | — | Входящие разобраны — `ПОДТВЕРДИТЬ СМЕНУ` разблокирована. |
+| `sounds.scan` | array | `asset:audio` | — | Сканирование раскладки во время проверки. |
 | `sounds.error` | array | `asset:audio` | — | Проверка выявила ошибки (ALERT). |
 | `sounds.confirm` | array | `asset:audio` | — | Смена принята (победа). |
 
-Все звуки — `WeightedAudio[]` (`{ url, weight, volume? }[]`), выбор через `pickSound()`, воспроизведение
-подавляется при `config.muted === true`. Кнопка mute — обязательный элемент UI игры (квадратная,
-в правом верхнем углу рабочей области).
+Все звуки — `WeightedAudio[]` (`{ url, weight, volume? }[]`), воспроизведение через общий модуль
+`minigames/shared/audio.ts` (`createAudio` владеет и музыкой, и эффектами — см. `minigame_contract.md`,
+раздел «Звук»), подавляется при `config.muted === true`. Кнопка mute — обязательный элемент UI игры
+(квадратная, в правом верхнем углу рабочей области).
 
 Набросок структуры (полный дефолтный `tasks` — в §6):
 

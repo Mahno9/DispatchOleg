@@ -163,6 +163,9 @@ J/L-тетромино являются зеркальными парами, и 
 `onExit()` вызывается только если платформа закрыла игру кнопкой «ВЫЙТИ» или конфиг оказался
 невалидным (§6).
 
+Следствие для админки: `post_lose_dialogue_id` у игры на `tetris-fill` недостижим. В контенте
+(«Пробоина в отсеке») он пустой — искать ветку поражения в диалогах не надо.
+
 ### 3.2 Очки
 
 ```
@@ -250,14 +253,18 @@ callbacks.onComplete({
 | `softDropFactor` | number | — | `6` | Во сколько раз быстрее падает деталь при мягком спуске. Диапазон 1…20. |
 | `lockDelayMs` | integer | — | `500` | Сколько деталь лежит на препятствии не на своём месте до рассыпания. Диапазон 0…2000, `0` — мгновенно. |
 | `spawnColumn` | string (enum) | — | `center` | Где появляется деталь: `center` («По центру») или `target` («Над своим местом (проще)»). Подписи — через `x-enumLabels`. |
-| `sounds.rotate` | string | `asset:audio` | — | Удавшийся поворот детали. |
-| `sounds.place` | string | `asset:audio` | — | Успешная установка. |
-| `sounds.error` | string | `asset:audio` | — | Деталь рассыпалась мимо места. |
-| `sounds.hint` | string | `asset:audio` | — | Включение подсказки. |
-| `sounds.win` | string | `asset:audio` | — | Силуэт собран. |
+| `sounds.music` | array | `asset:audio` | — | Музыка (луп) на всю партию; громкость — по ползунку музыки (`musicVolume`), отдельно от эффектов. |
+| `sounds.rotate` | array | `asset:audio` | — | Удавшийся поворот детали. |
+| `sounds.move` | array | `asset:audio` | — | Сдвиг детали влево/вправо. |
+| `sounds.place` | array | `asset:audio` | — | Успешная установка. |
+| `sounds.error` | array | `asset:audio` | — | Деталь рассыпалась мимо места. |
+| `sounds.hint` | array | `asset:audio` | — | Включение подсказки. |
+| `sounds.levelDone` | array | `asset:audio` | — | Пробоина закрыта, впереди ещё уровень (см. §4.2). |
+| `sounds.win` | array | `asset:audio` | — | Силуэт собран — последний уровень. |
 
 Все звуки — необязательные; отсутствующий звук просто не проигрывается. Значение поля `asset:audio` —
-`WeightedAudio[]`, воспроизведение через `pickSound(val)` (базовый контракт). `config.muted`
+`WeightedAudio[]`, воспроизведение через общий модуль `minigames/shared/audio.ts` (`createAudio`
+владеет и музыкой, и эффектами — см. `minigame_contract.md`, раздел «Звук»). `config.muted`
 учитывается при инициализации, кнопка mute присутствует в углу поля.
 
 ### 4.1 Формат `shape` в `config_json`

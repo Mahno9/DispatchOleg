@@ -27,7 +27,7 @@
 
 | Поле | Дефолт | Описание |
 |---|---|---|
-| `ingredients[]` | 8 шт. | `id` (kebab-case, уникален), `name`, `image` (`asset:image`), `unitName` |
+| `ingredients[]` | 8 шт. | `id` (kebab-case, уникален), `name`, `image` (`asset:image`), `unitName`, `pourSound` (`asset:audio`, свой звук дозирования; пусто — общий `sounds.pourLoop`) |
 | `characters[]` | 3 шт. | `name`, `portrait` (`asset:image`), `orderName`, `cookSeconds`, `steps[]` |
 | `characters[].steps[]` | — | `ingredientId` (ссылка на `ingredients[].id`), `amount` (`0` = положить кликом) |
 | `fillRatePerSec` | `1.5` | Скорость наполнения, единиц в секунду |
@@ -36,6 +36,7 @@
 | `failsAllowed` | `3` | Ошибок до «ВСЁ СГОРЕЛО» |
 | `pointsPerStep` / `pointsPerOrder` | `10` / `50` | Очки |
 | `spoilAnimationMs` | `1000` | Длительность анимации испорченной еды |
+| `sounds.music` | — | Музыка смены (луп) на всю партию, `asset:audio`; идёт по ползунку музыки, а не эффектов |
 | `sounds.*` | — | `place`, `pourLoop`, `pourOk`, `cookLoop`, `orderDone`, `fail`, `wipe` — `asset:audio` |
 
 Изображения ингредиентов и портреты по умолчанию пустые: игра рисует инлайновые контурные
@@ -56,7 +57,8 @@ SVG-плейсхолдеры (глиф выбирается по `id`, для п
 
 Игра завершается только победой: все заказы выданы → `onComplete({ score, won: true, details })`.
 Проигрыша нет — «ВСЁ СГОРЕЛО» перезапускает смену внутри сессии; выйти можно только
-платформенной кнопкой `ВЫЙТИ` (`onExit()`).
+платформенной кнопкой `ВЫЙТИ` (`onExit()`). Соответственно `post_lose_dialogue_id` у игры
+недостижим и в контенте не заполнен.
 
 ## `details` в `onComplete`
 

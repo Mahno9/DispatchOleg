@@ -223,8 +223,8 @@ minigames/cooking-orders/
 Игра **не завершается** проигрышем сама по себе — это осознанное решение из плана: «ВСЁ СГОРЕЛО»
 перезапускает смену внутри сессии, а не отдаёт `onComplete({won: false})`. Единственный путь наружу с
 `won = false` — платформенная кнопка «ВЫЙТИ» в слоте 3 нижней панели, которая вызывает `onExit()`
-(см. `docs/platform.md` §1.3). `post_lose_dialogue_id` в этой игре, соответственно, практически не
-используется; сюжетная развилка делается через `styleTag` на победе.
+(см. `docs/platform.md` §1.3). Поэтому у «Кухни для героев» `post_lose_dialogue_id` в контенте пустой
+и заполнять его незачем — ветку поражения игра не достигает. Искать её в диалогах не надо.
 
 ### 3.4 Победа и очки
 
@@ -276,6 +276,7 @@ callbacks.onComplete({
 | `ingredients[].name` | string | Название | — | Отображается на полке и в рецепте |
 | `ingredients[].image` | string / `asset:image` | Изображение | — | Иконка ячейки на полке |
 | `ingredients[].unitName` | string | Единица | `ложка` | Для строки рецепта: «Мёд ×4 ложки». Склонение по числу — на стороне игры |
+| `ingredients[].pourSound` | array / `asset:audio` | Звук дозирования | — | Свой звук наполнения для этого ингредиента; пусто — общий `sounds.pourLoop` |
 | `characters[]` | array | Заказы (очередь) | 3 шт., см. §4.3 | Порядок массива = порядок очереди, минимум 1 |
 | `characters[].name` | string | Имя персонажа | — | Крупная подпись на карточке-досье |
 | `characters[].portrait` | string / `asset:image` | Портрет | — | Основная часть карточки |
@@ -291,6 +292,7 @@ callbacks.onComplete({
 | `pointsPerStep` | integer, `minimum: 0` | Очки за шаг | `10` | |
 | `pointsPerOrder` | integer, `minimum: 0` | Очки за заказ | `50` | |
 | `spoilAnimationMs` | integer | Длительность анимации порчи, мс | `1000` | |
+| `sounds.music` | `asset:audio` | Музыка смены (луп) | — | Фоновая петля на всю партию, гасится в `destroy()`; громкость — по ползунку музыки (`musicVolume`), отдельно от эффектов |
 | `sounds.place` | `asset:audio` | Звук: ингредиент положен | — | Простой шаг |
 | `sounds.pourLoop` | `asset:audio` | Звук: наполнение (луп) | — | Играет во время удержания |
 | `sounds.pourOk` | `asset:audio` | Звук: доза в допуске | — | |
@@ -299,9 +301,10 @@ callbacks.onComplete({
 | `sounds.fail` | `asset:audio` | Звук: блюдо испорчено | — | |
 | `sounds.wipe` | `asset:audio` | Звук: «ВСЁ СГОРЕЛО» | — | |
 
-Все `asset:audio` — `WeightedAudio[]`, воспроизведение через `pickSound(val)` (см. базовый контракт).
-Все звуки опциональны: не заданный звук просто не играет. `config.muted` учитывается при инициализации,
-кнопка mute — в правом верхнем углу зоны очереди.
+Все `asset:audio` — `WeightedAudio[]`, воспроизведение через общий модуль `minigames/shared/audio.ts`
+(`createAudio` владеет музыкой, лупами и одноразовыми эффектами разом — см. `minigame_contract.md`,
+раздел «Звук»). Все звуки опциональны: не заданный звук просто не играет. `config.muted` учитывается
+при инициализации, кнопка mute — в правом верхнем углу зоны очереди.
 
 `required` схемы: `ingredients`, `characters`, `fillRatePerSec`, `doseTolerancePct`, `cookTolerancePct`,
 `failsAllowed`.

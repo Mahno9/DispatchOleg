@@ -20,13 +20,27 @@
 
 ```
 /minigames/
+  shared/
+    audio.ts        # общий модуль звука, подключается относительным путём
   <game-id>/
-    index.js        # точка входа, экспортирует init()
-    style.css       # стили (опционально, можно инлайн)
-    schema.json     # схема конфигурации для AdminPanel
-    assets/         # все ассеты игры (изображения, звуки)
+    package.json    # workspace игры, сборка через Vite в режиме библиотеки
+    vite.config.ts
+    tsconfig.json
+    schema.json     # схема конфигурации для админки
     README.md       # описание игры и её параметров (для людей)
+    src/
+      index.ts      # точка входа, экспортирует init()
+      engine.ts     # чистая логика игры, покрывается тестами
+      *.test.ts     # тесты рядом с кодом
+    dist/           # результат сборки: один index.js, стили и ассеты инлайнятся
 ```
+
+Сборка кладёт всё в единственный `dist/index.js`: стили живут в коде,
+внешних импортов в бандле нет. `scripts/sync-minigames.mjs` копирует `dist`
+каждой игры в `server/static/minigames/<game-id>/`. Каталог `shared/` — не
+воркспейс и своего `dist` не имеет, поэтому синк его пропускает.
+Ассеты игр не лежат в репозитории: их загружает админ, а игра получает
+готовые ссылки в конфиге.
 
 `<game-id>` — уникальный строковый идентификатор в kebab-case, например `sliding-puzzle`, `find-object`, `runner`, `arkanoid`.
 
@@ -201,6 +215,34 @@ export function init(container, config, callbacks) {
 - **Кнопка mute обязательна** — она должна быть видна в UI игры и отключать все звуки игры.
 - Глобальный mute меты передаётся через `config.muted: boolean` при старте. Игра должна учесть его при инициализации и не воспроизводить звуки, если `muted = true`.
 - Не перехватывай глобальные события громкости.
+
+### Общий модуль `minigames/shared/audio.ts`
+
+Своего пакета и своей сборки у него нет: файл импортируется относительным путём и попадает в бандл
+каждой игры при `vite build`.
+
+```js
+import { createAudio, pickSound } from '../../shared/audio.js';
+
+const audio = createAudio(config.sounds?.music, config);   // config несёт muted / musicVolume / sfxVolume
+audio.play(config.sounds?.place);                           // одноразовый эффект
+audio.startLoop(config.sounds?.pourLoop);                   // зацикленный звук действия
+audio.setVolume(v);                                         // из setVolume() контракта
+audio.destroy();                                            // из destroy()
+```
+
+- `pickSound(value)` — разбор значения `asset:audio`: случайный выбор пропорционально весу, поддержка
+  одиночной строки-URL, `undefined` для пустого/битого значения.
+- `createAudio(musicValue, initial)` — один владелец **всех** играющих элементов: музыки, зацикленного
+  звука действия и одноразовых эффектов. Смысл именно в этом: `destroy()` гасит и снимает `src` со
+  всего разом, и выход из игры не оставляет звук играть поверх меты. `musicVolume = 0` и `muted`
+  ставят петли на паузу, а не крутят их в ноль, — как требует раздел `setVolume` выше.
+- Тесты модуля лежат в `safe-crack/src/audio.test.ts` и `cooking-orders/src/audio.test.ts`: свой
+  воркспейс нужен, чтобы файл попадал в `npm test` из корня.
+
+Модуль обязательным не является, но переписывать то же самое не нужно: на него уже переведены
+`cooking-orders`, `safe-crack`, `task-sort` и `tetris-fill`. У `three-mazes` и `rescue-catch` звук
+свой, исторический (`pickSound` у лабиринтов живёт в их собственном `engine.ts`).
 
 ### Общий регулятор громкости: `setVolume` — опционально
 
