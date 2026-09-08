@@ -294,3 +294,74 @@ describe('resolveSync seenDialogues', () => {
     expect(result.merged.seenDialogues).toBeUndefined();
   });
 });
+
+describe('resolveSync briefedMinigames', () => {
+  function withBriefed(updatedAt: number, briefedMinigames?: string[]): ClientStatePayload {
+    const payload = makePayload(updatedAt);
+    if (briefedMinigames !== undefined) payload.briefedMinigames = briefedMinigames;
+    return payload;
+  }
+
+  it('unions two disjoint lists in both directions, deduped and sorted', () => {
+    const server = makeServerRow(withBriefed(500, ['wire-cut']));
+    const incoming = withBriefed(1000, ['safe-crack']);
+    // incoming newer
+    expect(
+      resolveSync(server, { state: incoming, updatedAt: incoming.updatedAt }).merged
+        .briefedMinigames,
+    ).toEqual(['safe-crack', 'wire-cut']);
+
+    // flip the clocks: server newer
+    const newerServer = makeServerRow(withBriefed(3000, ['wire-cut']));
+    const olderIncoming = withBriefed(1000, ['safe-crack']);
+    expect(
+      resolveSync(newerServer, {
+        state: olderIncoming,
+        updatedAt: olderIncoming.updatedAt,
+      }).merged.briefedMinigames,
+    ).toEqual(['safe-crack', 'wire-cut']);
+  });
+
+  it('missing on the incoming side keeps the server-only marks', () => {
+    const server = makeServerRow(withBriefed(500, ['safe-crack']));
+    const incoming = makePayload(1000); // older client, no briefedMinigames field at all
+    const result = resolveSync(server, { state: incoming, updatedAt: incoming.updatedAt });
+    expect(result.merged.briefedMinigames).toEqual(['safe-crack']);
+  });
+
+  it('missing on the server side keeps the incoming marks', () => {
+    const server = makeServerRow(makePayload(500));
+    const incoming = withBriefed(1000, ['safe-crack']);
+    const result = resolveSync(server, { state: incoming, updatedAt: incoming.updatedAt });
+    expect(result.merged.briefedMinigames).toEqual(['safe-crack']);
+  });
+
+  it('missing on both sides never manufactures the field', () => {
+    const server = makeServerRow(makePayload(500));
+    const incoming = makePayload(1000);
+    const result = resolveSync(server, { state: incoming, updatedAt: incoming.updatedAt });
+    expect(result.merged.briefedMinigames).toBeUndefined();
+  });
+
+  it('server-newer branch does not drop local briefed marks the stale incoming payload lacks', () => {
+    // Server is newer (base of the merge), but the incoming payload — written before
+    // briefedMinigames existed, or by another device — has already marked a different
+    // game as briefed locally. That mark must survive, not be clobbered by the server row.
+    const server = makeServerRow(withBriefed(3000, ['wire-cut']));
+    const staleIncoming = withBriefed(1000, ['safe-crack']);
+    const result = resolveSync(server, {
+      state: staleIncoming,
+      updatedAt: staleIncoming.updatedAt,
+    });
+    expect(result.outcome).toBe('server-newer');
+    expect(result.merged.briefedMinigames).toEqual(['safe-crack', 'wire-cut']);
+  });
+
+  it('server id absent from a newer incoming still merges in and forces outcome merged', () => {
+    const server = makeServerRow(withBriefed(500, ['wire-cut']));
+    const incoming = withBriefed(1000, ['safe-crack']);
+    const result = resolveSync(server, { state: incoming, updatedAt: incoming.updatedAt });
+    expect(result.outcome).toBe('merged');
+    expect(result.merged.briefedMinigames).toEqual(['safe-crack', 'wire-cut']);
+  });
+});

@@ -4,7 +4,17 @@ import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   // server/static/minigames is a copy of each minigame's dist — generated, like dist itself.
-  { ignores: ['**/dist/**', '**/node_modules/**', 'data/**', 'server/static/minigames/**'] },
+  // artifacts/ is the sound-generation workspace (Musition listening pages, build
+  // scripts) — untracked in git, not our lint surface.
+  {
+    ignores: [
+      '**/dist/**',
+      '**/node_modules/**',
+      'data/**',
+      'server/static/minigames/**',
+      'artifacts/**',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   prettier,

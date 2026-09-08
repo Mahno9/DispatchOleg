@@ -12,7 +12,7 @@ import {
 import { STYLES } from './styles.js';
 import { el, P } from './widgets/common.js';
 import { createWidget, SELF_SUBMIT, type LockWidget } from './widgets/index.js';
-import { createAudio, type AudioValue } from './audio.js';
+import { createAudio, type AudioValue } from '../../shared/audio.js';
 
 interface RawConfig {
   prizeImage?: string;
@@ -73,6 +73,10 @@ export function init(
   let muted = rawConfig.muted === true;
   let finished = false;
   let held = false; // заморозка платформой на время инструктажа
+  // Своё событие фазы, пришедшее под инструктажем. Ввод игрока под паузой
+  // отбрасывается, а таймер фазы — нет: без этого пауза в checking подвесила
+  // бы автомат навсегда.
+  let heldEvent: Event | undefined;
 
   function later(fn: () => void, ms: number): void {
     const id = setTimeout(() => {
@@ -302,6 +306,12 @@ export function init(
     render();
   }
 
+  /** Событие, которое автомат шлёт сам себе по таймеру фазы. */
+  function advance(event: Event): void {
+    if (held) heldEvent = event;
+    else dispatch(event);
+  }
+
   function applyPhase(before: State): void {
     switch (state.phase) {
       case 'lock': {
@@ -320,15 +330,15 @@ export function init(
       case 'checking':
         widget?.freeze?.(); // §3.1: дрейф и инерция замирают
         play('dialClick');
-        later(() => dispatch({ type: 'CHECK_DONE' }), CHECK_MS);
+        later(() => advance({ type: 'CHECK_DONE' }), CHECK_MS);
         break;
       case 'lockOpen':
         play('lockOpen');
-        later(() => dispatch({ type: 'REVEAL_DONE' }), REVEAL_MS);
+        later(() => advance({ type: 'REVEAL_DONE' }), REVEAL_MS);
         break;
       case 'lockFail':
         play('lockFail');
-        later(() => dispatch({ type: 'REVEAL_DONE' }), REVEAL_MS);
+        later(() => advance({ type: 'REVEAL_DONE' }), REVEAL_MS);
         break;
       case 'victory':
         finish(true);
@@ -364,6 +374,9 @@ export function init(
         stopTicker();
         widget?.freeze?.();
       } else {
+        const queued = heldEvent;
+        heldEvent = undefined;
+        if (queued) dispatch(queued);
         widget?.reset();
         if (state.phase === 'lock') startTicker();
       }
@@ -378,6 +391,7 @@ export function init(
     },
 
     destroy(): void {
+      callbacks.onLine?.(null); // иначе реплика виснет в панели плеера после выгрузки
       stopTicker();
       for (const id of timers) clearTimeout(id);
       timers.clear();

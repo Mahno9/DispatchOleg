@@ -7,3 +7,4 @@ dist/
 *.tsbuildinfo
 .vite/
 server/static/minigames/
+artifacts/

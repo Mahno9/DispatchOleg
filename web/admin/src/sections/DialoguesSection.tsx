@@ -11,6 +11,7 @@ import {
 } from '../api';
 import { showToast } from '../toast';
 import { Segmented } from '../ui/Segmented';
+import { UnsavedChangesModal, useUnsavedGuard } from '../ui/UnsavedGuard';
 import { DialogueGraph, autoLayout } from './DialogueGraph';
 
 const USAGE_KIND: Record<DialogueUsage['kind'], string> = {
@@ -436,7 +437,6 @@ export function DialoguesSection() {
   const [editorOpen, setEditorOpen] = useState(false);
   /** Снимок последнего сохранённого состояния — по нему считается «есть правки». */
   const [saved, setSaved] = useState({ text: '', title: '' });
-  const [confirmClose, setConfirmClose] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [characters, setCharacters] = useState<Character[]>([]);
   /** Аудио-ассеты — из них выбирается фоновая петля сцены. */
@@ -445,6 +445,9 @@ export function DialoguesSection() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const dirty = text !== saved.text || title !== saved.title;
+  const guard = useUnsavedGuard(dirty);
 
   const report = useMemo(() => validateDialogue(text), [text]);
   const doc = useMemo(() => parseDoc(text), [text]);
@@ -477,7 +480,7 @@ export function DialoguesSection() {
     if (!editorOpen) return;
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
-      if (confirmClose) setConfirmClose(false);
+      if (guard.asking) guard.dismiss();
       else requestClose();
     }
     window.addEventListener('keydown', onKey);
@@ -707,20 +710,15 @@ export function DialoguesSection() {
     }
   }
 
-  const dirty = text !== saved.text || title !== saved.title;
-
   /** Закрытие редактора: с правками — сперва спрашиваем, что с ними делать. */
   function requestClose() {
-    if (dirty) setConfirmClose(true);
-    else setEditorOpen(false);
+    guard.run(() => setEditorOpen(false));
   }
 
   async function saveAndClose() {
     // Не сохранилось (ошибки валидации, сеть) — окно вопроса остаётся, текст
     // ошибки уже показан тостом.
-    if (!(await save())) return;
-    setConfirmClose(false);
-    setEditorOpen(false);
+    if (await save()) guard.proceed();
   }
 
   /**
@@ -1015,39 +1013,14 @@ export function DialoguesSection() {
 
       {/* Сосед оверлея редактора, а не потомок — клик по нему не должен всплыть
           в onClick оверлея и закрыть окно за спиной у вопроса. */}
-      {confirmClose && (
-        <div className='modal-overlay' onClick={() => setConfirmClose(false)}>
-          <div className='modal-card' onClick={(e) => e.stopPropagation()}>
-            <div className='modal-header'>
-              <span className='modal-title'>Несохранённые изменения</span>
-            </div>
-            <div className='modal-body'>
-              <p>
-                В диалоге «{title}» есть несохранённые правки. Сохранить их перед закрытием?
-              </p>
-            </div>
-            <div className='modal-actions'>
-              <div className='modal-actions-spacer' />
-              <button
-                className='modal-save-primary'
-                disabled={saving}
-                onClick={() => void saveAndClose()}
-              >
-                Сохранить и закрыть
-              </button>
-              <button
-                className='poi-delete-btn'
-                onClick={() => {
-                  setConfirmClose(false);
-                  setEditorOpen(false);
-                }}
-              >
-                Закрыть без сохранения
-              </button>
-              <button onClick={() => setConfirmClose(false)}>Отмена</button>
-            </div>
-          </div>
-        </div>
+      {guard.asking && (
+        <UnsavedChangesModal
+          subject={title || 'Диалог'}
+          saving={saving}
+          onSaveAndClose={() => void saveAndClose()}
+          onDiscard={guard.proceed}
+          onCancel={guard.dismiss}
+        />
       )}
     </div>
   );

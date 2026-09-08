@@ -81,6 +81,50 @@ describe('markDialogueSeen', () => {
   });
 });
 
+describe('markBriefed', () => {
+  it('records a minigame once and leaves updatedAt alone on a repeat', () => {
+    localState.markBriefed('safe-crack');
+    expect(localState.getSnapshot().briefedMinigames).toContain('safe-crack');
+
+    const before = localState.getSnapshot();
+    localState.markBriefed('safe-crack');
+    expect(localState.getSnapshot()).toBe(before);
+
+    localState.markBriefed('tetris-fill');
+    expect(localState.getSnapshot().briefedMinigames).toEqual([
+      ...before.briefedMinigames,
+      'tetris-fill',
+    ]);
+  });
+
+  // Сервер (пока) не объединяет эти отметки, как seenDialogues: его ответ либо
+  // не знает поля вовсе, либо несёт список с другого устройства. Принять его
+  // как есть значило бы снова показать инструктаж по уже пройденной игре.
+  it('survives a server payload that does not know the field', () => {
+    localState.markBriefed('three-mazes');
+    localState.replace({
+      ...localState.getSnapshot(),
+      updatedAt: Date.now() + 1000,
+      briefedMinigames: undefined as unknown as string[],
+    });
+    expect(localState.getSnapshot().briefedMinigames).toContain('three-mazes');
+  });
+
+  it('unions the server list with the local one', () => {
+    localState.markBriefed('cooking-orders');
+    localState.replace({
+      ...localState.getSnapshot(),
+      updatedAt: Date.now() + 1000,
+      briefedMinigames: ['task-sort', 'cooking-orders'],
+    });
+    const out = localState.getSnapshot().briefedMinigames;
+    expect(out).toContain('cooking-orders');
+    expect(out).toContain('task-sort');
+    // Объединение, а не склейка: дублей быть не должно.
+    expect(out.filter((id) => id === 'cooking-orders')).toHaveLength(1);
+  });
+});
+
 describe('setAudioPrefs', () => {
   // MinigameScreen шлёт setVolume по изменению ссылки на prefs. Если бы стор
   // коммитил на каждый вызов, игра дёргалась бы на ровном месте.

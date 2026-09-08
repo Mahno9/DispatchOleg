@@ -1,9 +1,9 @@
+import { createAudio } from '../../shared/audio.js';
 import {
   PROBE_TICK_MS,
   evaluate,
   maxScoreFor,
   normalizeTasks,
-  pickSound,
   probeTicks,
   shouldPlayReadyCue,
   shuffle,
@@ -456,8 +456,6 @@ export function init(
   let finished = false;
   const gain = (v: unknown, fallback: number): number =>
     Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
-  let musicGain = gain(config.musicVolume, 100);
-  let sfxGain = gain(config.sfxVolume, 100);
   let phase: 'deal' | 'sort' | 'checking' | 'done' = 'deal';
   let attemptsUsed = 0;
   let mistakeIds = new Set<string>();
@@ -484,57 +482,29 @@ export function init(
   }
 
   // --- audio ---
-  const audioCache = new Map<string, HTMLAudioElement>();
+  // Фон — подложка (MUSIC_GAIN), поэтому общий ползунок музыки уходит в модуль
+  // уже прижатым.
+  function volumeOf(v: { muted?: boolean; musicVolume?: number; sfxVolume?: number }): {
+    muted: boolean;
+    musicVolume: number;
+    sfxVolume: number;
+  } {
+    return {
+      muted: v.muted === true,
+      musicVolume: gain(v.musicVolume, 100) * MUSIC_GAIN * 100,
+      sfxVolume: gain(v.sfxVolume, 100) * 100,
+    };
+  }
+
+  const audio = createAudio(config.music, volumeOf(config));
 
   function play(value: AudioValue | undefined): void {
-    if (muted) return;
-    const sound = pickSound(value);
-    if (!sound) return;
-    let base = audioCache.get(sound.url);
-    if (!base) {
-      base = new Audio(sound.url);
-      base.preload = 'auto';
-      audioCache.set(sound.url, base);
-    }
-    const node = base.cloneNode() as HTMLAudioElement;
-    node.volume = Math.max(0, Math.min(1, (sound.volume / 100) * sfxGain));
-    node.play().catch(() => {});
-  }
-
-  const musicSound = pickSound(config.music);
-  const music = musicSound ? new Audio(musicSound.url) : null;
-  if (music) music.loop = true;
-
-  function applyMusicVolume(): void {
-    if (!music || !musicSound) return;
-    music.volume = Math.max(0, Math.min(1, (musicSound.volume / 100) * MUSIC_GAIN * musicGain));
-  }
-
-  function syncMusic(): void {
-    if (!music) return;
-    applyMusicVolume();
-    // Ползунок в нуле — это тоже «не играть», иначе трек крутится вхолостую.
-    if (muted || finished || musicGain === 0) music.pause();
-    else void music.play().catch(() => {});
-  }
-  applyMusicVolume();
-
-  function stopMusic(): void {
-    if (!music) return;
-    music.pause();
-    // Пустой src резолвится в адрес страницы — элемент заново лезет в неё за
-    // ресурсом и сыплет MEDIA_ELEMENT_ERROR. Снимаем атрибут вместо этого.
-    // Вызывается дважды на обычном финише (fadeOut, потом destroy) — второй
-    // раз атрибута уже нет, дальше pause() и делать нечего.
-    if (music.hasAttribute('src')) {
-      music.removeAttribute('src');
-      music.load();
-    }
+    audio.play(value);
   }
 
   // --- finish latches ---
   function fadeOut(cb: () => void): void {
-    stopMusic();
+    audio.finishMusic();
     root.classList.remove(`${PREFIX}visible`);
     later(cb, FADE_MS);
   }
@@ -563,7 +533,7 @@ export function init(
       destroy(): void {
         for (const t of timers) clearTimeout(t);
         timers.clear();
-        stopMusic();
+        audio.destroy();
         container.innerHTML = '';
       },
       setVolume(): void {
@@ -584,15 +554,15 @@ export function init(
   muteBtn.addEventListener('click', () => {
     muted = !muted;
     muteBtn.textContent = muted ? '🔇' : '🔊';
-    syncMusic();
+    audio.setMuted(muted);
   });
   topbar.append(title, msgEl, muteBtn);
 
-  syncMusic();
+  audio.retryMusic();
   // Автоплей глушится до первого жеста в документе, а игра монтируется под
   // брифинговым оверлеем, который этот жест и съедает.
   // ponytail: одна попытка добора на первом pointerdown, дальше не пытаемся.
-  root.addEventListener('pointerdown', syncMusic, { once: true });
+  root.addEventListener('pointerdown', audio.retryMusic, { once: true });
 
   const zonesEl = el('div', `${PREFIX}zones`);
   const bodies: Record<Zone, HTMLElement> = {
@@ -1160,11 +1130,9 @@ export function init(
     // Общий регулятор в шапке плеера; локальная кнопка 🔊 остаётся быстрым
     // переключателем, но глобальная настройка её перебивает.
     setVolume(v): void {
-      musicGain = gain(v.musicVolume, 100);
-      sfxGain = gain(v.sfxVolume, 100);
+      audio.setVolume(volumeOf(v));
       muted = v.muted === true;
       muteBtn.textContent = muted ? '🔇' : '🔊';
-      syncMusic();
     },
     destroy(): void {
       cleanupDrag();
@@ -1173,14 +1141,7 @@ export function init(
       for (const p of probes) clearInterval(p);
       probes.clear();
       if (rafId) cancelAnimationFrame(rafId);
-      for (const audio of audioCache.values()) {
-        audio.pause();
-        // Тот же случай, что и в stopMusic(): пустой src бьёт по документу.
-        audio.removeAttribute('src');
-        audio.load();
-      }
-      audioCache.clear();
-      stopMusic();
+      audio.destroy();
       container.innerHTML = '';
     },
   };

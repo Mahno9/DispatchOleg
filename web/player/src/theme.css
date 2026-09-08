@@ -1506,6 +1506,24 @@ h3 {
   bottom: 12px;
 }
 
+/* Инструктаж запоминается («видел») и сам больше не всплывает — вернуть его
+   нечем, кроме этой кнопки. Мелкая и полупрозрачная в углу: рабочая область
+   принадлежит игре (docs/platform.md §2.5). */
+.tut-again {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  min-height: 0;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  opacity: 0.45;
+}
+
+.tut-again:hover {
+  opacity: 1;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .status-alert,
   .marker-blink,

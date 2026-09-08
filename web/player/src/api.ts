@@ -78,13 +78,16 @@ export interface Settings {
   character_voices?: unknown;
   /** Сервер запущен с NO_QR=1: операции выдаются жребием, сканер не нужен. */
   no_qr?: boolean;
+  /** Период фонового синка в секундах (редактируется в админке). */
+  sync_interval_s?: number;
   [key: string]: unknown;
 }
 
 export interface Minigame {
   id: string;
   title: string;
-  entryUrl: string;
+  /** null у системных мини-игр (онбординг): бандла для запуска нет. */
+  entryUrl: string | null;
   schemaUrl: string;
   defaultConfig?: Record<string, unknown>;
 }

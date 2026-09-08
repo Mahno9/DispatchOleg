@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { api } from '../api';
+import { ApiError, api } from '../api';
 import { localState, type ClientState } from './localState';
-import { syncNow } from './sync';
+import { getConnectivitySnapshot, syncNow } from './sync';
 
-vi.mock('../api', () => ({ api: { postSync: vi.fn() } }));
+// ApiError настоящий: по нему синк отличает «игрока нет» от обрыва связи.
+vi.mock('../api', async (importActual) => ({
+  ...(await importActual<typeof import('../api')>()),
+  api: { postSync: vi.fn() },
+}));
 
 /** Ответ сервера строится как обычный JSON — свежий объект на каждый вызов. */
 function serverPayload(overrides: Partial<ClientState> = {}): ClientState {
@@ -80,5 +84,44 @@ describe('syncNow adopting the server payload', () => {
     await syncNow();
 
     expect(localState.getSnapshot().prefs.musicVolume).toBe(20);
+  });
+});
+
+describe('syncNow when the server does not know the player', () => {
+  beforeEach(() => {
+    localState.setOnboarded(true);
+  });
+
+  // Базу пересоздали / игрока стёрли в админке: POST /api/sync отдаёт 404.
+  // Раньше это ловил общий catch — терминал навсегда оставался в OFFLINE и
+  // молчал. Теперь профиль чистится, и App уводит игрока на онбординг.
+  it('clears the profile and sends the player back to onboarding on 404', async () => {
+    vi.mocked(api.postSync).mockRejectedValue(new ApiError(404, 'user not found'));
+
+    await syncNow();
+
+    expect(localState.getSnapshot().profile.userId).toBe('');
+    expect(localState.getSnapshot().onboarded).toBe(false);
+    // Сервер ответил — связь есть, вечного OFFLINE быть не должно.
+    expect(getConnectivitySnapshot()).toBe(true);
+  });
+
+  it('keeps the session and goes OFFLINE on a real network error', async () => {
+    vi.mocked(api.postSync).mockRejectedValue(new TypeError('Failed to fetch'));
+
+    await syncNow();
+
+    expect(localState.getSnapshot().profile.userId).toBe('u1');
+    expect(localState.getSnapshot().onboarded).toBe(true);
+    expect(getConnectivitySnapshot()).toBe(false);
+  });
+
+  it('keeps the session on a server error that is not 404', async () => {
+    vi.mocked(api.postSync).mockRejectedValue(new ApiError(500, 'boom'));
+
+    await syncNow();
+
+    expect(localState.getSnapshot().profile.userId).toBe('u1');
+    expect(getConnectivitySnapshot()).toBe(false);
   });
 });

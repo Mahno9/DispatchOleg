@@ -205,6 +205,31 @@ describe('content dump/load', () => {
     });
   });
 
+  it('a settings key missing from the dump survives the load', () => {
+    // Ключ заводит миграция после снятия дампа: meta_music_url и такие же.
+    // Раньше load() чистил settings целиком, и у плеера молча пропадала музыка.
+    const src = freshDb();
+    seed(src);
+    const contentDir = tmpDir();
+    src.prepare("DELETE FROM settings WHERE key = 'meta_music_url'").run();
+    dump(src, contentDir, tmpDir());
+
+    const dst = freshDb();
+    dst
+      .prepare("UPDATE settings SET value_json = ? WHERE key = 'meta_music_url'")
+      .run('"/assets-store/lobby.ogg"');
+
+    load(dst, contentDir, tmpDir());
+
+    expect(
+      dst.prepare("SELECT value_json FROM settings WHERE key = 'meta_music_url'").get(),
+    ).toEqual({ value_json: '"/assets-store/lobby.ogg"' });
+    // Ключи из файла всё так же перезаписываются.
+    expect(dst.prepare("SELECT value_json FROM settings WHERE key = 'greeting'").get()).toEqual({
+      value_json: '"привет"',
+    });
+  });
+
   it('new admin rows do not collide with loaded ids', () => {
     const src = freshDb();
     seed(src);

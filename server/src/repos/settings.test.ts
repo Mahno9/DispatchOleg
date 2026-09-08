@@ -42,3 +42,61 @@ describe('settings repo', () => {
     expect(getAllSettings(db).sync_interval_s).toBe(30);
   });
 });
+
+describe('settings validation', () => {
+  it('отвергает интервал синхронизации вне границ — это шторм запросов', () => {
+    const db = freshDb();
+    for (const bad of [0, 4, 86401, -1, 30.5, '30', null]) {
+      expect(() => updateSettings(db, { sync_interval_s: bad }), String(bad)).toThrow(
+        /invalid value for sync_interval_s/,
+      );
+    }
+    // Отказ атомарный: прежнее значение на месте.
+    expect(getAllSettings(db).sync_interval_s).toBe(30);
+  });
+
+  it('пропускает интервал ровно по границам', () => {
+    const db = freshDb();
+    expect(updateSettings(db, { sync_interval_s: 5 }).sync_interval_s).toBe(5);
+    expect(updateSettings(db, { sync_interval_s: 86400 }).sync_interval_s).toBe(86400);
+  });
+
+  it('проверяет тип остальных ключей', () => {
+    const db = freshDb();
+    expect(() => updateSettings(db, { meta_music_url: 42 })).toThrow(/invalid value/);
+    expect(() => updateSettings(db, { final_victory_text: 42 })).toThrow(/invalid value/);
+    expect(() => updateSettings(db, { character_voices: [] })).toThrow(/invalid value/);
+    expect(() => updateSettings(db, { ui_click_sound_url: [{ weight: 1 }] })).toThrow(
+      /invalid value/,
+    );
+    expect(
+      updateSettings(db, { character_voices: { oleg: { hz: 210 } } }).character_voices,
+    ).toEqual({ oleg: { hz: 210 } });
+  });
+
+  // То, что админка шлёт на самом деле: пустые поля приходят как null, а щелчок
+  // со вкладки «Ассеты» — взвешенным списком. Ужесточение не должно это ломать.
+  it('пропускает то, чем пользуется админка: null в пустых полях и взвешенный щелчок', () => {
+    const db = freshDb();
+    const s = updateSettings(db, {
+      final_victory_text: null,
+      character_voices: null,
+      meta_music_url: null,
+      ui_click_sound_url: [
+        { url: '/assets-store/a.ogg', weight: 2, volume: 80 },
+        { url: '/assets-store/b.ogg', weight: 1 },
+      ],
+    });
+    expect(s.final_victory_text).toBeNull();
+    expect(s.character_voices).toBeNull();
+    expect(s.ui_click_sound_url).toHaveLength(2);
+  });
+
+  it('не пишет валидные ключи из патча, если хоть один невалиден', () => {
+    const db = freshDb();
+    expect(() => updateSettings(db, { final_victory_text: 'победа', sync_interval_s: 0 })).toThrow(
+      /invalid value/,
+    );
+    expect(getAllSettings(db).final_victory_text).not.toBe('победа');
+  });
+});

@@ -1,10 +1,22 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fillPlaceholders, launchMinigame, preloadAssets } from './minigameLoader';
-import { api } from '../api';
+import { api, type GameConfig } from '../api';
 
 vi.mock('../api', () => ({
-  api: { getGameConfig: vi.fn(), getMinigames: vi.fn() },
+  api: { getMinigames: vi.fn() },
 }));
+
+const DEMO: GameConfig = {
+  id: 1,
+  title: 'Т',
+  minigameId: 'demo',
+  config: {},
+  characterId: null,
+  preDialogueId: null,
+  postWinDialogueId: null,
+  postLoseDialogueId: null,
+  styleDialogues: {},
+};
 
 describe('fillPlaceholders', () => {
   it('подставляет имя в строки на любой глубине', () => {
@@ -51,17 +63,6 @@ describe('launchMinigame — onLine', () => {
     (globalThis as { document?: unknown }).document = {
       createElement: () => ({ style: {}, remove: vi.fn() }),
     };
-    vi.mocked(api.getGameConfig).mockResolvedValue({
-      id: 1,
-      title: 'Т',
-      minigameId: 'demo',
-      config: {},
-      characterId: null,
-      preDialogueId: null,
-      postWinDialogueId: null,
-      postLoseDialogueId: null,
-      styleDialogues: {},
-    });
     vi.mocked(api.getMinigames).mockResolvedValue([
       {
         id: 'demo',
@@ -75,7 +76,7 @@ describe('launchMinigame — onLine', () => {
     const onLine = vi.fn();
     await launchMinigame({
       container,
-      gameId: 1,
+      config: DEMO,
       audio: { muted: false, musicVolume: 70, sfxVolume: 100 },
       onLine,
       onFinished: vi.fn(),

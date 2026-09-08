@@ -1033,6 +1033,14 @@ textarea {
   width: 100%;
 }
 
+/* Число вне minimum/maximum схемы приводится к границе — поле остаётся
+   подсвеченным, чтобы подмена значения не прошла незамеченной. */
+.sf-field input.sf-num--clamped,
+input.sf-num--clamped {
+  border-color: #E86836;
+  color: #F0A488;
+}
+
 .sf-field-check {
   flex-direction: row;
   align-items: center;
@@ -1961,6 +1969,11 @@ textarea {
   color: #F2F7F3;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
   animation: toast-in 0.18s ease-out;
+  /* host is click-through; the message itself is clickable — click dismisses it */
+  pointer-events: auto;
+  cursor: pointer;
+  max-width: 480px;
+  white-space: pre-wrap;
 }
 
 .toast--success {

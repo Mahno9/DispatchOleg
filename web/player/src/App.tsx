@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -17,6 +18,7 @@ import {
 } from './api';
 import { getSnapshot as cameraSnapshot, subscribe as subscribeCamera } from './camera/camera';
 import { pickPostDialogue } from './dialogue/engine';
+import { ExitConfirm } from './ui/ExitConfirm';
 import { CrtOverlay } from './fx/CrtOverlay';
 import { DEFAULT_PLAYER_NAME } from './game/minigameLoader';
 import { localState } from './state/localState';
@@ -59,6 +61,42 @@ interface DialogueStep {
 }
 
 const SYNC_INTERVAL_S = 20;
+/** Ниже этого синк не опускаем: ноль из админки устроил бы шторм запросов. */
+const MIN_SYNC_INTERVAL_S = 5;
+
+/** Период синка из настройки `sync_interval_s`; не число — запасные 20 с. */
+export function syncIntervalS(raw: unknown): number {
+  const seconds =
+    typeof raw === 'number' && Number.isFinite(raw) ? Math.round(raw) : SYNC_INTERVAL_S;
+  return Math.max(MIN_SYNC_INTERVAL_S, seconds);
+}
+
+/** Сообщение в слоте 2 меты, когда конфиг задания не доехал. */
+const LAUNCH_FAIL_TEXT = 'Задание не загрузилось · повторите';
+
+/** Что делать с ответом `getGameConfig`: экран запуска или молчание. */
+export type LaunchAction =
+  | { kind: 'ignore' }
+  | { kind: 'minigame' }
+  | { kind: 'dialogue'; dialogueId: number }
+  | { kind: 'error' };
+
+/**
+ * Реакция на ответ `getGameConfig`. `run` — номер запуска, на который его
+ * ждали, `currentRun` — текущий: пока конфиг летел, игрок мог нажать «Отмена»
+ * или улететь на онбординг, и поздний ответ обязан промолчать, а не выкинуть
+ * его в пустую мини-игру.
+ */
+export function launchAction(
+  run: number,
+  currentRun: number,
+  config: GameConfig | null,
+): LaunchAction {
+  if (run !== currentRun) return { kind: 'ignore' };
+  if (!config) return { kind: 'error' };
+  if (config.preDialogueId === null) return { kind: 'minigame' };
+  return { kind: 'dialogue', dialogueId: config.preDialogueId };
+}
 
 function useClock(): string {
   const [now, setNow] = useState(() => new Date());
@@ -85,6 +123,10 @@ export function App() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedGame, setSelectedGame] = useState<VerifiedGame | null>(null);
   const [onboardStatus, setOnboardStatus] = useState('');
+  /** Почему сорвался запуск задания — строкой в слоте 2 меты, по-русски. */
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  /** Период фонового синка: настройка админки, до её приезда — запасные 20 с. */
+  const [syncSeconds, setSyncSeconds] = useState(SYNC_INTERVAL_S);
   /** Texts/timings of the tutorial game — null until (or unless) it loads. */
   const [tutorialConfig, setTutorialConfig] = useState<Record<string, unknown> | null>(null);
   /** Фоновая петля лобби из настроек (`meta_music_url`); null — тишина. */
@@ -111,6 +153,8 @@ export function App() {
    * (кухня, тетрис): портрета в панели тогда тоже нет, ему нечего озвучивать.
    */
   const [speaking, setSpeaking] = useState<'character' | 'player' | null>(null);
+  /** Игрок нажал «Выйти» из мини-игры — ждём подтверждения, игра заморожена. */
+  const [confirmExit, setConfirmExit] = useState(false);
 
   // Onboarding hands this to timer-driven screens: it must be referentially
   // stable, or their setTimeout effects restart on every App re-render (the
@@ -121,7 +165,13 @@ export function App() {
     setScreen('meta');
   }, []);
 
+  /** Номер текущего запуска: сверка в колбэке отсекает ответ отменённого. */
+  const runRef = useRef(0);
+
   const endChain = useCallback(() => {
+    // Уходим с экрана запуска — конфиг, который ещё в пути, больше не нужен.
+    runRef.current += 1;
+    setConfirmExit(false);
     setDialogue(null);
     setGameConfig(null);
     setSelectedGame(null);
@@ -131,24 +181,45 @@ export function App() {
   }, []);
 
   // pre-dialogue → minigame → post-dialogue, entered from a QR scan or a test run.
-  const startGame = useCallback((game: VerifiedGame) => {
-    setSelectedGame(game);
-    setSpeaking(null);
-    setScreen('launch');
-    api.getGameConfig(game.id).then(
-      (config) => {
-        setGameConfig(config);
-        if (config.preDialogueId === null) return setScreen('minigame');
-        setDialogue({ id: config.preDialogueId, then: 'minigame' });
-        setScreen('dialogue');
-      },
-      (err: unknown) => {
-        // The loader fetches the config too — let it report the failure.
-        console.error('[app] failed to load game config', err);
-        setScreen('minigame');
-      },
-    );
-  }, []);
+  const startGame = useCallback(
+    (game: VerifiedGame) => {
+      const run = (runRef.current += 1);
+      setLaunchError(null);
+      setConfirmExit(false);
+      setSelectedGame(game);
+      setSpeaking(null);
+      setScreen('launch');
+
+      const apply = (config: GameConfig | null): void => {
+        const action = launchAction(run, runRef.current, config);
+        switch (action.kind) {
+          case 'ignore':
+            return;
+          case 'error':
+            // Конфиг не доехал: назад на мету с русской строкой — пустой экран
+            // мини-игры и английский `Failed to fetch` игроку ни о чём не говорят.
+            setLaunchError(LAUNCH_FAIL_TEXT);
+            return endChain();
+          case 'minigame':
+            setGameConfig(config);
+            return setScreen('minigame');
+          case 'dialogue':
+            setGameConfig(config);
+            setDialogue({ id: action.dialogueId, then: 'minigame' });
+            return setScreen('dialogue');
+        }
+      };
+
+      api.getGameConfig(game.id).then(
+        (config) => apply(config),
+        (err: unknown) => {
+          console.error('[app] failed to load game config', err);
+          apply(null);
+        },
+      );
+    },
+    [endChain],
+  );
 
   // ?test=game:<id> — straight into the chain, no QR.
   useEffect(() => {
@@ -198,6 +269,7 @@ export function App() {
         setClickSound(settings.ui_click_sound_url ?? null);
         setVoices(normalizeVoices(settings.character_voices));
         setNoQr(settings.no_qr === true);
+        setSyncSeconds(syncIntervalS(settings.sync_interval_s));
       },
       (err: unknown) => console.error('[app] failed to load settings', err),
     );
@@ -205,8 +277,10 @@ export function App() {
 
   useEffect(() => {
     void syncNow();
-    return startSync(SYNC_INTERVAL_S);
   }, []);
+
+  // Период приезжает настройкой позже старта — интервал тогда перезапускается.
+  useEffect(() => startSync(syncSeconds), [syncSeconds]);
 
   // Щелчок по кнопкам — на всех экранах; у мини-игр в iframe свой звук, и их
   // клики до этого документа не долетают.
@@ -221,7 +295,10 @@ export function App() {
 
   // Onboarding is a one-way gate: leaving it is what sets `onboarded`.
   useEffect(() => {
-    if (!state.onboarded && screen !== 'onboarding') setScreen('onboarding');
+    if (state.onboarded || screen === 'onboarding') return;
+    // Тоже уход с экрана запуска (истёкшая сессия): ответ конфига обязан молчать.
+    runRef.current += 1;
+    setScreen('onboarding');
   }, [state.onboarded, screen]);
 
   const playable = games.filter((g) => !g.isTutorial);
@@ -319,6 +396,12 @@ export function App() {
           {remaining > 0 && (
             <div className="label">Сначала опросите персонал · осталось {remaining}</div>
           )}
+          {launchError && (
+            <div className="label error-line">
+              <i className="marker marker-blink" />
+              {launchError}
+            </div>
+          )}
         </>
       );
       action = (
@@ -398,10 +481,13 @@ export function App() {
     case 'minigame':
       // Slot 2 is fed by the game's onProgress; slot 3 stays platform-owned —
       // the minigame cannot write to either (docs/platform.md §3.6).
-      workarea = selectedGame && (
+      workarea = selectedGame && gameConfig && (
         <MinigameScreen
           gameId={selectedGame.id}
           minigameId={selectedGame.minigameId}
+          // Конфиг уже загружен startGame — лоадер за ним второй раз не ходит.
+          config={gameConfig}
+          paused={confirmExit}
           audio={state.prefs}
           speaker={gameCharacter?.name ?? ''}
           characterId={gameConfig?.characterId ?? null}
@@ -427,7 +513,11 @@ export function App() {
         <BarPortrait character={gameCharacter} speaking={speaking === 'character'} />
       );
       action = (
-        <button type="button" className="btn btn-key btn-danger" onClick={endChain}>
+        <button
+          type="button"
+          className="btn btn-key btn-danger"
+          onClick={() => setConfirmExit(true)}
+        >
           Выйти
         </button>
       );
@@ -474,7 +564,13 @@ export function App() {
         </span>
       </div>
 
-      <div className="workarea">{workarea}</div>
+      <div className="workarea">
+        {workarea}
+        {/* Только ручной выход: штатный конец игры уводит с экрана сам. */}
+        {screen === 'minigame' && confirmExit && (
+          <ExitConfirm onConfirm={endChain} onCancel={() => setConfirmExit(false)} />
+        )}
+      </div>
 
       {/* The camera slot comes alive as soon as onboarding gets the stream. */}
       <BottomBar

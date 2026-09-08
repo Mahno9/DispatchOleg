@@ -9,6 +9,7 @@ import {
 } from '../api';
 import { MinigameConfigModal, TestRunOverlay, mergeTop, diffTop, type Cfg } from './MinigamesSection';
 import { showToast } from '../toast';
+import { UnsavedChangesModal, useUnsavedGuard } from '../ui/UnsavedGuard';
 
 type DialogueRef = { id: number; title: string };
 
@@ -145,6 +146,8 @@ export function GamesSection() {
   const [minigames, setMinigames] = useState<Minigame[]>([]);
   const [draft, setDraft] = useState<Game | null>(null);
   const [styleRows, setStyleRows] = useState<{ tag: string; id: number }[]>([]);
+  /** Снимок последнего сохранённого черновика — по нему считается «есть правки». */
+  const [baseline, setBaseline] = useState('');
   const [qrGame, setQrGame] = useState<Game | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [testRun, setTestRun] = useState(false);
@@ -162,11 +165,27 @@ export function GamesSection() {
       .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Ошибка загрузки'));
   }, []);
 
+  // config правится в отдельном окне со своим вопросом о потере правок — здесь
+  // его из снимка исключаем, иначе сохранение конфига делало карточку «грязной».
+  function snapshot(game: Game | null, rows: { tag: string; id: number }[]): string {
+    return game === null ? '' : JSON.stringify([{ ...game, config: null }, rows]);
+  }
+
   function edit(game: Game) {
+    const rows = Object.entries(game.styleDialogues).map(([tag, id]) => ({ tag, id }));
     setDraft(game);
-    setStyleRows(Object.entries(game.styleDialogues).map(([tag, id]) => ({ tag, id })));
+    setStyleRows(rows);
+    setBaseline(snapshot(game, rows));
     setError(null);
   }
+
+  function close() {
+    setDraft(null);
+    setBaseline('');
+  }
+
+  const dirty = draft !== null && snapshot(draft, styleRows) !== baseline;
+  const guard = useUnsavedGuard(dirty);
 
   function patch(p: Partial<Game>) {
     setDraft((cur) => (cur ? { ...cur, ...p } : cur));
@@ -174,8 +193,8 @@ export function GamesSection() {
 
   const minigame = minigames.find((m) => m.id === draft?.minigameId);
 
-  async function save() {
-    if (!draft) return;
+  async function save(): Promise<boolean> {
+    if (!draft) return false;
     const styleDialogues: Record<string, number> = {};
     for (const row of styleRows) {
       if (row.tag.trim() !== '') styleDialogues[row.tag.trim()] = row.id;
@@ -189,13 +208,20 @@ export function GamesSection() {
       setGames(await api.getGames());
       edit(saved);
       showToast('Сохранено');
+      return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка сохранения';
       setError(msg);
       showToast(msg, 'error');
+      return false;
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveAndClose() {
+    // Не сохранилось (сеть, сервер) — вопрос остаётся, текст ошибки уже в тосте.
+    if (await save()) guard.proceed();
   }
 
   async function remove() {
@@ -204,7 +230,7 @@ export function GamesSection() {
     try {
       await api.deleteGame(draft.id);
       setGames(await api.getGames());
-      setDraft(null);
+      close();
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка удаления', 'error');
     }
@@ -215,7 +241,7 @@ export function GamesSection() {
       <div className='poi-panel-header'>
         <h3 className='lb-block-title'>Игры</h3>
         <button
-          onClick={() => edit(blankGame(minigames[0]?.id ?? '', games.length))}
+          onClick={() => guard.run(() => edit(blankGame(minigames[0]?.id ?? '', games.length)))}
           disabled={minigames.length === 0}
         >
           + Новая игра
@@ -234,7 +260,7 @@ export function GamesSection() {
             <button
               key={g.id}
               className={`minigames-row${draft?.id === g.id ? ' minigames-row--active' : ''}`}
-              onClick={() => edit(g)}
+              onClick={() => guard.run(() => edit(g))}
             >
               <span className='minigames-row-name'>
                 {g.isTutorial ? '⌂ ' : ''}
@@ -250,7 +276,7 @@ export function GamesSection() {
           <div className='two-pane-panel poi-edit-panel'>
             <div className='poi-panel-header'>
               <strong>{draft.id === NEW_ID ? 'Новая игра' : `Игра #${draft.id}`}</strong>
-              <button className='poi-close-btn' onClick={() => setDraft(null)}>
+              <button className='poi-close-btn' onClick={() => guard.run(close)}>
                 ✕
               </button>
             </div>
@@ -445,6 +471,16 @@ export function GamesSection() {
           </div>
         )}
       </div>
+
+      {guard.asking && (
+        <UnsavedChangesModal
+          subject={draft?.title || 'Новая игра'}
+          saving={saving}
+          onSaveAndClose={() => void saveAndClose()}
+          onDiscard={guard.proceed}
+          onCancel={guard.dismiss}
+        />
+      )}
 
       {qrGame && <QrModal game={qrGame} onClose={() => setQrGame(null)} />}
 

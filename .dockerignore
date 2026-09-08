@@ -1,0 +1,21 @@
+# Docker build context for docker/Dockerfile (context: .. — repo root).
+# Keeps the context small and, more importantly, stops host-built artifacts
+# (Windows/mac node_modules, dist) from being COPYed over what `npm ci` and
+# `npm run build` produce *inside* the container (see COPY server/ / COPY web/
+# in docker/Dockerfile — without this, host dist/node_modules would clobber
+# the container-built ones).
+#
+# Everything the build actually needs stays included: package.json files,
+# tsconfig.base.json, scripts/, minigames/ (incl. schema.json), server/, web/ —
+# see docker/Dockerfile for the exact COPY list.
+
+.git
+node_modules
+**/node_modules
+data
+artifacts
+**/dist
+.env
+.env.local
+*.log
+*.tsbuildinfo

@@ -1,3 +1,4 @@
 -- Фоновая музыка лобби (мета/скан/запуск). null — тишины, как было.
-INSERT INTO settings (key, value_json) VALUES
+-- OR IGNORE: ключ мог приехать из content/settings.json раньше миграции.
+INSERT OR IGNORE INTO settings (key, value_json) VALUES
   ('meta_music_url', 'null');

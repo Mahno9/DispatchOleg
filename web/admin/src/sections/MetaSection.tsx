@@ -12,6 +12,7 @@ import {
 import { AssetPickerModal } from '../schema-form/AssetPickerModal';
 import { BG_SIZE } from '../schema-form/BgPreviewBox';
 import { showToast } from '../toast';
+import { UnsavedChangesModal, useUnsavedGuard } from '../ui/UnsavedGuard';
 
 const NEW_ID = 0;
 
@@ -225,10 +226,22 @@ export function MetaSection() {
   const [dialogues, setDialogues] = useState<{ id: number; title: string }[]>([]);
   const [games, setGames] = useState<Game[]>([]);
   const [draft, setDraft] = useState<MetaStage | null>(null);
+  /** Снимок последнего сохранённого черновика — по нему считается «есть правки». */
+  const [baseline, setBaseline] = useState('');
   const [picking, setPicking] = useState(false);
   const [addId, setAddId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /** Открыть/закрыть карточку этапа, сбросив точку отсчёта правок. */
+  function edit(stage: MetaStage | null) {
+    setDraft(stage);
+    setBaseline(JSON.stringify(stage));
+    setAddId('');
+  }
+
+  const dirty = draft !== null && JSON.stringify(draft) !== baseline;
+  const guard = useUnsavedGuard(dirty);
 
   useEffect(() => {
     // Каждый источник грузим независимо: падение одного не должно гасить секцию.
@@ -292,8 +305,8 @@ export function MetaSection() {
     }
   }
 
-  async function save() {
-    if (!draft) return;
+  async function save(): Promise<boolean> {
+    if (!draft) return false;
     const { id, ...body } = draft;
     setSaving(true);
     setError(null);
@@ -301,15 +314,22 @@ export function MetaSection() {
       const saved =
         id === NEW_ID ? await api.createMetaStage(body) : await api.updateMetaStage(id, body);
       await reload();
-      setDraft(saved);
+      edit(saved);
       showToast('Сохранено');
+      return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка сохранения';
       setError(msg);
       showToast(msg, 'error');
+      return false;
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveAndClose() {
+    // Не сохранилось (сеть, сервер) — вопрос остаётся, текст ошибки уже в тосте.
+    if (await save()) guard.proceed();
   }
 
   async function remove() {
@@ -318,7 +338,7 @@ export function MetaSection() {
     try {
       await api.deleteMetaStage(draft.id);
       await reload();
-      setDraft(null);
+      edit(null);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка удаления', 'error');
     }
@@ -332,12 +352,7 @@ export function MetaSection() {
     <div className='lb-section'>
       <div className='poi-panel-header'>
         <h3 className='lb-block-title'>Мета</h3>
-        <button
-          onClick={() => {
-            setDraft(blankStage(sorted.length));
-            setAddId('');
-          }}
-        >
+        <button onClick={() => guard.run(() => edit(blankStage(sorted.length)))}>
           + Новый этап
         </button>
       </div>
@@ -349,10 +364,7 @@ export function MetaSection() {
             <button
               key={s.id}
               className={`minigames-row${draft?.id === s.id ? ' minigames-row--active' : ''}`}
-              onClick={() => {
-                setDraft(s);
-                setAddId('');
-              }}
+              onClick={() => guard.run(() => edit(s))}
             >
               <span className='minigames-row-name'>{s.title || `Этап ${i + 1}`}</span>
               <span className='minigames-row-game'>{triggerSummary(s.trigger, games)}</span>
@@ -365,7 +377,7 @@ export function MetaSection() {
           <div className='two-pane-panel poi-edit-panel meta-ed-panel'>
             <div className='poi-panel-header'>
               <strong>{draft.id === NEW_ID ? 'Новый этап' : `Этап #${draft.id}`}</strong>
-              <button className='poi-close-btn' onClick={() => setDraft(null)}>
+              <button className='poi-close-btn' onClick={() => guard.run(() => edit(null))}>
                 ✕
               </button>
             </div>
@@ -619,6 +631,16 @@ export function MetaSection() {
             setPicking(false);
           }}
           onClose={() => setPicking(false)}
+        />
+      )}
+
+      {guard.asking && (
+        <UnsavedChangesModal
+          subject={draft?.title || 'Новый этап'}
+          saving={saving}
+          onSaveAndClose={() => void saveAndClose()}
+          onDiscard={guard.proceed}
+          onCancel={guard.dismiss}
         />
       )}
     </div>

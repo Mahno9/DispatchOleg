@@ -3,6 +3,8 @@
 // Гит — источник правды для контента, БД — рабочая копия. Загрузка замещающая:
 // контентные таблицы чистятся целиком и наполняются строками из файлов с теми же
 // id. Слияние двух правок делает гит на уровне текста, а не этот скрипт.
+// Исключение — settings: там ключи заводят миграции, поэтому ключи из файла
+// перезаписываются, а остальные остаются на месте.
 //
 // users / game_states / schema_migrations не трогаются никогда — это прогресс
 // игроков и служебка, а не контент.
@@ -137,7 +139,11 @@ export function load(db, dir, assetsDir) {
 
   db.transaction(() => {
     // Обратный порядок: games ссылаются на characters/dialogues, meta_stages — на characters.
-    for (const { table } of [...TABLES].reverse()) db.prepare(`DELETE FROM ${table}`).run();
+    // settings не чистим: ключ, заведённый миграцией после снятия дампа
+    // (meta_music_url и такие же), пропал бы навсегда — миграция уже отмечена
+    // выполненной и не повторится. Ключи из файла ниже перезаписываются upsert'ом.
+    for (const { table } of [...TABLES].reverse())
+      if (table !== 'settings') db.prepare(`DELETE FROM ${table}`).run();
 
     for (const { table, rows, jsonCols } of payload) {
       if (rows.length === 0) {
@@ -146,8 +152,11 @@ export function load(db, dir, assetsDir) {
       }
       // Колонки берём из первой строки: файл писал dump, порядок = порядок колонок таблицы.
       const cols = Object.keys(rows[0]);
+      // OR REPLACE только для settings — единственной таблицы, которую не чистили;
+      // на неё никто не ссылается по внешнему ключу, так что replace безопасен.
+      const verb = table === 'settings' ? 'INSERT OR REPLACE INTO' : 'INSERT INTO';
       const stmt = db.prepare(
-        `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`,
+        `${verb} ${table} (${cols.join(', ')}) VALUES (${cols.map(() => '?').join(', ')})`,
       );
       for (const row of rows)
         stmt.run(cols.map((c) => (jsonCols.includes(c) ? JSON.stringify(row[c]) : row[c])));

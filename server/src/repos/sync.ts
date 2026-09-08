@@ -28,6 +28,9 @@ export interface ClientStatePayload {
   /** Id диалогов, дочитанных до конца. Слияние — объединение множеств (как onboarded = OR).
    *  Опционально ради старых клиентов, ещё не присылающих это поле. */
   seenDialogues?: number[];
+  /** Id мини-игр, для которых инструктаж уже показан. Слияние — объединение множеств,
+   *  как seenDialogues. Опционально ради старых клиентов, ещё не присылающих это поле. */
+  briefedMinigames?: string[];
   /**
    * Admin-reset tombstones: gameId → removedAt (server clock, ms). Server-authoritative —
    * client echoes are ignored on merge. A merged gameResults entry is dropped when its
@@ -124,6 +127,16 @@ function mergeSeenDialogues(a?: number[], b?: number[]): number[] | undefined {
 }
 
 /**
+ * Union two briefedMinigames lists, deduped and sorted ascending — same shape as
+ * mergeSeenDialogues. Both sides empty/undefined → undefined, so the field isn't
+ * manufactured out of nothing.
+ */
+function mergeBriefedMinigames(a?: string[], b?: string[]): string[] | undefined {
+  if ((a === undefined || a.length === 0) && (b === undefined || b.length === 0)) return undefined;
+  return Array.from(new Set([...(a ?? []), ...(b ?? [])])).sort();
+}
+
+/**
  * Drop merged entries killed by admin-reset tombstones: an entry whose
  * firstCompletedAt <= removedAt is a stale pre-reset copy and must not survive.
  */
@@ -170,6 +183,10 @@ export function resolveSync(
       incoming.state.seenDialogues,
       serverRow.payload.seenDialogues,
     );
+    const briefedMinigames = mergeBriefedMinigames(
+      incoming.state.briefedMinigames,
+      serverRow.payload.briefedMinigames,
+    );
     const mergedPayload: ClientStatePayload = {
       ...incoming.state,
       gameResults,
@@ -180,14 +197,18 @@ export function resolveSync(
     if (tombstones !== undefined) mergedPayload.removedGames = tombstones;
     delete mergedPayload.seenDialogues;
     if (seenDialogues !== undefined) mergedPayload.seenDialogues = seenDialogues;
+    delete mergedPayload.briefedMinigames;
+    if (briefedMinigames !== undefined) mergedPayload.briefedMinigames = briefedMinigames;
     return {
       // A tombstone kill also forces 'merged' so the client adopts the reset now,
-      // not on the next sync cycle; same for seenDialogues growing past what incoming sent.
+      // not on the next sync cycle; same for seenDialogues/briefedMinigames growing
+      // past what incoming sent.
       outcome:
         changed ||
         tombstoned ||
         onboarded !== Boolean(incoming.state.onboarded) ||
-        (seenDialogues?.length ?? 0) !== (incoming.state.seenDialogues?.length ?? 0)
+        (seenDialogues?.length ?? 0) !== (incoming.state.seenDialogues?.length ?? 0) ||
+        (briefedMinigames?.length ?? 0) !== (incoming.state.briefedMinigames?.length ?? 0)
           ? 'merged'
           : 'accepted',
       merged: mergedPayload,
@@ -203,6 +224,10 @@ export function resolveSync(
       serverRow.payload.seenDialogues,
       incoming.state.seenDialogues,
     );
+    const briefedMinigames = mergeBriefedMinigames(
+      serverRow.payload.briefedMinigames,
+      incoming.state.briefedMinigames,
+    );
     const mergedPayload: ClientStatePayload = {
       ...serverRow.payload,
       gameResults,
@@ -210,6 +235,8 @@ export function resolveSync(
     };
     delete mergedPayload.seenDialogues;
     if (seenDialogues !== undefined) mergedPayload.seenDialogues = seenDialogues;
+    delete mergedPayload.briefedMinigames;
+    if (briefedMinigames !== undefined) mergedPayload.briefedMinigames = briefedMinigames;
     return {
       outcome: 'server-newer',
       merged: mergedPayload,

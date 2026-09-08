@@ -38,32 +38,6 @@ export type WeightedAudio = { url: string; weight: number; volume?: number };
 /** Строка — легаси-форма с единственным файлом; массив — взвешенный выбор. */
 export type AudioValue = string | WeightedAudio[];
 
-/** `0` — валидная громкость (полная тишина варианта), `|| 100` её бы съело. */
-function volumeOf(v: { volume?: number }): number {
-  const n = Number(v.volume);
-  return Number.isFinite(n) ? n : 100;
-}
-
-/**
- * Взвешенный выбор варианта звука. Нужен, чтобы повторяющееся действие —
- * взять карточку, бросить карточку — не било в одну и ту же запись подряд.
- */
-export function pickSound(
-  value: AudioValue | undefined,
-  random: number = Math.random(),
-): { url: string; volume: number } | undefined {
-  if (!value) return undefined;
-  if (typeof value === 'string') return { url: value, volume: 100 };
-  if (!value.length) return undefined;
-  let r = random * value.reduce((s, v) => s + (Number(v.weight) || 0), 0);
-  for (const v of value) {
-    r -= Number(v.weight) || 0;
-    if (r <= 0) return { url: v.url, volume: volumeOf(v) };
-  }
-  const last = value[value.length - 1]!;
-  return { url: last.url, volume: volumeOf(last) };
-}
-
 export const PLACEMENT_POINTS = 10;
 export const PAIR_POINTS = 5;
 

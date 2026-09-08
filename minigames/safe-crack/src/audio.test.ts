@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createAudio, pickSound } from './audio.js';
+// Единственные тесты общего звукового модуля: он лежит в minigames/shared и
+// подключается относительным путём из всех игр, а гоняется этим воркспейсом.
+import { createAudio, pickSound } from '../../shared/audio.js';
 
 class FakeAudio {
   static nodes: FakeAudio[] = [];
@@ -76,7 +78,7 @@ describe('music and audio lifetime', () => {
     audio.destroy();
   });
 
-  it('mutes and resumes music plus the current held ingredient without resetting its loop', () => {
+  it('mutes and resumes music plus the active loop without restarting it', () => {
     const audio = createAudio('music.ogg', { muted: true });
     audio.retryMusic();
     audio.startLoop('pour.ogg');
@@ -94,9 +96,9 @@ describe('music and audio lifetime', () => {
   it('stops all in-flight effects on exit and cannot restart music after finish or destroy', () => {
     const audio = createAudio('music.ogg', {});
     audio.retryMusic();
-    audio.startLoop('cook.ogg');
+    audio.startLoop('loop.ogg');
     audio.play('fail.ogg');
-    audio.play('wipe.ogg');
+    audio.play('alarm.ogg');
     audio.finishMusic();
     audio.retryMusic();
     expect(FakeAudio.nodes[0]).toMatchObject({ paused: true, src: null, plays: 1 });
@@ -107,6 +109,15 @@ describe('music and audio lifetime', () => {
     audio.play('late.ogg');
     expect(FakeAudio.nodes).toHaveLength(4);
     expect(FakeAudio.nodes.every(node => node.paused && node.src === null && node.loads === 1)).toBe(true);
+  });
+
+  it('silences a one-shot fired the instant before the exit', () => {
+    const audio = createAudio(undefined, {});
+    audio.play('exit-cue.ogg');
+    const cue = FakeAudio.nodes.at(-1)!;
+    expect(cue).toMatchObject({ paused: false, plays: 1 });
+    audio.destroy();
+    expect(cue).toMatchObject({ paused: true, src: null });
   });
 
   it('respects zero SFX gain and updates active one-shot volume', () => {

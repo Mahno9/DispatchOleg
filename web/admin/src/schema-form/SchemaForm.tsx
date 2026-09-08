@@ -100,6 +100,33 @@ function defaultFor(schema: Schema): Json {
 }
 
 // ---------------------------------------------------------------------------
+// Required check — schema.required used to be declared and never read
+// ---------------------------------------------------------------------------
+
+function isBlank(v: Json): boolean {
+  return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+}
+
+/**
+ * Labels of top-level `required` properties left empty. Empty result = ok.
+ *
+ * Top level only, on purpose: inside array items an empty string is often a
+ * legitimate value for a declared-required field (safe-crack keeps `answer: ''`
+ * for the hold-button widget), so recursing would block saves on valid configs.
+ */
+export function missingRequired(schema: Schema, value: Json): string[] {
+  const obj =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, Json>)
+      : {};
+  const out: string[] = [];
+  for (const key of schema.required ?? []) {
+    if (isBlank(obj[key])) out.push(schema.properties?.[key]?.title ?? key);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Asset upload widget (image / gif / audio)
 // ---------------------------------------------------------------------------
 

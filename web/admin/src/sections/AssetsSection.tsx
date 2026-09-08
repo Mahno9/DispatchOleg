@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, type Asset } from '../api';
+import { api, type Asset, type AssetUsage } from '../api';
+import { showToast } from '../toast';
 import { MEDIA_ACCEPT } from '../asset-accept';
 import { MultiAudioWidget, normalizeAudio, type WeightedAudio } from '../schema-form/SchemaForm';
 
@@ -18,6 +19,31 @@ const KIND_LABEL: Record<Asset['kind'], string> = {
   audio: 'Аудио',
 };
 
+const ASSET_USAGE_KIND: Record<AssetUsage['kind'], string> = {
+  game: 'игра',
+  character: 'персонаж',
+  dialogue: 'диалог',
+  metaStage: 'этап меты',
+  setting: 'настройка',
+};
+
+/**
+ * Текст-приписка к подтверждению удаления ассета: список мест, где он
+ * используется, или пустая строка, если использований нет — в этом случае
+ * подтверждение остаётся коротким, без пустого «используется:» блока.
+ *
+ * В отличие от диалогов, ссылка на удалённый ассет в конфиге не обнуляется
+ * (это отдельное решение, которое никто не принимал) — поэтому текст честно
+ * предупреждает, что ссылки останутся битыми, а не «будут сняты».
+ */
+export function formatAssetUsageWarning(usage: AssetUsage[]): string {
+  if (usage.length === 0) return '';
+  const used = usage
+    .map((u) => `• ${ASSET_USAGE_KIND[u.kind]} «${u.title}» (#${u.id}) — ${u.field}`)
+    .join('\n');
+  return `\n\nОн используется:\n${used}\n\nЭти ссылки останутся битыми.`;
+}
+
 // ---------------------------------------------------------------------------
 // Asset card
 // ---------------------------------------------------------------------------
@@ -28,12 +54,6 @@ interface AssetCardProps {
 }
 
 function AssetCard({ asset, onDelete }: AssetCardProps) {
-  function handleDelete() {
-    if (window.confirm(`Удалить файл «${asset.originalName}»?`)) {
-      onDelete(asset.id);
-    }
-  }
-
   return (
     <div className='asset-card'>
       <div className='asset-card-preview'>
@@ -52,7 +72,7 @@ function AssetCard({ asset, onDelete }: AssetCardProps) {
           <span className='asset-size'>{formatSize(asset.sizeBytes)}</span>
         </div>
       </div>
-      <button className='asset-delete-btn' onClick={handleDelete} title='Удалить'>
+      <button className='asset-delete-btn' onClick={() => onDelete(asset.id)} title='Удалить'>
         ✕
       </button>
     </div>
@@ -79,7 +99,12 @@ export function AssetsSection() {
       setAssets(list);
       setSounds(normalizeAudio(s.ui_click_sound_url));
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((e: unknown) => {
+      // Молчаливый провал показывал «Нет загруженных ассетов» — пустую библиотеку
+      // не отличить от упавшего запроса.
+      showToast(e instanceof Error ? e.message : 'Ошибка загрузки ассетов', 'error');
+      setLoading(false);
+    });
   }, []);
 
   async function handleUpload(files: FileList) {
@@ -102,18 +127,29 @@ export function AssetsSection() {
 
   async function handleDelete(id: string) {
     const deleted = assets.find((a) => a.id === id);
+    if (!deleted) return;
+    // Сперва спрашиваем сервер, кто на ассет ссылается: молчаливое удаление
+    // оставляло битые ссылки в конфигах игр, портретах, узлах диалогов и
+    // мете — всплывали они уже в check-content, после выгрузки контента в гит.
+    let usage: AssetUsage[];
+    try {
+      usage = await api.getAssetUsage(id);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Не удалось проверить использование', 'error');
+      return;
+    }
+    const warn = formatAssetUsageWarning(usage);
+    if (!window.confirm(`Удалить файл «${deleted.originalName}»?${warn}`)) return;
     try {
       await api.deleteAsset(id);
       setAssets((prev) => prev.filter((a) => a.id !== id));
-      if (deleted) {
-        const next = sounds.filter((s) => s.url !== deleted.url);
-        if (next.length !== sounds.length) {
-          setSounds(next);
-          await saveSounds(next);
-        }
+      const next = sounds.filter((s) => s.url !== deleted.url);
+      if (next.length !== sounds.length) {
+        setSounds(next);
+        await saveSounds(next);
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Ошибка удаления', 'error');
     }
   }
 
@@ -124,8 +160,8 @@ export function AssetsSection() {
       setSounds(normalizeAudio(updated.ui_click_sound_url));
       setSoundSaved(true);
       setTimeout(() => setSoundSaved(false), 2000);
-    } catch {
-      // ignore
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Ошибка сохранения', 'error');
     } finally {
       setSoundSaving(false);
     }

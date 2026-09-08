@@ -13,28 +13,31 @@ import { qrRoutes } from './routes/qr.js';
 import { sessionRoutes } from './routes/session.js';
 import { assetsRoutes } from './routes/assets.js';
 
+/**
+ * Кому верим на слово про X-Forwarded-*. Обратный прокси всегда рядом: в docker
+ * cloudflared стучится с адреса частной сети, в quick-tunnel — с петли. Чужой
+ * запрос прямо с публичного адреса (порт открыт по недосмотру) подделать
+ * протокол и ip уже не может, а от этого зависят secure у cookie, ip в логах и
+ * ключ лимита попыток логина.
+ */
+export const TRUST_PROXY = ['loopback', 'linklocal', 'uniquelocal'];
+
 export async function buildApp() {
   const app = Fastify({
     logger: { level: config.logLevel },
     // Trust reverse-proxy headers (X-Forwarded-Proto/Host) so req.protocol is
     // 'https' behind cloudflared/CDN.
-    trustProxy: true,
+    trustProxy: TRUST_PROXY,
   });
 
   app.get('/api/health', async () => ({ status: 'ok', uptime: process.uptime() }));
 
-  // Allow cross-origin access to public read-only assets (stored files,
-  // minigames). Needed in dev where player (5173) and admin (5174) are on
-  // different origins from the backend (8081). Harmless in prod (same-origin).
-  app.addHook('onSend', async (req, reply) => {
-    const { url } = req;
-    if (url.startsWith('/assets-store/') || url.startsWith('/minigames/')) {
-      void reply.header('Access-Control-Allow-Origin', '*');
-    }
-  });
-
+  // Every uploaded part is read fully into memory (part.toBuffer() in
+  // routes/assets.ts) and the container gets 400 MB, so the ceiling has to stay
+  // well under that. The biggest real asset is a ~1.9 MB music loop; 10 MB
+  // leaves room for a lossless source without letting one file OOM-kill the box.
   await app.register(fastifyMultipart, {
-    limits: { fileSize: 100 * 1024 * 1024, files: 200 },
+    limits: { fileSize: 10 * 1024 * 1024, files: 20 },
   });
 
   await registerAuth(app);

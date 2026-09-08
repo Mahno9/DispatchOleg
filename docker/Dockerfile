@@ -43,6 +43,10 @@ COPY --from=build /repo/server/package.json ./server/
 COPY --from=build /repo/web/player/dist ./web/player/dist
 COPY --from=build /repo/web/admin/dist ./web/admin/dist
 
-VOLUME /data
+# Run as the non-root 'node' user baked into the base image (uid/gid 1000)
+# instead of root. /app is read-only at runtime so no chown is needed here;
+# /data is a bind-mount from the host and must be writable by uid 1000 there
+# — see deploy/README.md.
+USER node
 EXPOSE 8080
 CMD ["node", "server/dist/index.js"]

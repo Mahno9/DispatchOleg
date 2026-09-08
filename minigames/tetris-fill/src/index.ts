@@ -1,4 +1,4 @@
-import { createAudio, type AudioValue } from './audio.js';
+import { createAudio, type AudioValue } from '../../shared/audio.js';
 import {
   EmptyShapeError,
   createFallState,

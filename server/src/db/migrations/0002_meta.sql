@@ -7,5 +7,7 @@ CREATE TABLE meta_stages (
   trigger_json    TEXT NOT NULL DEFAULT '{"type":"wonCount","value":0}'
 );
 
-INSERT INTO settings (key, value_json) VALUES
+-- OR IGNORE: content:load мог уже залить этот ключ из content/settings.json,
+-- и тогда голый INSERT ронял бы старт на UNIQUE constraint.
+INSERT OR IGNORE INTO settings (key, value_json) VALUES
   ('final_victory_text', '"ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ. СМЕНА ЗАКРЫТА. СПАСИБО, ОПЕРАТОР."');

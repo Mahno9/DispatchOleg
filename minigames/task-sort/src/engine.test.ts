@@ -8,7 +8,6 @@ import {
   isOwnActive,
   maxScoreFor,
   normalizeTasks,
-  pickSound,
   probeTicks,
   shouldPlayReadyCue,
   shuffle,
@@ -225,59 +224,6 @@ describe('helpers', () => {
       expect(ms).toBeLessThanOrEqual(PROBE_MAX_MS + PROBE_TICK_MS / 2);
     }
     expect(probeTicks(0)).toBeLessThan(probeTicks(1));
-  });
-});
-
-describe('pickSound', () => {
-  const list = [
-    { url: '/a.ogg', weight: 1 },
-    { url: '/b.ogg', weight: 3 },
-    { url: '/c.ogg', weight: 1 },
-  ];
-
-  it('splits the range by weight, not by count', () => {
-    // Суммарный вес 5: [0, 0.2) → a, [0.2, 0.8) → b, [0.8, 1] → c.
-    expect(pickSound(list, 0.0)?.url).toBe('/a.ogg');
-    expect(pickSound(list, 0.19)?.url).toBe('/a.ogg');
-    expect(pickSound(list, 0.21)?.url).toBe('/b.ogg');
-    expect(pickSound(list, 0.79)?.url).toBe('/b.ogg');
-    expect(pickSound(list, 0.81)?.url).toBe('/c.ogg');
-    expect(pickSound(list, 1)?.url).toBe('/c.ogg');
-  });
-
-  it('accepts the legacy single-url form', () => {
-    expect(pickSound('/one.ogg', 0.5)).toEqual({ url: '/one.ogg', volume: 100 });
-  });
-
-  it('returns nothing when the slot is empty', () => {
-    expect(pickSound(undefined, 0.5)).toBeUndefined();
-    expect(pickSound([], 0.5)).toBeUndefined();
-  });
-
-  it('still returns a variant when every weight is zero', () => {
-    // Иначе слот с забытыми весами молча онемел бы.
-    const zeros = [
-      { url: '/x.ogg', weight: 0 },
-      { url: '/y.ogg', weight: 0 },
-    ];
-    expect(pickSound(zeros, 0.5)?.url).toBe('/x.ogg');
-    expect(pickSound(zeros, 1)?.url).toBe('/x.ogg');
-  });
-
-  it('carries the per-variant volume through', () => {
-    expect(pickSound([{ url: '/v.ogg', weight: 1, volume: 40 }], 0.5)?.volume).toBe(40);
-  });
-
-  it('volume: 0 stays silent, not falls back to 100 (0 is falsy but valid)', () => {
-    expect(pickSound([{ url: '/v.ogg', weight: 1, volume: 0 }], 0.5)?.volume).toBe(0);
-    // same fallback path taken when the picker lands on the last element
-    expect(pickSound([{ url: '/only.ogg', weight: 1, volume: 0 }], 1)?.volume).toBe(0);
-  });
-
-  it('undefined or junk volume still falls back to 100', () => {
-    expect(pickSound([{ url: '/v.ogg', weight: 1 }], 0.5)?.volume).toBe(100);
-    expect(pickSound([{ url: '/v.ogg', weight: 1, volume: NaN }], 0.5)?.volume).toBe(100);
-    expect(pickSound([{ url: '/v.ogg', weight: 1, volume: 'nope' as unknown as number }], 0.5)?.volume).toBe(100);
   });
 });
 

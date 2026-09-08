@@ -5,7 +5,8 @@ import {
   type MinigameHandle,
   type MinigameResult,
 } from '../game/minigameLoader';
-import type { AudioPrefs } from '../state/localState';
+import type { GameConfig } from '../api';
+import { localState, type AudioPrefs } from '../state/localState';
 import { TUTORIALS, resolveStep, type Dir, type TutorialStep } from '../game/tutorials';
 import { TypedLine, splitSpeaker } from '../dialogue/Line';
 import { OLEG } from '../dialogue/engine';
@@ -15,6 +16,10 @@ interface MinigameScreenProps {
   gameId: number;
   /** Какой бандл запустится — ключ инструктажа; игру грузит уже loader. */
   minigameId: string;
+  /** Конфиг задания, уже загруженный App: лоадер его не перезапрашивает. */
+  config: GameConfig;
+  /** Платформа просит игру замереть (подтверждение выхода), не разрушая её. */
+  paused?: boolean;
   /** Общий регулятор звука; меняется на лету, без перезапуска игры. */
   /** Целиком `AudioPrefs`, а не только каналы игры: реплики в слоте 2
    *  печатает голос персонажа, и ему нужны свои громкость и мьют. */
@@ -36,12 +41,23 @@ interface MinigameScreenProps {
 }
 
 /**
+ * Показывать ли инструктаж сам, без просьбы. Игра без шагов стартует сразу, как
+ * и раньше; у видевшего их игрока на повторной попытке стрелки не всплывают —
+ * он бы снова кликал их перед каждой попыткой.
+ */
+export function needsBriefing(minigameId: string, briefedMinigames: string[]): boolean {
+  return (TUTORIALS[minigameId] ?? []).length > 0 && !briefedMinigames.includes(minigameId);
+}
+
+/**
  * Host for a minigame bundle: the whole work area becomes its container, the
  * bottom bar stays platform-owned (docs/platform.md §2.5, §3.6).
  */
 export function MinigameScreen({
   gameId,
   minigameId,
+  config,
+  paused = false,
   audio,
   speaker = '',
   characterId = null,
@@ -59,8 +75,9 @@ export function MinigameScreen({
   const [loaded, setLoaded] = useState(false);
 
   const steps = TUTORIALS[minigameId] ?? [];
-  // Игра без инструктажа стартует сразу, как и раньше.
-  const [briefed, setBriefed] = useState(steps.length === 0);
+  const [briefed, setBriefed] = useState(
+    () => !needsBriefing(minigameId, localState.getSnapshot().briefedMinigames),
+  );
 
   // Имя приезжает асинхронно (список персонажей), а колбэк игры замыкается
   // один раз на запуске — читаем через ref, чтобы не перемонтировать игру.
@@ -80,6 +97,16 @@ export function MinigameScreen({
   // В запуск отдаём свежее значение через ref, дальше — через setVolume.
   const audioRef = useRef(audio);
   audioRef.current = audio;
+
+  // Конфиг замыкается на запуске, как и звук: приехать заново он не может,
+  // а перемонтировать игру из-за новой ссылки на объект — тем более незачем.
+  const configRef = useRef(config);
+  configRef.current = config;
+
+  // Пауза от платформы — тоже через ref: бандл догружается асинхронно, и к
+  // моменту resolve подтверждение выхода может уже висеть.
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   // Инструктаж лежит ПОВЕРХ смонтированной игры — иначе стрелки указывают в
   // пустоту. Но игра под ним заморожена (handle.setPaused, minigame_contract.md):
@@ -103,7 +130,7 @@ export function MinigameScreen({
 
     launchMinigame({
       container,
-      gameId,
+      config: configRef.current,
       audio: audioRef.current,
       onProgress: (text, percent) => {
         if (!live) return;
@@ -167,7 +194,7 @@ export function MinigameScreen({
         }
         handleRef.current = h;
         setLoaded(true);
-        h.setPaused?.(!briefedRef.current);
+        h.setPaused?.(!briefedRef.current || pausedRef.current);
         // Бандл грузится асинхронно: всё, что игрок накрутил регулятором за
         // это время, ушло в никуда — handleRef был ещё пуст.
         h.setVolume?.(audioRef.current);
@@ -189,8 +216,12 @@ export function MinigameScreen({
     handleRef.current?.setVolume?.(audio);
   }, [audio]);
 
+  // Игра замирает и под инструктажем, и под подтверждением выхода.
   useEffect(() => {
-    handleRef.current?.setPaused?.(!briefed);
+    handleRef.current?.setPaused?.(!briefed || paused);
+  }, [briefed, paused, loaded]);
+
+  useEffect(() => {
     cb.current.onContext(
       briefed ? (
         lineRef.current ?? progressRef.current
@@ -215,7 +246,24 @@ export function MinigameScreen({
         </div>
       )}
       {loaded && !briefed && (
-        <Briefing steps={steps} hostRef={containerRef} onStart={() => setBriefed(true)} />
+        <Briefing
+          steps={steps}
+          hostRef={containerRef}
+          onStart={() => {
+            localState.markBriefed(minigameId);
+            setBriefed(true);
+          }}
+        />
+      )}
+      {loaded && briefed && steps.length > 0 && !error && (
+        <button
+          type="button"
+          className="btn tut-again"
+          title="Показать инструктаж"
+          onClick={() => setBriefed(false)}
+        >
+          ?
+        </button>
       )}
       {error && (
         <div className="minigame-error">

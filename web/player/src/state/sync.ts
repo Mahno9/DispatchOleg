@@ -1,4 +1,4 @@
-import { api, type ServerState } from '../api';
+import { ApiError, api, type ServerState } from '../api';
 import { localState, type ClientState } from './localState';
 
 // ---------------------------------------------------------------------------
@@ -79,7 +79,17 @@ export async function syncNow(): Promise<void> {
       const incoming: ServerState = res.state;
       if (isAdoptableState(incoming)) localState.replace(incoming);
     }
-  } catch {
+  } catch (err) {
+    // 404 — сервер жив, а вот игрока с таким userId у него нет: базу
+    // пересоздали или игрока стёрли из админки. Дальше синкать нечего, и
+    // молчаливый OFFLINE навсегда — худший исход: чистим профиль, и App по
+    // снятому `onboarded` уводит игрока на онбординг регистрироваться заново.
+    if (err instanceof ApiError && err.status === 404) {
+      notifySyncResult(true);
+      localState.setProfile({ userId: '', name: '' });
+      localState.setOnboarded(false);
+      return;
+    }
     // Offline / server down — try again on the next interval.
     notifySyncResult(false);
   }

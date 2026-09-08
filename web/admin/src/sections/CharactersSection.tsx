@@ -3,6 +3,7 @@ import { api, type Character } from '../api';
 import { AssetPickerModal } from '../schema-form/AssetPickerModal';
 import { showToast } from '../toast';
 import { Segmented } from '../ui/Segmented';
+import { UnsavedChangesModal, useUnsavedGuard } from '../ui/UnsavedGuard';
 
 const NEW_ID = 0;
 
@@ -19,9 +20,20 @@ export function CharactersSection() {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [dialogues, setDialogues] = useState<{ id: number; title: string }[]>([]);
   const [draft, setDraft] = useState<Character | null>(null);
+  /** Снимок последнего сохранённого черновика — по нему считается «есть правки». */
+  const [baseline, setBaseline] = useState('');
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /** Открыть/закрыть карточку, сбросив точку отсчёта правок. */
+  function edit(c: Character | null) {
+    setDraft(c);
+    setBaseline(JSON.stringify(c));
+  }
+
+  const dirty = draft !== null && JSON.stringify(draft) !== baseline;
+  const guard = useUnsavedGuard(dirty);
 
   useEffect(() => {
     Promise.all([api.getCharacters(), api.getDialogues()])
@@ -36,8 +48,8 @@ export function CharactersSection() {
     setDraft((cur) => (cur ? { ...cur, ...p } : cur));
   }
 
-  async function save() {
-    if (!draft) return;
+  async function save(): Promise<boolean> {
+    if (!draft) return false;
     const { id, ...body } = draft;
     setSaving(true);
     setError(null);
@@ -45,15 +57,22 @@ export function CharactersSection() {
       const saved =
         id === NEW_ID ? await api.createCharacter(body) : await api.updateCharacter(id, body);
       setCharacters(await api.getCharacters());
-      setDraft(saved);
+      edit(saved);
       showToast('Сохранено');
+      return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка сохранения';
       setError(msg);
       showToast(msg, 'error');
+      return false;
     } finally {
       setSaving(false);
     }
+  }
+
+  async function saveAndClose() {
+    // Не сохранилось (сеть, сервер) — вопрос остаётся, текст ошибки уже в тосте.
+    if (await save()) guard.proceed();
   }
 
   async function remove() {
@@ -62,7 +81,7 @@ export function CharactersSection() {
     try {
       await api.deleteCharacter(draft.id);
       setCharacters(await api.getCharacters());
-      setDraft(null);
+      edit(null);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Ошибка удаления', 'error');
     }
@@ -72,7 +91,7 @@ export function CharactersSection() {
     <div className='lb-section'>
       <div className='poi-panel-header'>
         <h3 className='lb-block-title'>Персонажи</h3>
-        <button onClick={() => setDraft({ ...blank })}>+ Новый персонаж</button>
+        <button onClick={() => guard.run(() => edit({ ...blank }))}>+ Новый персонаж</button>
       </div>
       {error && <p className='sf-asset-error'>{error}</p>}
 
@@ -82,7 +101,7 @@ export function CharactersSection() {
             <button
               key={c.id}
               className={`minigames-row${draft?.id === c.id ? ' minigames-row--active' : ''}`}
-              onClick={() => setDraft(c)}
+              onClick={() => guard.run(() => edit(c))}
             >
               <span className='minigames-row-name'>
                 {c.portraitAsset && <img className='char-thumb' src={c.portraitAsset} alt='' />}
@@ -102,7 +121,7 @@ export function CharactersSection() {
               <strong>
                 {draft.id === NEW_ID ? 'Новый персонаж' : `Персонаж #${draft.id}`}
               </strong>
-              <button className='poi-close-btn' onClick={() => setDraft(null)}>
+              <button className='poi-close-btn' onClick={() => guard.run(() => edit(null))}>
                 ✕
               </button>
             </div>
@@ -183,6 +202,16 @@ export function CharactersSection() {
             setPicking(false);
           }}
           onClose={() => setPicking(false)}
+        />
+      )}
+
+      {guard.asking && (
+        <UnsavedChangesModal
+          subject={draft?.name || 'Новый персонаж'}
+          saving={saving}
+          onSaveAndClose={() => void saveAndClose()}
+          onDiscard={guard.proceed}
+          onCancel={guard.dismiss}
         />
       )}
     </div>

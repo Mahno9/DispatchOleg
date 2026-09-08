@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, playerTestUrl, type Minigame } from '../api';
-import { SchemaForm, type Schema } from '../schema-form/SchemaForm';
+import { SchemaForm, missingRequired, type Schema } from '../schema-form/SchemaForm';
 import { showToast } from '../toast';
+import { UnsavedChangesModal, useUnsavedGuard } from '../ui/UnsavedGuard';
 
 export type Cfg = Record<string, unknown>;
 
@@ -171,10 +172,15 @@ export function MinigameConfigModal({
 }: MinigameConfigModalProps) {
   const [schema, setSchema] = useState<Schema | null>(null);
   const [config, setConfig] = useState<Cfg>(initialConfig);
+  /** Snapshot of the last saved config — the yardstick for "has edits". */
+  const [baseline, setBaseline] = useState(() => JSON.stringify(initialConfig));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testRun, setTestRun] = useState(false);
+
+  const dirty = JSON.stringify(config) !== baseline;
+  const guard = useUnsavedGuard(dirty);
 
   useEffect(() => {
     let cancelled = false;
@@ -187,7 +193,9 @@ export function MinigameConfigModal({
         if (cancelled) return;
         setSchema(sch);
         // Schema defaults fill the gaps the stored config doesn't cover.
-        setConfig((cur) => ({ ...defaultsFromSchema(sch), ...cur }));
+        const merged = { ...defaultsFromSchema(sch), ...initialConfig };
+        setConfig(merged);
+        setBaseline(JSON.stringify(merged));
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Ошибка загрузки схемы');
@@ -203,37 +211,64 @@ export function MinigameConfigModal({
 
   // Esc closes the config window (nested modals intercept Esc first via a
   // capture-phase handler that preventDefaults, so it won't reach here).
+  // With unsaved edits it asks first; a second Esc answers "cancel".
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape' && !e.defaultPrevented) onClose();
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (guard.asking) guard.dismiss();
+      else requestClose();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  });
 
-  async function handleSave(close: boolean) {
+  function requestClose() {
+    guard.run(onClose);
+  }
+
+  async function handleSave(close: boolean): Promise<boolean> {
+    // required из схемы раньше был декоративным: игра без обязательного поля
+    // уходила на сервер и у игрока падала в аварийную панель.
+    const missing = schema ? missingRequired(schema, config) : [];
+    if (missing.length > 0) {
+      const msg = `Не заполнены обязательные поля: ${missing.join(', ')}`;
+      setError(msg);
+      showToast(msg, 'error');
+      return false;
+    }
     setSaving(true);
     setError(null);
     try {
       await onSave(config);
+      setBaseline(JSON.stringify(config));
       showToast('Сохранено');
       if (close) onClose();
+      return true;
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Ошибка сохранения';
       setError(msg);
       showToast(msg, 'error');
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
+  async function saveAndClose() {
+    // Не сохранилось (обязательные поля, сеть) — вопрос остаётся на экране.
+    if (await handleSave(false)) guard.proceed();
+  }
+
   return (
     <>
-      <div className='modal-overlay' onClick={onClose}>
+      <div className='modal-overlay' onClick={requestClose}>
         <div className='modal-card modal-card--config' onClick={(e) => e.stopPropagation()}>
           <div className='modal-header'>
-            <span className='modal-title'>{title}</span>
-            <button className='modal-close' title='Закрыть' onClick={onClose}>
+            <span className='modal-title'>
+              {title}
+              {dirty && ' •'}
+            </span>
+            <button className='modal-close' title='Закрыть' onClick={requestClose}>
               ✕
             </button>
           </div>
@@ -272,10 +307,22 @@ export function MinigameConfigModal({
             >
               Сохранить и закрыть
             </button>
-            <button onClick={onClose}>Отмена</button>
+            <button onClick={requestClose}>Отмена</button>
           </div>
         </div>
       </div>
+
+      {/* Сосед оверлея, а не потомок — клик по вопросу не должен всплыть
+          в onClick оверлея и закрыть конфиг за спиной у вопроса. */}
+      {guard.asking && (
+        <UnsavedChangesModal
+          subject={title}
+          saving={saving}
+          onSaveAndClose={() => void saveAndClose()}
+          onDiscard={guard.proceed}
+          onCancel={guard.dismiss}
+        />
+      )}
 
       {/* Sibling of the backdrop, not a child — so clicks inside the game don't
           bubble to the modal-overlay onClose and close everything. */}

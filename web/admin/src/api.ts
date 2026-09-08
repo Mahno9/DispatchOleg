@@ -21,6 +21,14 @@ export interface Asset {
   sizeBytes: number;
 }
 
+/** Одна точка использования ассета — показывается в подтверждении удаления. */
+export interface AssetUsage {
+  kind: 'game' | 'character' | 'dialogue' | 'metaStage' | 'setting';
+  id: number | string;
+  title: string;
+  field: string;
+}
+
 export interface Minigame {
   id: string;
   title: string;
@@ -263,6 +271,7 @@ export const api = {
     request<{ ok: true }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
 
   getAssets: () => request<Asset[]>('/api/admin/assets'),
+  getAssetUsage: (id: string) => request<AssetUsage[]>(`/api/admin/assets/${id}/usage`),
   deleteAsset: (id: string) =>
     request<{ ok: true }>(`/api/admin/assets/${id}`, { method: 'DELETE' }),
   uploadAsset: async (file: File): Promise<Asset> => {

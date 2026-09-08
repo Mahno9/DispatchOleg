@@ -64,6 +64,9 @@ export interface ClientState {
   prefs: AudioPrefs;
   /** Ids of dialogues the player has read to the end (meta gate on the meta screen). */
   seenDialogues: number[];
+  /** `minigameId` игр, чей инструктаж игрок уже закрыл: на повторной попытке
+   *  стрелки не показываются сами, но их можно вызвать кнопкой. */
+  briefedMinigames: string[];
   /** Server-authoritative admin-reset tombstones; we only echo what we were given. */
   removedGames?: Record<string, number>;
 }
@@ -81,6 +84,7 @@ function createInitialState(): ClientState {
     onboarded: false,
     prefs: { ...DEFAULT_AUDIO_PREFS },
     seenDialogues: [],
+    briefedMinigames: [],
   };
 }
 
@@ -171,6 +175,17 @@ class LocalStateStore {
     // `seenDialogues` появилось позже сервера: у игроков, начавших раньше, его
     // в полезной нагрузке просто нет — без подстановки список стал бы undefined.
     const seenDialogues = Array.isArray(next.seenDialogues) ? next.seenDialogues : [];
+    // Отметки инструктажа сервер, в отличие от `seenDialogues`, пока не
+    // объединяет (server/src/repos/sync.ts): его payload либо не знает поля
+    // вовсе, либо несёт список с другого устройства. Принять его как есть
+    // значило бы стереть местные отметки и снова показать стрелки — поэтому
+    // объединяем на клиенте, пока серверного слияния нет.
+    const briefedMinigames = [
+      ...new Set([
+        ...this.state.briefedMinigames,
+        ...(Array.isArray(next.briefedMinigames) ? next.briefedMinigames : []),
+      ]),
+    ];
     const cur = this.state.prefs;
     // Сервер отдаёт свежий объект на каждый ответ, а синк тикает раз в 20 с.
     // MinigameScreen шлёт setVolume по смене ссылки на prefs, поэтому при
@@ -182,7 +197,7 @@ class LocalStateStore {
       prefs.sfxVolume === cur.sfxVolume &&
       prefs.voiceVolume === cur.voiceVolume &&
       prefs.voiceMuted === cur.voiceMuted;
-    this.commit({ ...next, seenDialogues, prefs: same ? cur : prefs });
+    this.commit({ ...next, seenDialogues, briefedMinigames, prefs: same ? cur : prefs });
   }
 
   // -- mutate helpers --
@@ -231,6 +246,16 @@ class LocalStateStore {
       ...this.state,
       updatedAt: Date.now(),
       seenDialogues: [...this.state.seenDialogues, id],
+    });
+  }
+
+  /** Инструктаж по игре закрыт. Повтор — no-op, как и у `markDialogueSeen`. */
+  markBriefed(minigameId: string): void {
+    if (this.state.briefedMinigames.includes(minigameId)) return;
+    this.commit({
+      ...this.state,
+      updatedAt: Date.now(),
+      briefedMinigames: [...this.state.briefedMinigames, minigameId],
     });
   }
 
