@@ -722,7 +722,10 @@
     "pre_dialogue_id": 139,
     "post_win_dialogue_id": 144,
     "post_lose_dialogue_id": null,
-    "style_dialogues_json": {},
+    "style_dialogues_json": {
+      "ghost": 171,
+      "breaker": 172
+    },
     "required_game_ids_json": [
       20,
       21,
