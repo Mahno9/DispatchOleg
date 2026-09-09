@@ -289,11 +289,22 @@ export function applyBounce(state: DotState, col: Collision, params: PhysicsPara
 // Scoring
 // ---------------------------------------------------------------------------
 
+/** Mazes with at least one breach. Seven breaks in one maze still count as one. */
+export function countMazesWithBreaks(wallsBrokenPerMaze: number[]): number {
+  return wallsBrokenPerMaze.reduce((n, broken) => n + (broken > 0 ? 1 : 0), 0);
+}
+
+/**
+ * The style is read off mazes, not walls: what matters is in how many mazes the
+ * player broke through at all, not how many walls went down there. The threshold
+ * is absolute and is never rescaled to the maze count — two mazes with breaches
+ * are a habit, one is an accident.
+ */
 export function computeStyleTag(
-  wallsBroken: number,
-  breakerThreshold: number,
+  wallsBrokenPerMaze: number[],
+  breakerMazeThreshold: number,
 ): 'ghost' | 'breaker' {
-  return wallsBroken < breakerThreshold ? 'ghost' : 'breaker';
+  return countMazesWithBreaks(wallsBrokenPerMaze) < breakerMazeThreshold ? 'ghost' : 'breaker';
 }
 
 export function computeScore(

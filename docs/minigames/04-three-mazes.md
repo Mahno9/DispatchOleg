@@ -86,8 +86,8 @@ callbacks.onProgress(`ЛАБИРИНТ ${i + 1} / 3`, Math.round((i / 3) * 100))
 `penaltyPerReset`.
 
 **FINISH.** Точка коснулась финишной зоны (круг радиусом `~24px`). Ничего больше не считается,
-`wallsBrokenCurrentMaze` фиксируется и прибавляется к глобальному `wallsBroken`, `scorePerMaze` этого
-лабиринта прибавляется к счёту. Далее — следующий лабиринт (FROZEN) или общая победа.
+`wallsBrokenCurrentMaze` фиксируется как итог этого лабиринта (он же идёт в `wallsBroken` и
+`mazesWithBreaks`, §3.3), `scorePerMaze` этого лабиринта прибавляется к счёту. Далее — следующий лабиринт (FROZEN) или общая победа.
 
 ### 1.3 Единая модель коллизий
 
@@ -358,10 +358,14 @@ score = max(0, score)   // счёт не может уйти в минус (ко
 - Косвенно `ghost` обычно даёт счёт не выше `breaker`: честный путь длиннее, дольше и даёт больше
   шансов задеть стену. Это осознанный баланс — игра не подталкивает ни к одному стилю.
 
-### 3.3 Счётчик `wallsBroken`
+### 3.3 Счётчики `wallsBroken` и `mazesWithBreaks`
 
 `wallsBroken` — **сколько стен игрок сломал в тех прохождениях, которые засчитались**, то есть сумма
 `wallsBrokenCurrentMaze` по трём финишированным лабиринтам.
+
+`mazesWithBreaks` — **в скольких засчитанных лабиринтах был хотя бы один пролом**. Один пролом или
+семь — лабиринт считается один раз. Именно из этого числа выводится `styleTag` (§3.4), поэтому оно
+едет в `details`: иначе тег нечем объяснить при разборе.
 
 Ключевое правило: при сбросе лабиринта его счётчик обнуляется. Считается только **финальное, успешное**
 прохождение каждого лабиринта (подробнее — §6.4). Логика: если игрок сломал две стены, влетел в третью
@@ -380,21 +384,28 @@ callbacks.onComplete({
   won: true,
   details: {
     wallsBroken, // number, 0..totalBreakable
+    mazesWithBreaks, // number, 0..mazes.length
     totalBreakable, // number
     styleTag, // "ghost" | "breaker"
   },
 });
 ```
 
-Правило вычисления тега:
+Правило вычисления тега — **по лабиринтам, а не по стенам**:
 
 ```ts
-const styleTag = wallsBroken < breakerThreshold ? 'ghost' : 'breaker';
+const mazesWithBreaks = wallsBrokenPerMaze.filter((n) => n > 0).length;
+const styleTag = mazesWithBreaks < breakerMazeThreshold ? 'ghost' : 'breaker';
 ```
 
-При `breakerThreshold = 1` (default) это ровно формулировка плана: `wallsBroken === 0` → `"ghost"`,
-иначе → `"breaker"`. Параметр вынесен в конфиг на случай, если по итогам плейтеста окажется, что
-случайный пролом одной стены не должен считаться сменой характера — тогда админ ставит `2`.
+При `breakerMazeThreshold = 2` (default) это ровно формулировка владельца игры: стены ломались в двух
+или трёх лабиринтах из трёх → `"breaker"`; в двух или трёх не ломались → `"ghost"`. Сколько именно
+стен снесено внутри лабиринта, роли не играет: семь проломов в одном лабиринте и чистые остальные два
+— это `"ghost"`, случайность, а не почерк.
+
+Порог **абсолютный** и не пересчитывается под число лабиринтов: два лабиринта с проломами — уже
+почерк, сколько бы лабиринтов игра ни содержала. Порог выше числа лабиринтов делает `"breaker"`
+недостижимым — это допустимо и заметно по конфигу.
 
 **Связь с платформой.** По `docs/platform.md` §3.3 при `won = true` платформа смотрит в карту
 стилевых веток игры — колонка `games.style_dialogues_json`, не `config_json`:
@@ -434,7 +445,7 @@ const styleTag = wallsBroken < breakerThreshold ? 'ghost' : 'breaker';
 | `bounceDurationMs`   | `integer`                | `300`   | Сколько времени пружина ослаблена после пролома (`lerp(0.25 → 1)`). Мин. 0, макс. 2000                                                    |
 | `breakAngleDeg`      | `integer`                | `40`    | Полураствор конуса «удара в лоб», градусы. Больше — ломать проще. Мин. 5, макс. 89                                                        |
 | `breakMinSpeedRatio` | `number`                 | `0.55`  | Порог скорости слома как доля `followSpeed`. Мин. 0, макс. 1                                                                              |
-| `breakerThreshold`   | `integer`                | `1`     | С какого числа сломанных стен `styleTag` становится `"breaker"`. Мин. 1                                                                   |
+| `breakerMazeThreshold` | `integer`              | `2`     | С какого числа **лабиринтов с проломами** `styleTag` становится `"breaker"`. Лабиринт с любым числом проломов даёт единицу. Мин. 1        |
 | `penaltyPerReset`    | `integer`                | `50`    | Штраф к счёту за каждый скример/сброс. Мин. 0                                                                                             |
 | `patrolLightRadius`  | `integer`                | `56`    | Радиус светового круга прожектора, px. Мин. 20, макс. 200 (§1.5)                                                                          |
 | `patrolSearchMs`     | `integer`                | `2500`  | Сколько прожектор обыскивает место пролома, прежде чем вернуться на пост. Мин. 0, макс. 10000                                             |
@@ -638,7 +649,8 @@ generateMaze(params: GeneratorParams): Maze
 **Прочее**
 
 ```ts
-computeStyleTag(wallsBroken, breakerThreshold): 'ghost' | 'breaker'
+countMazesWithBreaks(wallsBrokenPerMaze): number
+computeStyleTag(wallsBrokenPerMaze, breakerMazeThreshold): 'ghost' | 'breaker'
 computeScore(mazes, resets, penaltyPerReset): number
 solvePath(maze): { x, y }[] | null   // BFS по открытым коридорам — для тестов и для админ-превью
 ```
@@ -735,7 +747,8 @@ it.each([...seeds])('честный путь существует: %s', (type, s
   ровно за `bounceDurationMs`;
 - **двойной слом**: при коллизии с двумя стенами на одном субстепе выбирается стена с минимальным
   расстоянием (§6.3);
-- `computeStyleTag` / `computeScore` — таблица значений, включая `score < 0 → 0`.
+- `countMazesWithBreaks` / `computeStyleTag` / `computeScore` — таблица значений, включая
+  «семь проломов в одном лабиринте → `ghost`» и `score < 0 → 0`.
 
 ---
 
@@ -798,8 +811,9 @@ const dt = Math.min((now - last) / 1000, 0.05);
 - счётчик `resetsTotal` (штрафы копятся честно, за всю игру).
 
 То есть игрок может пройти первый лабиринт как «крушитель», а второй и третий — идеально; итоговый
-`wallsBroken > 0` и `styleTag = "breaker"`. Но если он ломал стены и провалился, а с новой попытки
-прошёл чисто — эти проломы не считаются. Считается только то, что он в итоге сделал.
+`wallsBroken > 0`, но `mazesWithBreaks = 1`, и по §3.4 это всё ещё `styleTag = "ghost"`. Но если он
+ломал стены и провалился, а с новой попытки прошёл чисто — эти проломы не считаются вовсе: лабиринт
+в `mazesWithBreaks` не попадает. Считается только то, что он в итоге сделал.
 
 ### 6.5 Гарантии генератора: коридор напротив ломаемой стены
 
@@ -841,5 +855,6 @@ const dt = Math.min((now - last) / 1000, 0.05);
   падает. Загрузка изображения — при `init`, лениво, но с `onerror`.
 - **`mazes` содержит меньше трёх элементов** (кривой конфиг из админки) — игра проходит столько
   лабиринтов, сколько есть, и корректно завершается победой. Пустой `mazes` — немедленный
-  `onComplete({score: 0, won: true, details: {wallsBroken: 0, totalBreakable: 0, styleTag: 'ghost'}})`.
+  `onComplete({score: 0, won: true, details: {wallsBroken: 0, mazesWithBreaks: 0, totalBreakable: 0,
+  styleTag: 'ghost'}})`.
   Валидация формы должна этого не допускать, но игра не имеет права зависнуть на плохом конфиге.

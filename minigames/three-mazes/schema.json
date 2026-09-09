@@ -60,10 +60,11 @@
       "minimum": 0,
       "maximum": 1
     },
-    "breakerThreshold": {
+    "breakerMazeThreshold": {
       "type": "integer",
-      "title": "С какого числа сломанных стен стиль = breaker",
-      "default": 1,
+      "title": "С какого числа лабиринтов с проломами стиль = breaker",
+      "description": "Считаются лабиринты, а не стены: лабиринт с любым числом проломов даёт единицу. 2 — стены ломались минимум в двух лабиринтах из трёх.",
+      "default": 2,
       "minimum": 1
     },
     "penaltyPerReset": {

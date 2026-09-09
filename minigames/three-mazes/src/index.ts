@@ -15,6 +15,7 @@ import {
   classifyHit,
   computeScore,
   computeStyleTag,
+  countMazesWithBreaks,
   distancePointSegment,
   drawIndex,
   generateMaze,
@@ -67,7 +68,7 @@ interface GameConfig {
   bounceDurationMs?: number;
   breakAngleDeg?: number;
   breakMinSpeedRatio?: number;
-  breakerThreshold?: number;
+  breakerMazeThreshold?: number;
   penaltyPerReset?: number;
   patrolLightRadius?: number;
   patrolSpeed?: number;
@@ -93,7 +94,12 @@ interface Callbacks {
   onComplete: (result: {
     score: number;
     won: boolean;
-    details: { wallsBroken: number; totalBreakable: number; styleTag: 'ghost' | 'breaker' };
+    details: {
+      wallsBroken: number;
+      mazesWithBreaks: number;
+      totalBreakable: number;
+      styleTag: 'ghost' | 'breaker';
+    };
   }) => void;
   onExit: () => void;
   onProgress?: (text: string, percent?: number) => void;
@@ -291,7 +297,7 @@ export function init(
   };
   const patrolCatchSpeed = num(config.patrolCatchSpeedRatio, 0.35, 0, 1) * params.followSpeed;
   const screamerMs = Math.round(num(config.screamerDurationMs, 1200, 300, 4000));
-  const breakerThreshold = Math.round(num(config.breakerThreshold, 1, 1, 1e6));
+  const breakerMazeThreshold = Math.round(num(config.breakerMazeThreshold, 2, 1, 1e6));
   const penaltyPerReset = Math.round(num(config.penaltyPerReset, 50, 0, 1e6));
   const sounds = config.sounds ?? {};
   const mazes: RtMaze[] = (Array.isArray(config.mazes) ? config.mazes : []).map(normalizeMaze);
@@ -446,7 +452,8 @@ export function init(
   let brokenGroups = new Set<number>();
   let activeWalls: Wall[] = [];
   let wallsBrokenCurrent = 0;
-  let wallsBrokenTotal = 0;
+  // Проломы засчитанных лабиринтов, по одному числу на лабиринт: стиль считается по ним.
+  const wallsBrokenPerMaze: number[] = [];
   let resets = 0;
   const earned: number[] = [];
   let shards: { x: number; y: number; vx: number; vy: number; born: number }[] = [];
@@ -531,14 +538,20 @@ export function init(
     finished = true;
     syncAmbient(false);
     dismissBark();
-    const styleTag = computeStyleTag(wallsBrokenTotal, breakerThreshold);
+    const styleTag = computeStyleTag(wallsBrokenPerMaze, breakerMazeThreshold);
+    const wallsBroken = wallsBrokenPerMaze.reduce((s, v) => s + v, 0);
     const score = computeScore(earned, resets, penaltyPerReset);
     root.classList.remove(`${PREFIX}visible`);
     timerId = window.setTimeout(() => {
       callbacks.onComplete({
         score,
         won: true,
-        details: { wallsBroken: wallsBrokenTotal, totalBreakable, styleTag },
+        details: {
+          wallsBroken,
+          mazesWithBreaks: countMazesWithBreaks(wallsBrokenPerMaze),
+          totalBreakable,
+          styleTag,
+        },
       });
     }, FADE_MS);
   }
@@ -546,7 +559,7 @@ export function init(
   function finishMaze(now: number): void {
     phase = 'FINISH';
     deadline = now + FINISH_FLASH_MS;
-    wallsBrokenTotal += wallsBrokenCurrent;
+    wallsBrokenPerMaze.push(wallsBrokenCurrent);
     earned.push(mz?.score ?? 0);
     syncAmbient(false);
     play(mazeIndex + 1 >= mazes.length ? sounds.gameComplete : sounds.mazeComplete);

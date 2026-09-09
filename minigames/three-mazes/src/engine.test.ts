@@ -14,6 +14,7 @@ import {
   classifyHit,
   computeScore,
   computeStyleTag,
+  countMazesWithBreaks,
   distancePointSegment,
   drawIndex,
   generateMaze,
@@ -207,11 +208,36 @@ describe('stepPhysics', () => {
 // ---------------------------------------------------------------------------
 
 describe('scoring', () => {
-  it('computeStyleTag', () => {
-    expect(computeStyleTag(0, 1)).toBe('ghost');
-    expect(computeStyleTag(1, 1)).toBe('breaker');
-    expect(computeStyleTag(1, 2)).toBe('ghost');
-    expect(computeStyleTag(5, 2)).toBe('breaker');
+  it('countMazesWithBreaks считает лабиринты, а не стены', () => {
+    expect(countMazesWithBreaks([])).toBe(0);
+    expect(countMazesWithBreaks([0, 0, 0])).toBe(0);
+    expect(countMazesWithBreaks([7, 0, 0])).toBe(1);
+    expect(countMazesWithBreaks([1, 3, 0])).toBe(2);
+    expect(countMazesWithBreaks([1, 1, 1])).toBe(3);
+  });
+
+  it('computeStyleTag: порог по умолчанию — два лабиринта из трёх', () => {
+    expect(computeStyleTag([0, 0, 0], 2)).toBe('ghost');
+    expect(computeStyleTag([1, 0, 0], 2)).toBe('ghost');
+    expect(computeStyleTag([1, 1, 0], 2)).toBe('breaker');
+    expect(computeStyleTag([1, 1, 1], 2)).toBe('breaker');
+  });
+
+  it('computeStyleTag: семь проломов в одном лабиринте — всё ещё ghost', () => {
+    expect(computeStyleTag([7, 0, 0], 2)).toBe('ghost');
+    expect(computeStyleTag([0, 0, 12], 2)).toBe('ghost');
+    // Тот же игрок с одним проломом во втором лабиринте — уже breaker.
+    expect(computeStyleTag([7, 1, 0], 2)).toBe('breaker');
+  });
+
+  it('computeStyleTag: порог настраивается и не зависит от числа лабиринтов', () => {
+    expect(computeStyleTag([1, 0, 0], 1)).toBe('breaker');
+    expect(computeStyleTag([1, 1, 0], 3)).toBe('ghost');
+    expect(computeStyleTag([1, 1, 1], 3)).toBe('breaker');
+    expect(computeStyleTag([1, 1], 2)).toBe('breaker');
+    expect(computeStyleTag([9, 0, 0, 0, 0], 2)).toBe('ghost');
+    // Порог выше числа лабиринтов — breaker недостижим.
+    expect(computeStyleTag([3, 3, 3], 4)).toBe('ghost');
   });
 
   it('computeScore never goes negative', () => {
