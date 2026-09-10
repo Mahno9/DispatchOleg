@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "joke-engineering": {
+      "source": "jwynia/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/creative/humor/joke-engineering/SKILL.md",
+      "computedHash": "6ae4ce4728409ad3b34a9af774ac7862227a6f1691699992d55d9faeab5b0b3d"
+    }
+  }
+}
