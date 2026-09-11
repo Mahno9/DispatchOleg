@@ -332,7 +332,8 @@ const STYLES = `
 /* --- shelf ------------------------------------------------------------- */
 .${PREFIX}shelf {
   flex: 0 0 auto;
-  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px;
+  /* не больше 8 колонок, не уже 84px — длинные названия переносятся, а не режутся */
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(max(84px, calc(100% / 8 - 4px)), 1fr)); gap: 4px;
   padding: 4px;
   background: #062326; border: 1px solid #0A3435; box-shadow: inset 0 0 0 1px #030B0C;
   transition: opacity 140ms ease;
@@ -355,7 +356,7 @@ const STYLES = `
 .${PREFIX}cell__art { width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
 .${PREFIX}cell__art img { max-width: 100%; max-height: 100%; display: block; }
 .${PREFIX}cell__art svg { width: 100%; height: 100%; fill: none; stroke: #5DE2D0; stroke-width: 1.4; }
-.${PREFIX}cell__name { font-size: 11px; line-height: 1.05; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.${PREFIX}cell__name { font-size: 11px; line-height: 1.05; text-align: center; overflow-wrap: anywhere; max-width: 100%; }
 .${PREFIX}cell__unit { font-size: 9px; color: #759C96; letter-spacing: 0.06em; }
 
 /* --- overlays ---------------------------------------------------------- */
