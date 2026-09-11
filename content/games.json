@@ -711,6 +711,13 @@
         ],
         "ambient": [
           {
+            "url": "/assets-store/mus-metro-instrumental.ogg",
+            "weight": 1,
+            "volume": 100
+          }
+        ],
+        "ambientActive": [
+          {
             "url": "/assets-store/mus-metro-vox.ogg",
             "weight": 1,
             "volume": 100
