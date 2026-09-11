@@ -320,6 +320,12 @@ h3 {
   animation: blink 1s steps(1, end) infinite;
 }
 
+.tut-close {
+  animation:
+    blink 1s steps(1, end) infinite,
+    tut-close-pulse 1.4s ease-in-out infinite alternate;
+}
+
 /* Dangerous / exit actions. */
 .btn-danger {
   border-color: rgba(232, 104, 54, 0.6);
@@ -1786,6 +1792,7 @@ h3 {
   .scan-line,
   .victory-cursor,
   .success-flash,
+  .tut-close,
   .tut-maze-dot,
   .tut-maze-wall,
   .tut-maze-suspicion,
