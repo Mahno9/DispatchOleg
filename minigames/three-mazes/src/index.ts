@@ -83,6 +83,7 @@ interface GameConfig {
     mazeComplete?: SoundVal;
     gameComplete?: SoundVal;
     ambient?: SoundVal;
+    ambientActive?: SoundVal;
   };
   muted?: boolean;
   /** 0…100 из общего регулятора плеера; живьём приходит через setVolume. */
@@ -116,6 +117,8 @@ const FADE_MS = 300;
 const FINISH_FLASH_MS = 250;
 const SHARD_MS = 400;
 const MARGIN = 0.05;
+const AMBIENT_FADE_MS = 1200;
+const AMBIENT_DRIFT_S = 0.1;
 
 const C = {
   bg: '#030B0C',
@@ -147,6 +150,15 @@ const STYLES = `
 function num(v: number | undefined, dflt: number, min: number, max: number): number {
   const n = typeof v === 'number' && Number.isFinite(v) ? v : dflt;
   return Math.max(min, Math.min(max, n));
+}
+
+export function ambientFadeMix(from: number, to: number, elapsedMs: number): number {
+  const t = Math.max(0, Math.min(1, elapsedMs / AMBIENT_FADE_MS));
+  return Math.max(0, Math.min(1, from + (to - from) * t));
+}
+
+export function ambientNeedsSync(a: number, b: number): boolean {
+  return Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) > AMBIENT_DRIFT_S;
 }
 
 /** Admin arrays may be missing or half-filled: keep only dialogues that have something to say. */
@@ -330,7 +342,14 @@ export function init(
   let musicGain = gainOf(config.musicVolume, 100);
   let sfxGain = gainOf(config.sfxVolume, 100);
   let ambient: HTMLAudioElement | null = null;
+  let ambientActive: HTMLAudioElement | null = null;
   let ambientSound: { url: string; volume: number } | undefined;
+  let ambientActiveSound: { url: string; volume: number } | undefined;
+  let ambientMix = 0;
+  let ambientMixFrom = 0;
+  let ambientMixTo = 0;
+  let ambientFadeStarted = 0;
+  let lastAmbientSync = 0;
   const live: HTMLAudioElement[] = [];
 
   function play(val: SoundVal): void {
@@ -347,23 +366,76 @@ export function init(
   }
 
   function applyAmbientVolume(): void {
-    if (!ambient || !ambientSound) return;
-    ambient.volume = Math.max(0, Math.min(1, (ambientSound.volume / 100) * 0.5 * musicGain));
+    if (ambient && ambientSound)
+      ambient.volume = Math.max(
+        0,
+        Math.min(1, (ambientSound.volume / 100) * 0.5 * musicGain * (1 - ambientMix)),
+      );
+    if (ambientActive && ambientActiveSound)
+      ambientActive.volume = Math.max(
+        0,
+        Math.min(1, (ambientActiveSound.volume / 100) * 0.5 * musicGain * ambientMix),
+      );
   }
 
-  function syncAmbient(on: boolean): void {
-    // musicGain в нуле — тоже «не играть», иначе трек крутится вхолостую.
-    if (on && !muted && musicGain > 0) {
-      if (!ambient) {
-        ambientSound = pickSound(sounds.ambient, Math.random());
-        if (!ambientSound) return;
+  function ensureAmbient(): void {
+    if (!ambient) {
+      ambientSound = pickSound(sounds.ambient, Math.random());
+      if (ambientSound) {
         ambient = new Audio(ambientSound.url);
         ambient.loop = true;
       }
+    }
+    if (!ambientActive) {
+      ambientActiveSound = pickSound(sounds.ambientActive, Math.random());
+      if (ambientActiveSound) {
+        ambientActive = new Audio(ambientActiveSound.url);
+        ambientActive.loop = true;
+      }
+    }
+  }
+
+  function alignAmbient(force: boolean): void {
+    if (!ambient || !ambientActive) return;
+    if (!force && !ambientNeedsSync(ambient.currentTime, ambientActive.currentTime)) return;
+    try {
+      ambientActive.currentTime = ambient.currentTime;
+    } catch {
+      // Metadata may not be ready yet; the next periodic check retries.
+    }
+  }
+
+  function updateAmbient(now: number): void {
+    ambientMix = ambientFadeMix(ambientMixFrom, ambientMixTo, now - ambientFadeStarted);
+    applyAmbientVolume();
+    if (now - lastAmbientSync >= 1000) {
+      lastAmbientSync = now;
+      alignAmbient(false);
+    }
+  }
+
+  function syncAmbient(on: boolean, active: boolean): void {
+    const now = performance.now();
+    updateAmbient(now);
+    const targetMix = active && sounds.ambientActive ? 1 : 0;
+    if (targetMix !== ambientMixTo) {
+      ambientMixFrom = ambientMix;
+      ambientMixTo = targetMix;
+      ambientFadeStarted = now;
+    }
+    // musicGain в нуле — тоже «не играть», иначе трек крутится вхолостую.
+    if (on && !muted && musicGain > 0) {
+      ensureAmbient();
+      if (!ambient) return;
+      alignAmbient(true);
       applyAmbientVolume();
-      ambient.play().catch(() => {});
-    } else if (ambient) {
-      ambient.pause();
+      const tracks = [ambient, ambientActive].filter(
+        (track): track is HTMLAudioElement => track !== null,
+      );
+      void Promise.allSettled(tracks.map((track) => track.play())).then(() => alignAmbient(true));
+    } else {
+      ambient?.pause();
+      ambientActive?.pause();
     }
   }
 
@@ -490,13 +562,13 @@ export function init(
     applyLayout();
     resetPatrols();
     progress();
-    syncAmbient(false);
+    syncAmbient(!held && !paused, false);
   }
 
   function complete(): void {
     if (finished) return;
     finished = true;
-    syncAmbient(false);
+    syncAmbient(false, false);
     dismissBark();
     const styleTag = computeStyleTag(wallsBrokenPerMaze, breakerMazeThreshold);
     const wallsBroken = wallsBrokenPerMaze.reduce((s, v) => s + v, 0);
@@ -521,7 +593,7 @@ export function init(
     deadline = now + FINISH_FLASH_MS;
     wallsBrokenPerMaze.push(wallsBrokenCurrent);
     earned.push(mz?.score ?? 0);
-    syncAmbient(false);
+    syncAmbient(false, false);
     play(mazeIndex + 1 >= mazes.length ? sounds.gameComplete : sounds.mazeComplete);
   }
 
@@ -529,7 +601,7 @@ export function init(
     phase = 'SCREAMER';
     deadline = now + screamerMs;
     resets++;
-    syncAmbient(false);
+    syncAmbient(false, false);
     play(config.screamerSound);
   }
 
@@ -569,16 +641,15 @@ export function init(
   }
   function onBlur(): void {
     paused = true;
-    syncAmbient(false);
+    syncAmbient(false, phase === 'ACTIVE');
   }
   function onFocus(): void {
     paused = false;
-    syncAmbient(!held && phase === 'ACTIVE');
+    syncAmbient(!held && (phase === 'FROZEN' || phase === 'ACTIVE'), phase === 'ACTIVE');
   }
   function setPaused(value: boolean): void {
-    if (held === value) return;
     held = value;
-    syncAmbient(!held && !paused && phase === 'ACTIVE');
+    syncAmbient(!held && !paused && (phase === 'FROZEN' || phase === 'ACTIVE'), phase === 'ACTIVE');
   }
   function onVisibility(): void {
     if (document.hidden) onBlur();
@@ -592,9 +663,15 @@ export function init(
   // Автоплей глушится до первого жеста в документе, а в тест-режиме плеера
   // (?test=game:N) игра монтируется вообще без клика.
   // ponytail: одна попытка добора на первом pointerdown, дальше не пытаемся.
-  root.addEventListener('pointerdown', () => syncAmbient(!held && !paused && phase === 'ACTIVE'), {
-    once: true,
-  });
+  root.addEventListener(
+    'pointerdown',
+    () =>
+      syncAmbient(
+        !held && !paused && (phase === 'FROZEN' || phase === 'ACTIVE'),
+        phase === 'ACTIVE',
+      ),
+    { once: true },
+  );
 
   const ro = new ResizeObserver(() => applyLayout());
   ro.observe(root);
@@ -616,6 +693,7 @@ export function init(
         shards = [];
         dot = null;
         phase = 'FROZEN';
+        syncAmbient(!held && !paused, false);
         rebuildWalls();
         resetPatrols();
         progress();
@@ -644,7 +722,7 @@ export function init(
         const p = safe ? target : startPx;
         dot = { x: p.x, y: p.y, vx: 0, vy: 0, relaxMs: 0 };
         phase = 'ACTIVE';
-        syncAmbient(true);
+        syncAmbient(!held && !paused, true);
         play(sounds.start);
       }
       return;
@@ -945,6 +1023,7 @@ export function init(
     rafId = window.requestAnimationFrame(frame);
     const dt = Math.min((now - last) / 1000, 0.05);
     last = now;
+    updateAmbient(now);
     if (!finished) {
       if (paused || held) {
         // physics frozen; dt is reset next frame by `last = now`
@@ -991,16 +1070,18 @@ export function init(
     // должен тянуться в меню.
     if (!finished) for (const a of live) a.pause();
     live.length = 0;
-    if (ambient) {
-      ambient.pause();
+    for (const track of [ambient, ambientActive]) {
+      if (!track) continue;
+      track.pause();
       // Пустой src резолвится в адрес страницы — элемент лезет в неё за
       // ресурсом и сыплет MEDIA_ELEMENT_ERROR. Снимаем атрибут вместо этого.
-      if (ambient.hasAttribute('src')) {
-        ambient.removeAttribute('src');
-        ambient.load();
+      if (track.hasAttribute('src')) {
+        track.removeAttribute('src');
+        track.load();
       }
-      ambient = null;
     }
+    ambient = null;
+    ambientActive = null;
     screamerImg = null;
     activeWalls = [];
     shards = [];
@@ -1016,7 +1097,7 @@ export function init(
       for (const a of live) a.pause();
       live.length = 0;
     }
-    syncAmbient(!held && !paused && phase === 'ACTIVE');
+    syncAmbient(!held && !paused && (phase === 'FROZEN' || phase === 'ACTIVE'), phase === 'ACTIVE');
   }
 
   return { destroy, setPaused, setVolume };

@@ -348,7 +348,18 @@
         },
         "mazeComplete": { "type": "array", "title": "Финиш лабиринта", "x-type": "asset:audio" },
         "gameComplete": { "type": "array", "title": "Финиш игры", "x-type": "asset:audio" },
-        "ambient": { "type": "array", "title": "Фоновый гул", "x-type": "asset:audio" }
+        "ambient": {
+          "type": "array",
+          "title": "Музыка без голоса",
+          "description": "Звучит до захвата точки.",
+          "x-type": "asset:audio"
+        },
+        "ambientActive": {
+          "type": "array",
+          "title": "Музыка с голосом",
+          "description": "Синхронно вводится после захвата точки.",
+          "x-type": "asset:audio"
+        }
       }
     }
   },
