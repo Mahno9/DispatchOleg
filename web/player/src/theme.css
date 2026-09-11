@@ -329,7 +329,7 @@ h3 {
 
 .tut-close {
   animation:
-    blink 1s steps(1, end) infinite,
+    tut-close-blink 1s steps(1, end) infinite,
     tut-close-pulse 1.4s ease-in-out infinite alternate;
 }
 
@@ -538,6 +538,20 @@ h3 {
    персонажу есть что сказать (мини-игра). Кадр связи тот же, что в диалоге. */
 .bottombar-portrait {
   grid-template-columns: 220px 1fr 108px 150px;
+}
+
+/* Под инструктажем мини-игры панель накрыта тем же скримом, что и рабочая
+   область: «Выйти» виден, но гаснет и не ловит клик — выход из инструктажа
+   один, крестик. Шапка (звук) остаётся живой. */
+.bottombar-locked {
+  position: relative;
+}
+
+.bottombar-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(3, 11, 12, 0.6);
 }
 
 .slot-portrait {
@@ -1419,9 +1433,13 @@ h3 {
   height: 100%;
 }
 
+/* isolation — свой контекст наложения: z-index игр (20–50) остаётся внутри
+   контейнера, и оверлеи платформы (загрузка, инструктаж, `?`, сбой), лежащие
+   после него в DOM, их не пропускают поверх себя. */
 .minigame-container {
   position: absolute;
   inset: 0;
+  isolation: isolate;
 }
 
 .minigame-error {
@@ -1490,7 +1508,7 @@ h3 {
 /* Инструктаж перед запуском: стрелки на проценты рабочей области. Лежит перед
    .minigame-error в DOM, поэтому панель сбоя всё равно перекрывает его.
    Затемнение слабое и намеренно: под ним видна игра — смонтированная, но
-   замороженная до «Понятно». Читаемость подписей держит фон .tut-text, а не скрим. */
+   замороженная до крестика. Читаемость подписей держит фон .tut-text, а не скрим. */
 .minigame-tutorial {
   position: absolute;
   inset: 0;
@@ -1767,11 +1785,68 @@ h3 {
   }
 }
 
-.tut-start {
-  z-index: 3;
+/* Крестик — в том же углу, что и `?` (.tut-again), но крупный и янтарный: пока
+   открыт инструктаж, это единственный выход из него, и глаз должен найти его
+   раньше, чем «Выйти». 48 px — палец попадает. Свечение внутрь: clip-path
+   у .btn срезал бы внешнюю тень. */
+.tut-close {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  width: 48px;
+  height: 48px;
+  min-height: 0;
+  padding: 0;
+  background: #151105;
+  border-color: var(--amber);
+  color: var(--amber);
+  box-shadow: inset 0 0 10px rgba(233, 169, 40, 0.35);
+}
+
+.tut-close::before {
+  border-color: rgba(233, 169, 40, 0.35);
+}
+
+.tut-close-icon {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linecap: square;
+  filter: drop-shadow(0 0 4px rgba(233, 169, 40, 0.7));
+  pointer-events: none;
+}
+
+.btn.tut-close:hover:not(:disabled) {
+  background: #2a2208;
+  border-color: var(--amber);
+  color: var(--amber);
+  box-shadow: inset 0 0 14px rgba(233, 169, 40, 0.6);
+}
+
+@keyframes tut-close-pulse {
+  from {
+    box-shadow: inset 0 0 4px rgba(233, 169, 40, 0.2);
+  }
+  to {
+    box-shadow: inset 0 0 16px rgba(233, 169, 40, 0.6);
+  }
+}
+
+/* Мигание крестика — ритм общего blink, но мягче: в тусклой фазе он всё ещё
+   читается янтарным крестом и ярче погашенного «Выйти» (при 0.15 почти
+   пропадал, и выход из инструктажа полсекунды было не найти). */
+@keyframes tut-close-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0.6;
+  }
 }
 
 /* Инструктаж запоминается («видел») и сам больше не всплывает — вернуть его

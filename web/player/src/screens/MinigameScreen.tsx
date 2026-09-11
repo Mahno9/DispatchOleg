@@ -36,6 +36,8 @@ interface MinigameScreenProps {
   onSpeaker?: (who: 'character' | 'player' | null) => void;
   /** Bottom-bar slot 2 — fed by the game's onProgress (docs/platform.md §3.1). */
   onContext: (node: ReactNode) => void;
+  /** Открыт ли инструктаж — App гасит под ним нижнюю панель с «Выйти». */
+  onBriefing?: (open: boolean) => void;
   /** Запоминать просмотр инструктажа в прогрессе. Песочница оставляет его нетронутым. */
   persistBriefing?: boolean;
   /** Result of the run, or null when the player exited without finishing. */
@@ -71,6 +73,7 @@ export function MinigameScreen({
   playerName = DEFAULT_PLAYER_NAME,
   onContext,
   onSpeaker,
+  onBriefing,
   persistBriefing = true,
   onFinished,
 }: MinigameScreenProps) {
@@ -96,8 +99,8 @@ export function MinigameScreen({
   const voicesRef = useRef({ voices, characterId });
   voicesRef.current = { voices, characterId };
 
-  const cb = useRef({ onContext, onSpeaker, onFinished });
-  cb.current = { onContext, onSpeaker, onFinished };
+  const cb = useRef({ onContext, onSpeaker, onBriefing, onFinished });
+  cb.current = { onContext, onSpeaker, onBriefing, onFinished };
 
   // Громкость НЕ в зависимостях запускающего эффекта: иначе каждое движение
   // ползунка перемонтировало бы игру и сбрасывало разложенные карточки.
@@ -117,7 +120,7 @@ export function MinigameScreen({
 
   // Инструктаж лежит ПОВЕРХ смонтированной игры — иначе стрелки указывают в
   // пустоту. Но игра под ним заморожена (handle.setPaused, minigame_contract.md):
-  // бандл поднимается сразу, а тикать начинает только по «Понятно».
+  // бандл поднимается сразу, а тикать начинает только по крестику инструктажа.
   // Refs, потому что бандл догружается асинхронно: к моменту resolve инструктаж
   // может быть уже закрыт, а прогресс — уже прийти.
   const handleRef = useRef<MinigameHandle | null>(null);
@@ -154,7 +157,7 @@ export function MinigameScreen({
             )}
           </>
         );
-        // Под инструктажем слот занят его подписью; строка игры доедет по «Понятно».
+        // Под инструктажем слот занят его подписью; строка игры доедет по крестику.
         // Пока висит реплика (lineRef) — прогресс копится в progressRef молча,
         // иначе он затирает реплику в слоте на каждую смену этапа.
         if (briefedRef.current && !lineRef.current) cb.current.onContext(progressRef.current);
@@ -228,6 +231,14 @@ export function MinigameScreen({
     handleRef.current?.setPaused?.(!briefed || paused);
   }, [briefed, paused, loaded]);
 
+  // Инструктаж на экране ровно тогда, когда рисуется <Briefing>. На
+  // размонтировании снимаем блокировку панели: игру могут закрыть и под ним.
+  const briefingOpen = loaded && !briefed;
+  useEffect(() => {
+    cb.current.onBriefing?.(briefingOpen);
+  }, [briefingOpen]);
+  useEffect(() => () => cb.current.onBriefing?.(false), []);
+
   useEffect(() => {
     cb.current.onContext(
       briefed ? (
@@ -252,7 +263,7 @@ export function MinigameScreen({
           </div>
         </div>
       )}
-      {loaded && !briefed && (
+      {briefingOpen && (
         <Briefing
           minigameId={minigameId}
           steps={steps}
@@ -301,7 +312,7 @@ const GLYPH: Record<Dir, string> = {
  * констант: поле игры вписано с полями по краям, и на широком мониторе те же
  * проценты рабочей области указывают не туда, что на телефоне.
  */
-function Briefing({
+export function Briefing({
   minigameId,
   steps,
   hostRef,
@@ -374,11 +385,16 @@ function Briefing({
     // пересекается и по горизонтали тоже — иначе две соседние колонки
     // расталкивались бы зря.
     const order = rects.map((_, i) => i).sort((a, b) => rects[a]!.top - rects[b]!.top);
+    // Крестик закрытия — неподвижное препятствие в верхнем углу: подпись уходит
+    // ниже него, как от соседней подписи. Он стоит выше всех, поэтому первый.
+    const close = overlay.querySelector('.tut-close')?.getBoundingClientRect();
     order.forEach((i, k) => {
-      for (const j of order.slice(0, k)) {
-        const overlapX = Math.min(rects[i]!.right, rects[j]!.right) - Math.max(rects[i]!.left, rects[j]!.left);
+      const above = order.slice(0, k).map((j) => ({ r: rects[j]!, s: shift[j]!, m: 0 }));
+      if (close) above.unshift({ r: close, s: 0, m: PAD });
+      for (const { r, s, m } of above) {
+        const overlapX = Math.min(rects[i]!.right, r.right + m) - Math.max(rects[i]!.left, r.left - m);
         if (overlapX <= 0) continue;
-        const need = rects[j]!.bottom + shift[j]! + PAD - (rects[i]!.top + shift[i]!);
+        const need = r.bottom + s + PAD - (rects[i]!.top + shift[i]!);
         if (need > 0) shift[i]! += need;
       }
     });
@@ -412,9 +428,7 @@ function Briefing({
           </span>
         </div>
       ))}
-      <button type="button" className="btn tut-start" onClick={onStart}>
-        Понятно
-      </button>
+      <BriefingClose onClose={onStart} />
     </div>
   );
 }
@@ -447,5 +461,26 @@ function MazeTutorialDemos() {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Крестик закрытия инструктажа — в том же углу, где потом встанет `?`
+ * (.tut-again): закрыть и открыть заново игрок ищет в одном месте.
+ */
+export function BriefingClose({ onClose }: { onClose: () => void }) {
+  return (
+    <button
+      type="button"
+      className="btn tut-close"
+      title="Закрыть инструктаж"
+      aria-label="Закрыть инструктаж"
+      onClick={onClose}
+    >
+      {/* Крест линиями, а не глифом «×»: у шрифта терминала он мелкий. */}
+      <svg className="tut-close-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 5 19 19M19 5 5 19" />
+      </svg>
+    </button>
   );
 }

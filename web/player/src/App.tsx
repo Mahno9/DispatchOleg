@@ -168,6 +168,8 @@ export function App() {
   const [speaking, setSpeaking] = useState<'character' | 'player' | null>(null);
   /** Игрок нажал «Выйти» из мини-игры — ждём подтверждения, игра заморожена. */
   const [confirmExit, setConfirmExit] = useState(false);
+  /** Открыт инструктаж мини-игры — нижняя панель с «Выйти» под его скримом. */
+  const [briefing, setBriefing] = useState(false);
   /** Послесменный запуск: без диалогов и записи результата. */
   const [sandbox, setSandbox] = useState(false);
 
@@ -555,6 +557,7 @@ export function App() {
           playerName={state.profile.name || DEFAULT_PLAYER_NAME}
           onContext={setSlotContext}
           onSpeaker={setSpeaking}
+          onBriefing={setBriefing}
           persistBriefing={!sandbox}
           onFinished={(result) => {
             if (sandbox) return endChain();
@@ -640,6 +643,7 @@ export function App() {
         context={context}
         portrait={portrait}
         action={action}
+        locked={screen === 'minigame' && briefing}
       />
 
       <CrtOverlay />
