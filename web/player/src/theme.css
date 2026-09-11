@@ -1487,6 +1487,7 @@ h3 {
 
 .tut-step {
   position: absolute;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1561,7 +1562,200 @@ h3 {
   color: var(--text);
 }
 
+/* Две ключевые механики canvas-лабиринта нельзя показать стрелкой: в первом
+   уровне дозора нет. Поэтому тутер проигрывает их сам, поверх центра поля. */
+.tut-maze-demos {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: min(540px, calc(100% - 24px));
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.tut-maze-demo {
+  min-width: 0;
+  padding: 10px;
+  background: rgba(3, 11, 12, 0.94);
+  border: 1px solid rgba(233, 169, 40, 0.65);
+}
+
+.tut-maze-scene {
+  position: relative;
+  height: 72px;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(93, 226, 208, 0.2);
+}
+
+.tut-maze-dot {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #d3ded5;
+  box-shadow: 0 0 0 1.5px #5de2d0, 0 0 8px #5de2d0;
+}
+
+.tut-maze-break .tut-maze-dot {
+  left: 10%;
+  animation: tut-maze-break-dot 2.2s ease-in infinite;
+}
+
+.tut-maze-wall {
+  position: absolute;
+  left: 56%;
+  width: 2px;
+  height: 34%;
+  background: repeating-linear-gradient(to bottom, #e9a928 0 5px, transparent 5px 8px);
+  box-shadow: 0 0 6px rgba(233, 169, 40, 0.8);
+  transform-origin: center;
+  animation: tut-maze-wall-break 2.2s ease-in infinite;
+}
+
+.tut-maze-wall-top { top: 14%; }
+.tut-maze-wall-bottom { bottom: 14%; }
+
+.tut-maze-patrol-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(211, 222, 213, 0.8);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(211, 222, 213, 0.2), transparent 70%);
+  color: rgba(211, 222, 213, 0.75);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.tut-maze-suspicion {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62px;
+  height: 62px;
+  transform: translate(-50%, -50%);
+  overflow: visible;
+  opacity: 0;
+  animation: tut-maze-suspicion 4s steps(1, end) infinite;
+}
+
+.tut-maze-suspicion circle {
+  fill: none;
+  stroke: #e9a928;
+  stroke-width: 3;
+  stroke-dasharray: 100 100;
+  stroke-dashoffset: 100;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  animation: tut-maze-suspicion-meter 4s steps(1, end) infinite;
+}
+
+.tut-maze-patrol .tut-maze-dot {
+  left: 8%;
+  animation: tut-maze-patrol-dot 4s linear infinite;
+}
+
+.tut-maze-caption {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 7px;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.tut-maze-caption strong { color: var(--amber); }
+
+@keyframes tut-maze-break-dot {
+  0%, 18% {
+    left: 10%;
+    opacity: 1;
+    box-shadow: 0 0 0 1.5px #5de2d0, 0 0 8px #5de2d0;
+  }
+  42% {
+    box-shadow: 0 0 0 1.5px #e9a928, 0 0 10px #e9a928;
+  }
+  55%, 75% {
+    left: 84%;
+    opacity: 1;
+    box-shadow: 0 0 0 1.5px #e9a928, 0 0 10px #e9a928;
+  }
+  80% { left: 84%; opacity: 0; }
+  81% { left: 10%; opacity: 0; }
+  90%, 100% {
+    left: 10%;
+    opacity: 1;
+    box-shadow: 0 0 0 1.5px #5de2d0, 0 0 8px #5de2d0;
+  }
+}
+
+@keyframes tut-maze-wall-break {
+  0%, 42% { opacity: 1; transform: translateY(0) rotate(0); }
+  58%, 88% { opacity: 0.25; transform: translateY(var(--wall-shift)) rotate(18deg); }
+  100% { opacity: 1; transform: translateY(0) rotate(0); }
+}
+
+.tut-maze-wall-top { --wall-shift: -10px; }
+.tut-maze-wall-bottom { --wall-shift: 10px; }
+
+@keyframes tut-maze-patrol-dot {
+  0%, 10% { left: 8%; }
+  28% { left: 30%; }
+  42% { left: 39%; }
+  50% { left: 49%; }
+  62% { left: 57%; }
+  72% { left: 68%; }
+  90%, 100% { left: 92%; }
+}
+
+@keyframes tut-maze-suspicion {
+  0%, 29% { opacity: 0; }
+  34% { opacity: 1; }
+  72%, 100% { opacity: 0; }
+}
+
+@keyframes tut-maze-suspicion-meter {
+  0%, 29% { stroke-dashoffset: 100; }
+  34% { stroke-dashoffset: 86; }
+  42% { stroke-dashoffset: 72; }
+  48% { stroke-dashoffset: 80; }
+  55% { stroke-dashoffset: 58; }
+  62% { stroke-dashoffset: 66; }
+  69% { stroke-dashoffset: 45; }
+  72%, 100% { stroke-dashoffset: 100; }
+}
+
+@media (max-width: 720px) {
+  .tut-maze-demos {
+    gap: 6px;
+    width: min(420px, calc(100% - 12px));
+  }
+
+  .tut-maze-scene { height: 52px; }
+
+  .tut-maze-demo { padding: 6px; }
+
+  .tut-maze-caption {
+    font-size: 0.7rem;
+    line-height: 1.2;
+  }
+}
+
 .tut-start {
+  z-index: 3;
   position: absolute;
   right: 12px;
   bottom: 12px;
@@ -1591,9 +1785,23 @@ h3 {
   .boot-cursor,
   .scan-line,
   .victory-cursor,
-  .success-flash {
+  .success-flash,
+  .tut-maze-dot,
+  .tut-maze-wall,
+  .tut-maze-suspicion,
+  .tut-maze-suspicion circle {
     animation: none;
   }
+
+  .tut-maze-break .tut-maze-dot {
+    left: 84%;
+    box-shadow: 0 0 0 1.5px #e9a928, 0 0 10px #e9a928;
+  }
+  .tut-maze-wall-top { opacity: 0.35; transform: translateY(-10px) rotate(18deg); }
+  .tut-maze-wall-bottom { opacity: 0.35; transform: translateY(10px) rotate(18deg); }
+  .tut-maze-patrol .tut-maze-dot { left: 50%; }
+  .tut-maze-suspicion { opacity: 1; }
+  .tut-maze-suspicion circle { stroke-dashoffset: 58; }
 
   .portrait,
   .dialogue-choices {

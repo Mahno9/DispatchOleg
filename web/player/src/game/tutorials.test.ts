@@ -91,10 +91,10 @@ describe('данные инструктажа', () => {
     }
   });
 
-  it('инструктаж подземки прямо объясняет первый безопасный пролом', () => {
-    const lesson = TUTORIALS['three-mazes']?.[2]?.text ?? '';
-    expect(lesson).toMatch(/Первый уровень/);
-    expect(lesson).toMatch(/пунктирную стену/);
-    expect(lesson).toMatch(/разогнать точку/);
+  it('подземка оставляет две стрелки на финише и старте первого лабиринта', () => {
+    expect(TUTORIALS['three-mazes']).toMatchObject([
+      { x: 36.5, y: 18.5, dir: 'down', text: expect.stringMatching(/финиш/) },
+      { x: 81.5, y: 72.5, dir: 'up', text: expect.stringMatching(/старт/) },
+    ]);
   });
 });

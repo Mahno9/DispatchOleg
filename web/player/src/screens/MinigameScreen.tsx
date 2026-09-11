@@ -247,6 +247,7 @@ export function MinigameScreen({
       )}
       {loaded && !briefed && (
         <Briefing
+          minigameId={minigameId}
           steps={steps}
           hostRef={containerRef}
           onStart={() => {
@@ -294,10 +295,12 @@ const GLYPH: Record<Dir, string> = {
  * проценты рабочей области указывают не туда, что на телефоне.
  */
 function Briefing({
+  minigameId,
   steps,
   hostRef,
   onStart,
 }: {
+  minigameId: string;
   steps: TutorialStep[];
   hostRef: React.RefObject<HTMLDivElement>;
   onStart: () => void;
@@ -386,6 +389,7 @@ function Briefing({
 
   return (
     <div className="minigame-tutorial" ref={overlayRef}>
+      {minigameId === 'three-mazes' && <MazeTutorialDemos />}
       {steps.map((step, i) => (
         <div
           key={i}
@@ -404,6 +408,37 @@ function Briefing({
       <button type="button" className="btn tut-start" onClick={onStart}>
         Понятно
       </button>
+    </div>
+  );
+}
+
+function MazeTutorialDemos() {
+  return (
+    <div className="tut-maze-demos" aria-label="Ключевые механики лабиринта">
+      <div className="tut-maze-demo">
+        <div className="tut-maze-scene tut-maze-break" aria-hidden="true">
+          <span className="tut-maze-dot" />
+          <span className="tut-maze-wall tut-maze-wall-top" />
+          <span className="tut-maze-wall tut-maze-wall-bottom" />
+        </div>
+        <div className="tut-maze-caption">
+          <strong>МОЖНО:</strong> разогнаться и пробить пунктирную стену.
+          <span><strong>НЕЛЬЗЯ:</strong> бить обычную или вскользь.</span>
+        </div>
+      </div>
+      <div className="tut-maze-demo">
+        <div className="tut-maze-scene tut-maze-patrol" aria-hidden="true">
+          <span className="tut-maze-patrol-ring">ДОЗОР</span>
+          <svg className="tut-maze-suspicion" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="29" pathLength="100" />
+          </svg>
+          <span className="tut-maze-dot" />
+        </div>
+        <div className="tut-maze-caption">
+          <strong>МОЖНО:</strong> пройти круг дозора медленно.
+          <span><strong>НЕЛЬЗЯ:</strong> бежать — заметят.</span>
+        </div>
+      </div>
     </div>
   );
 }
