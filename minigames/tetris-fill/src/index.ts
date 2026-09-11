@@ -158,25 +158,19 @@ const STYLES = `
 /* Вспышка отказа: 160 мс x 2 = 320 мс, звук error — примерно 0.35 с. */
 .${PREFIX}cell.${PREFIX}flash { animation: ${PREFIX}flash 160ms steps(2, end) 2; }
 
-.${PREFIX}piece, .${PREFIX}shadow {
+.${PREFIX}piece {
   position: absolute;
   left: 0;
   top: 0;
   pointer-events: none;
+  z-index: 20;
 }
-.${PREFIX}piece { z-index: 20; }
-.${PREFIX}shadow { z-index: 10; }
 .${PREFIX}sq {
   position: absolute;
   box-sizing: border-box;
   background: #6b4d13;
   border: 1px solid #E9A928;
   box-shadow: inset 0 0 0 1px #030B0C;
-}
-.${PREFIX}shadow .${PREFIX}sq {
-  background: transparent;
-  border: 1px dashed rgba(233,169,40,0.5);
-  box-shadow: none;
 }
 
 .${PREFIX}bar {
@@ -491,9 +485,8 @@ export function init(
     }
   }
 
-  const shadowEl = el('div', `${PREFIX}shadow`);
   const pieceEl = el('div', `${PREFIX}piece`);
-  field.append(gridEl, shadowEl, pieceEl);
+  field.append(gridEl, pieceEl);
 
   const muteBtn = el('button', `${PREFIX}mute`);
   muteBtn.setAttribute('aria-label', 'Звук');
@@ -538,7 +531,6 @@ export function init(
     const a: Active | null = state.active;
     if (!a || finished) {
       pieceEl.style.display = 'none';
-      shadowEl.style.display = 'none';
       shapeKey = '';
       return;
     }
@@ -547,12 +539,8 @@ export function init(
     if (key !== shapeKey) {
       shapeKey = key;
       renderSquares(pieceEl, a.shape);
-      renderSquares(shadowEl, a.shape);
     }
     placeHost(pieceEl, a.x, a.y);
-    const ly = landingY(state);
-    placeHost(shadowEl, a.x, ly);
-    shadowEl.style.display = ly === a.y ? 'none' : '';
   }
 
   function relayout(): void {
