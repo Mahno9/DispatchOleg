@@ -36,6 +36,8 @@ interface MinigameScreenProps {
   onSpeaker?: (who: 'character' | 'player' | null) => void;
   /** Bottom-bar slot 2 — fed by the game's onProgress (docs/platform.md §3.1). */
   onContext: (node: ReactNode) => void;
+  /** Запоминать просмотр инструктажа в прогрессе. Песочница оставляет его нетронутым. */
+  persistBriefing?: boolean;
   /** Result of the run, or null when the player exited without finishing. */
   onFinished: (result: MinigameResult | null) => void;
 }
@@ -47,6 +49,10 @@ interface MinigameScreenProps {
  */
 export function needsBriefing(minigameId: string, briefedMinigames: string[]): boolean {
   return (TUTORIALS[minigameId] ?? []).length > 0 && !briefedMinigames.includes(minigameId);
+}
+
+export function rememberBriefing(minigameId: string, persist: boolean): void {
+  if (persist) localState.markBriefed(minigameId);
 }
 
 /**
@@ -65,6 +71,7 @@ export function MinigameScreen({
   playerName = DEFAULT_PLAYER_NAME,
   onContext,
   onSpeaker,
+  persistBriefing = true,
   onFinished,
 }: MinigameScreenProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -251,7 +258,7 @@ export function MinigameScreen({
           steps={steps}
           hostRef={containerRef}
           onStart={() => {
-            localState.markBriefed(minigameId);
+            rememberBriefing(minigameId, persistBriefing);
             setBriefed(true);
           }}
         />

@@ -4,11 +4,14 @@
 // test run neither pollutes the terminal's real progress nor creates players.
 // ---------------------------------------------------------------------------
 
+import type { GameResult } from './state/localState';
+
 export type TestTarget =
   | { kind: 'onboarding' }
   | { kind: 'meta'; stageId: number | null }
   | { kind: 'game'; gameId: number }
-  | { kind: 'dialogue'; dialogueId: number };
+  | { kind: 'dialogue'; dialogueId: number }
+  | { kind: 'endgame' };
 
 /** `test` query param → target. Unknown/absent values mean the normal mode. */
 export function parseTestTarget(search: string): TestTarget | null {
@@ -16,6 +19,7 @@ export function parseTestTarget(search: string): TestTarget | null {
   if (!raw) return null;
   if (raw === 'onboarding') return { kind: 'onboarding' };
   if (raw === 'meta') return { kind: 'meta', stageId: null };
+  if (raw === 'endgame') return { kind: 'endgame' };
   const meta = /^meta:(\d+)$/.exec(raw);
   if (meta) return { kind: 'meta', stageId: Number(meta[1]) };
   const game = /^game:(\d+)$/.exec(raw);
@@ -23,6 +27,16 @@ export function parseTestTarget(search: string): TestTarget | null {
   const dialogue = /^dialogue:(\d+)$/.exec(raw);
   if (dialogue) return { kind: 'dialogue', dialogueId: Number(dialogue[1]) };
   return null;
+}
+
+/** Fresh completed progress for opening the final meta in an in-memory test. */
+export function completedGameResults(gameIds: number[], completedAt: number): Record<string, GameResult> {
+  return Object.fromEntries(
+    gameIds.map((id) => [
+      String(id),
+      { bestScore: 0, won: true, attempts: 1, firstCompletedAt: completedAt },
+    ]),
+  );
 }
 
 export const testTarget: TestTarget | null =

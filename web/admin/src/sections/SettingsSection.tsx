@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, type Settings } from '../api';
+import { api, playerTestUrl, type Settings } from '../api';
 import { AssetPickerModal } from '../schema-form/AssetPickerModal';
 import { showToast } from '../toast';
 
@@ -160,6 +160,9 @@ export function SettingsSection() {
         <div className='poi-panel-actions'>
           <button className='modal-save-primary' disabled={saving} onClick={() => void save()}>
             Сохранить
+          </button>
+          <button onClick={() => window.open(playerTestUrl('endgame'), '_blank')}>
+            ▶ Эндгейм в плеере
           </button>
         </div>
       </div>

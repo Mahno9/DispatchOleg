@@ -41,7 +41,8 @@ import { QrScanScreen } from './screens/QrScanScreen';
 import { useClickSound } from './ui/useClickSound';
 import { useMusicLoop } from './ui/useMusicLoop';
 import { VictoryScreen } from './screens/VictoryScreen';
-import { testTarget } from './testMode';
+import { completedGameResults, testTarget } from './testMode';
+import { SandboxLauncher } from './ui/SandboxLauncher';
 
 type Screen = 'onboarding' | 'meta' | 'qr-scan' | 'launch' | 'dialogue' | 'minigame' | 'victory';
 
@@ -166,6 +167,8 @@ export function App() {
   const [speaking, setSpeaking] = useState<'character' | 'player' | null>(null);
   /** Игрок нажал «Выйти» из мини-игры — ждём подтверждения, игра заморожена. */
   const [confirmExit, setConfirmExit] = useState(false);
+  /** Послесменный запуск: без диалогов и записи результата. */
+  const [sandbox, setSandbox] = useState(false);
 
   // Onboarding hands this to timer-driven screens: it must be referentially
   // stable, or their setTimeout effects restart on every App re-render (the
@@ -178,6 +181,7 @@ export function App() {
 
   /** Номер текущего запуска: сверка в колбэке отсекает ответ отменённого. */
   const runRef = useRef(0);
+  const endgamePrepared = useRef(false);
 
   const endChain = useCallback(() => {
     // Уходим с экрана запуска — конфиг, который ещё в пути, больше не нужен.
@@ -188,20 +192,26 @@ export function App() {
     setSelectedGame(null);
     setSlotContext(null);
     setSpeaking(null);
+    setSandbox(false);
     setScreen('meta');
   }, []);
 
   // pre-dialogue → minigame → post-dialogue, entered from a QR scan or a test run.
   const startGame = useCallback(
-    (game: VerifiedGame) => {
+    (game: VerifiedGame, sandboxRun = false) => {
       const run = (runRef.current += 1);
       setLaunchError(null);
       setConfirmExit(false);
+      setSandbox(sandboxRun);
       setSelectedGame(game);
       setSpeaking(null);
       setScreen('launch');
 
       const apply = (config: GameConfig | null): void => {
+        if (run === runRef.current && config && sandboxRun) {
+          setGameConfig(config);
+          return setScreen('minigame');
+        }
         const action = launchAction(run, runRef.current, config);
         switch (action.kind) {
           case 'ignore':
@@ -257,6 +267,19 @@ export function App() {
     api.getGames().then(
       (list) => {
         setGames(list);
+        if (testTarget?.kind === 'endgame' && !endgamePrepared.current) {
+          endgamePrepared.current = true;
+          const completedAt = Date.now();
+          localState.replace({
+            ...localState.getSnapshot(),
+            updatedAt: completedAt,
+            gameResults: completedGameResults(
+              list.filter((game) => !game.isTutorial).map((game) => game.id),
+              completedAt,
+            ),
+            seenDialogues: [],
+          });
+        }
         // The tutorial row carries the onboarding texts. Missing row or failed
         // fetch → the screen keeps its built-in defaults, so the flow still runs.
         const tutorial = list.find((g) => g.isTutorial);
@@ -423,7 +446,9 @@ export function App() {
           )}
         </>
       );
-      action = (
+      action = allWon && remaining === 0 ? (
+        <SandboxLauncher games={playable} onSelect={(game) => startGame(game, true)} />
+      ) : (
         <div className="start-gate">
           <button
             type="button"
@@ -529,7 +554,9 @@ export function App() {
           playerName={state.profile.name || DEFAULT_PLAYER_NAME}
           onContext={setSlotContext}
           onSpeaker={setSpeaking}
+          persistBriefing={!sandbox}
           onFinished={(result) => {
+            if (sandbox) return endChain();
             if (!result) return endChain();
             localState.recordGameResult(selectedGame.id, result);
             void syncNow();
