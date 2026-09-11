@@ -74,6 +74,17 @@ export function syncIntervalS(raw: unknown): number {
 /** Сообщение в слоте 2 меты, когда конфиг задания не доехал. */
 const LAUNCH_FAIL_TEXT = 'Задание не загрузилось · повторите';
 
+/** Сколько держится пузырь над запертым START после тапа. */
+const START_HINT_MS = 2500;
+
+/**
+ * Почему START заперт — одна строка и для слота 2, и для пузыря над кнопкой,
+ * чтобы подписи не разъехались. `null` — кнопка открыта.
+ */
+export function startLockHint(remaining: number): string | null {
+  return remaining > 0 ? `Сначала опросите персонал · осталось ${remaining}` : null;
+}
+
 /** Что делать с ответом `getGameConfig`: экран запуска или молчание. */
 export type LaunchAction =
   | { kind: 'ignore' }
@@ -322,6 +333,16 @@ export function App() {
   const stageDialogues = stageDialogueIds(stage, characters).length;
   const required = requiredDialogueCount(stages, stage, won, stageDialogues);
   const remaining = Math.max(0, required - (stageDialogues - pending.length));
+  const lockHint = startLockHint(remaining);
+
+  // Тап по запертому START: пузырь с причиной. Счётчик, а не флаг, — повторный
+  // тап перезапускает таймер, а не гасит пузырь по старому.
+  const [startHintTap, setStartHintTap] = useState(0);
+  useEffect(() => {
+    if (startHintTap === 0) return;
+    const timer = setTimeout(() => setStartHintTap(0), START_HINT_MS);
+    return () => clearTimeout(timer);
+  }, [startHintTap]);
 
   // The ending fires once per completed run. Falling short of a full clear —
   // an admin reset, a new game added — arms it again for the next time.
@@ -393,9 +414,7 @@ export function App() {
               />
             ))}
           </div>
-          {remaining > 0 && (
-            <div className="label">Сначала опросите персонал · осталось {remaining}</div>
-          )}
+          {lockHint && <div className="label">{lockHint}</div>}
           {launchError && (
             <div className="label error-line">
               <i className="marker marker-blink" />
@@ -405,20 +424,35 @@ export function App() {
         </>
       );
       action = (
-        <button
-          type="button"
-          // Открылась — мигает как тревога: диалоги прочитаны, квест ждёт.
-          className={`btn btn-key ${remaining === 0 ? 'btn-alert' : ''}`}
-          disabled={remaining > 0}
-          onClick={() => {
-            // Без QR: код на стене заменяет жребий по разблокированным операциям.
-            if (!noQr) return setScreen('qr-scan');
-            const next = pickRandomGame(games, state.gameResults);
-            if (next) startGame(next);
-          }}
-        >
-          START
-        </button>
+        <div className="start-gate">
+          <button
+            type="button"
+            // Открылась — мигает как тревога: диалоги прочитаны, квест ждёт.
+            className={`btn btn-key ${lockHint ? '' : 'btn-alert'}`}
+            // Не нативный disabled: у него не срабатывают ни hover, ни клик, и
+            // игрок не узнаёт, почему кнопка мёртвая.
+            aria-disabled={lockHint ? true : undefined}
+            aria-describedby={lockHint ? 'start-lock-hint' : undefined}
+            onClick={() => {
+              if (lockHint) return setStartHintTap((n) => n + 1);
+              // Без QR: код на стене заменяет жребий по разблокированным операциям.
+              if (!noQr) return setScreen('qr-scan');
+              const next = pickRandomGame(games, state.gameResults);
+              if (next) startGame(next);
+            }}
+          >
+            START
+          </button>
+          {lockHint && (
+            <div
+              id="start-lock-hint"
+              role="tooltip"
+              className={`start-lock-hint${startHintTap ? ' start-lock-hint--shown' : ''}`}
+            >
+              {lockHint}
+            </div>
+          )}
+        </div>
       );
       break;
 

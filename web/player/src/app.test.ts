@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { launchAction, syncIntervalS } from './App';
+import { launchAction, startLockHint, syncIntervalS } from './App';
 import type { GameConfig } from './api';
 
 function config(preDialogueId: number | null): GameConfig {
@@ -32,6 +32,18 @@ describe('launchAction', () => {
 
   it('несдавшийся конфиг — ошибка, а не запуск игры без конфига', () => {
     expect(launchAction(3, 3, null)).toEqual({ kind: 'error' });
+  });
+});
+
+describe('startLockHint', () => {
+  // Одна строка на слот 2 и пузырь над START — подписи не разъедутся.
+  it('пока не опрошен персонал — причина с остатком', () => {
+    expect(startLockHint(3)).toBe('Сначала опросите персонал · осталось 3');
+    expect(startLockHint(1)).toBe('Сначала опросите персонал · осталось 1');
+  });
+
+  it('всё опрошено — START открыт, подсказки нет', () => {
+    expect(startLockHint(0)).toBeNull();
   });
 });
 

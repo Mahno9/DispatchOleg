@@ -90,6 +90,16 @@ export function createClickSound(value: unknown) {
   return { variants, pick, play };
 }
 
+/**
+ * Живая ли кнопка для щелчка. Запертая через aria-disabled (START до опроса
+ * персонала) ловит клик ради подсказки, но звучит как disabled — молчит.
+ */
+export function isLiveButton(
+  button: Pick<HTMLButtonElement, 'disabled' | 'getAttribute'> | null | undefined,
+): boolean {
+  return !!button && !button.disabled && button.getAttribute('aria-disabled') !== 'true';
+}
+
 /** Вешает один слушатель на документ: щелчок на любой живой кнопке. */
 export function useClickSound({ value, prefs }: { value: unknown; prefs: AudioPrefs }): void {
   const prefsRef = useRef(prefs);
@@ -101,7 +111,7 @@ export function useClickSound({ value, prefs }: { value: unknown; prefs: AudioPr
     const onClick = (event: MouseEvent): void => {
       const target = event.target as Element | null;
       const button = target?.closest?.('button') as HTMLButtonElement | null | undefined;
-      if (!button || button.disabled) return;
+      if (!isLiveButton(button)) return;
       sound.play(prefsRef.current);
     };
     // Перехват: у части кнопок обработчик глушит всплытие (выбор в диалоге).

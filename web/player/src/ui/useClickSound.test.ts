@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createClickSound, normalizeClickSound } from './useClickSound';
+import { createClickSound, isLiveButton, normalizeClickSound } from './useClickSound';
 import { DEFAULT_AUDIO_PREFS, type AudioPrefs } from '../state/localState';
 
 // В плеере нет DOM-окружения (vitest в node, без jsdom), поэтому элемент
@@ -157,5 +157,25 @@ describe('click sound: воспроизведение', () => {
     expect(() => sound.play(prefs())).not.toThrow();
     await Promise.resolve();
     expect(FakeAudio.nodes[0]!.plays).toBe(1);
+  });
+});
+
+describe('isLiveButton', () => {
+  const button = (disabled: boolean, ariaDisabled: string | null) => ({
+    disabled,
+    getAttribute: (name: string) => (name === 'aria-disabled' ? ariaDisabled : null),
+  });
+
+  it('щёлкает живая кнопка', () => {
+    expect(isLiveButton(button(false, null))).toBe(true);
+    expect(isLiveButton(button(false, 'false'))).toBe(true);
+  });
+
+  // Запертый START ловит клик ради подсказки, но щелчком не отзывается.
+  it('молчат disabled и aria-disabled, и мимо кнопки', () => {
+    expect(isLiveButton(button(true, null))).toBe(false);
+    expect(isLiveButton(button(false, 'true'))).toBe(false);
+    expect(isLiveButton(null)).toBe(false);
+    expect(isLiveButton(undefined)).toBe(false);
   });
 });
