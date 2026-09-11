@@ -128,6 +128,7 @@ export function App() {
   const [screen, setScreen] = useState<Screen>(() => {
     if (testTarget?.kind === 'game') return 'launch';
     if (testTarget?.kind === 'dialogue') return 'dialogue';
+    if (testTarget?.kind === 'victory') return 'victory';
     return state.onboarded ? 'meta' : 'onboarding';
   });
   const [games, setGames] = useState<Game[]>([]);
@@ -588,12 +589,12 @@ export function App() {
       workarea = <VictoryScreen playerName={state.profile.name || DEFAULT_PLAYER_NAME} />;
       context = (
         <div className="label">
-          Прогресс по всей игре · операций завершено {won} / {playable.length} · смена закрыта
+          Прогресс по всей игре · операций завершено {won} / {playable.length}
         </div>
       );
       action = (
-        <button type="button" className="btn btn-key" onClick={() => setScreen('meta')}>
-          НА МЕТУ
+        <button type="button" className="btn btn-key btn-key-tight" onClick={() => setScreen('meta')}>
+          Закрыть смену
         </button>
       );
       break;

@@ -8,7 +8,7 @@ import { DEFAULT_PLAYER_NAME } from '../game/minigameLoader';
 // ---------------------------------------------------------------------------
 
 /** What the screen says when the admin has left `final_victory_text` empty. */
-export const FALLBACK_VICTORY_TEXT = 'ВСЕ ОПЕРАЦИИ ЗАВЕРШЕНЫ. СМЕНА ЗАКРЫТА. СПАСИБО, ОПЕРАТОР.';
+export const FALLBACK_VICTORY_TEXT = 'ВСЕ ВЫЗОВЫ ОТРАБОТАНЫ. СПАСИБО ЗА СМЕНУ, ДИСПЕТЧЕР.';
 
 interface VictoryScreenProps {
   /** Имя игрока, им подписан диспетчерский терминал. */
@@ -42,7 +42,7 @@ export function VictoryScreen({ playerName = DEFAULT_PLAYER_NAME }: VictoryScree
             <i className="marker marker-blink" />
             Победа
           </span>
-          <span className="label">Смена закрыта · протокол завершён</span>
+          <span className="label">Протокол смены завершён</span>
         </div>
 
         <div className="divider" />
@@ -58,7 +58,7 @@ export function VictoryScreen({ playerName = DEFAULT_PLAYER_NAME }: VictoryScree
 
         <div className="victory-foot label">
           <span>Диспетчерский терминал {playerName.toUpperCase()}</span>
-          <span>Статус: ВСЕ ОПЕРАЦИИ ВЫПОЛНЕНЫ</span>
+          <span>Очередь вызовов: 0</span>
         </div>
       </div>
     </div>

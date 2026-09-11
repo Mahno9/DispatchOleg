@@ -11,7 +11,8 @@ export type TestTarget =
   | { kind: 'meta'; stageId: number | null }
   | { kind: 'game'; gameId: number }
   | { kind: 'dialogue'; dialogueId: number }
-  | { kind: 'endgame' };
+  | { kind: 'endgame' }
+  | { kind: 'victory' };
 
 /** `test` query param → target. Unknown/absent values mean the normal mode. */
 export function parseTestTarget(search: string): TestTarget | null {
@@ -20,6 +21,7 @@ export function parseTestTarget(search: string): TestTarget | null {
   if (raw === 'onboarding') return { kind: 'onboarding' };
   if (raw === 'meta') return { kind: 'meta', stageId: null };
   if (raw === 'endgame') return { kind: 'endgame' };
+  if (raw === 'victory') return { kind: 'victory' };
   const meta = /^meta:(\d+)$/.exec(raw);
   if (meta) return { kind: 'meta', stageId: Number(meta[1]) };
   const game = /^game:(\d+)$/.exec(raw);

@@ -9,6 +9,7 @@ describe('parseTestTarget', () => {
     expect(parseTestTarget('?test=game:12')).toEqual({ kind: 'game', gameId: 12 });
     expect(parseTestTarget('?test=dialogue:3')).toEqual({ kind: 'dialogue', dialogueId: 3 });
     expect(parseTestTarget('?test=endgame')).toEqual({ kind: 'endgame' });
+    expect(parseTestTarget('?test=victory')).toEqual({ kind: 'victory' });
   });
 
   it('ignores absent or malformed values', () => {
@@ -17,7 +18,6 @@ describe('parseTestTarget', () => {
     expect(parseTestTarget('?test=')).toBeNull();
     expect(parseTestTarget('?test=game:')).toBeNull();
     expect(parseTestTarget('?test=game:abc')).toBeNull();
-    expect(parseTestTarget('?test=victory')).toBeNull();
     expect(parseTestTarget('?test=dialogue:x')).toBeNull();
   });
 });

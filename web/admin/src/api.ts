@@ -39,7 +39,7 @@ export interface Minigame {
 }
 
 /**
- * Player URL for an admin test run (`?test=onboarding | meta:<id> | game:<id>`).
+ * Player URL for an admin test run (`?test=onboarding | meta:<id> | game:<id> | victory`).
  * In dev the player lives on its own vite port; in prod both SPAs share the origin.
  */
 export function playerTestUrl(test: string): string {

@@ -161,6 +161,9 @@ export function SettingsSection() {
           <button className='modal-save-primary' disabled={saving} onClick={() => void save()}>
             Сохранить
           </button>
+          <button onClick={() => window.open(playerTestUrl('victory'), '_blank')}>
+            ▶ Тест победы в плеере
+          </button>
           <button onClick={() => window.open(playerTestUrl('endgame'), '_blank')}>
             ▶ Эндгейм в плеере
           </button>
