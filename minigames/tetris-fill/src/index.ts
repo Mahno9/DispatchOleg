@@ -228,6 +228,27 @@ const STYLES = `
 }
 .${PREFIX}mute:hover { border-color: #5DE2D0; box-shadow: 0 0 6px rgba(93,226,208,0.35); }
 
+.${PREFIX}pause {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(3,11,12,0.72);
+}
+.${PREFIX}pause[hidden] { display: none; }
+.${PREFIX}pause::before {
+  content: 'П А У З А';
+  min-width: 172px;
+  padding: 8px 0;
+  border: 4px double #16A69B;
+  color: #E9A928;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .${PREFIX}fault {
   margin: auto;
   max-width: 420px;
@@ -297,6 +318,25 @@ function normalizeBarks(raw: BarkDialogue[] | undefined): BarkDialogue[] {
       finalHoldMs: intOr(d?.finalHoldMs, 1500, 0, 60000),
     }))
     .filter((d) => d.lines.length > 0);
+}
+
+export function bindFocusPause(
+  win: EventTarget,
+  doc: EventTarget,
+  hidden: () => boolean,
+  setPaused: (paused: boolean) => void,
+): () => void {
+  const pause = (): void => setPaused(true);
+  const resume = (): void => setPaused(hidden());
+  const visibility = (): void => setPaused(hidden());
+  win.addEventListener('blur', pause);
+  win.addEventListener('focus', resume);
+  doc.addEventListener('visibilitychange', visibility);
+  return () => {
+    win.removeEventListener('blur', pause);
+    win.removeEventListener('focus', resume);
+    doc.removeEventListener('visibilitychange', visibility);
+  };
 }
 
 export function init(
@@ -457,7 +497,9 @@ export function init(
   // Заморозка на время инструктажа: деталь не падает, ввод не принимается,
   // а прочитанное время не попадает в счёт — startedAt сдвигается на паузу.
   let held = false;
-  let heldAt = 0;
+  let paused = false;
+  let frozenAt: number | null = null;
+  const frozen = (): boolean => held || paused;
   let startedAt = performance.now();
   const hintOn = (): boolean => state.pieceErrors >= hintAfterErrors;
   let cell = 24;
@@ -505,7 +547,11 @@ export function init(
   bar.append(headEl, errEl);
 
   const pad = el('div', `${PREFIX}pad`);
-  root.append(field, bar, pad);
+  const pauseOverlay = el('div', `${PREFIX}pause`);
+  pauseOverlay.hidden = true;
+  pauseOverlay.setAttribute('role', 'status');
+  pauseOverlay.setAttribute('aria-label', 'Пауза');
+  root.append(field, bar, pad, pauseOverlay);
 
   // --- layout / rendering ---
   const stepPx = (): number => cell + GAP;
@@ -639,7 +685,7 @@ export function init(
     rafId = requestAnimationFrame(tick);
     const dt = lastFrame ? now - lastFrame : 0;
     lastFrame = now;
-    if (finished || held) return;
+    if (finished || frozen()) return;
     const a = state.active;
     const snap: Active | null = a ? { shape: a.shape, x: a.x, y: a.y, turns: a.turns } : null;
     handle(update(state, dt), snap);
@@ -652,14 +698,14 @@ export function init(
 
   function doHardDrop(): void {
     const a = state.active;
-    if (finished || held || !a) return;
+    if (finished || frozen() || !a) return;
     const snap: Active = { shape: a.shape, x: a.x, y: landingY(state), turns: a.turns };
     handle(hardDrop(state), snap);
     renderActive();
   }
 
   function doRotate(): void {
-    if (finished || held) return;
+    if (finished || frozen()) return;
     if (rotateActive(state)) {
       play(config.sounds?.rotate);
       shapeKey = '';
@@ -668,7 +714,7 @@ export function init(
   }
 
   function doMove(dx: -1 | 1): void {
-    if (finished || held) return;
+    if (finished || frozen()) return;
     if (move(state, dx)) {
       play(config.sounds?.move);
       renderActive();
@@ -717,7 +763,7 @@ export function init(
   );
 
   root.addEventListener('keydown', (e) => {
-    if (finished || held) return;
+    if (finished || frozen()) return;
     const k = e.key;
     if (k === 'ArrowLeft') doMove(-1);
     else if (k === 'ArrowRight') doMove(1);
@@ -810,21 +856,41 @@ export function init(
   root.focus({ preventScroll: true });
   rafId = requestAnimationFrame(tick);
 
+  function syncFrozen(): void {
+    const value = frozen();
+    if (value === (frozenAt !== null)) return;
+    if (value) {
+      frozenAt = performance.now();
+      stopRepeat();
+      setSoftDrop(state, false);
+    } else {
+      startedAt += performance.now() - (frozenAt as number);
+      frozenAt = null;
+      lastFrame = 0;
+    }
+    audio.setPaused(value);
+  }
+
+  function setFocusPaused(value: boolean): void {
+    if (finished || paused === value) return;
+    paused = value;
+    pauseOverlay.hidden = !paused;
+    syncFrozen();
+  }
+
+  const unbindFocusPause = bindFocusPause(window, document, () => document.hidden, setFocusPaused);
+  setFocusPaused(document.hidden);
+
   return {
     destroy(): void {
+      unbindFocusPause();
       observer.disconnect();
       baseDestroy();
     },
     setPaused(value: boolean): void {
       if (held === value) return;
       held = value;
-      if (held) {
-        heldAt = performance.now();
-        stopRepeat();
-        setSoftDrop(state, false);
-      } else {
-        startedAt += performance.now() - heldAt;
-      }
+      syncFrozen();
     },
     setVolume(v): void {
       audio.setVolume(v);

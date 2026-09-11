@@ -93,6 +93,19 @@ describe('music and audio lifetime', () => {
     audio.destroy();
   });
 
+  it('pauses and resumes music while suppressing effects', () => {
+    const audio = createAudio('music.ogg', {});
+    audio.retryMusic();
+    const music = FakeAudio.nodes[0]!;
+    audio.setPaused(true);
+    audio.play('ignored.ogg');
+    expect(music.paused).toBe(true);
+    expect(FakeAudio.nodes).toHaveLength(1);
+    audio.setPaused(false);
+    expect(music).toMatchObject({ paused: false, plays: 2 });
+    audio.destroy();
+  });
+
   it('stops all in-flight effects on exit and cannot restart music after finish or destroy', () => {
     const audio = createAudio('music.ogg', {});
     audio.retryMusic();

@@ -20,6 +20,7 @@ export function createAudio(musicValue: unknown, initial: Volume) {
   let muted = initial.muted === true;
   let musicGain = gain(initial.musicVolume);
   let sfxGain = gain(initial.sfxVolume);
+  let paused = false;
   let destroyed = false;
   let musicFinished = false;
   const musicSound = pickSound(musicValue);
@@ -40,14 +41,14 @@ export function createAudio(musicValue: unknown, initial: Volume) {
   function syncMusic(): void {
     if (!music || !musicSound || destroyed || musicFinished) return;
     music.volume = gain(musicSound.volume) * musicGain;
-    if (muted || music.volume === 0) music.pause();
+    if (paused || muted || music.volume === 0) music.pause();
     else if (music.paused) void music.play().catch(() => {});
   }
 
   function syncLoop(): void {
     if (!loop || !loopSound || destroyed) return;
     loop.volume = gain(loopSound.volume) * sfxGain;
-    if (muted || loop.volume === 0) loop.pause();
+    if (paused || muted || loop.volume === 0) loop.pause();
     else if (loop.paused) void loop.play().catch(() => {});
   }
 
@@ -82,7 +83,7 @@ export function createAudio(musicValue: unknown, initial: Volume) {
     },
     stopLoop,
     play(value: unknown): void {
-      if (destroyed || muted || sfxGain === 0) return;
+      if (destroyed || paused || muted || sfxGain === 0) return;
       const sound = pickSound(value);
       if (!sound || sound.volume === 0) return;
       const node = new Audio(sound.url);
@@ -93,6 +94,11 @@ export function createAudio(musicValue: unknown, initial: Volume) {
       void node.play().catch(release);
     },
     setMuted(value: boolean): void { muted = value; sync(); },
+    setPaused(value: boolean): void {
+      paused = value;
+      if (paused) stopOneShots();
+      sync();
+    },
     setVolume(value: Volume): void {
       muted = value.muted === true;
       musicGain = gain(value.musicVolume);
