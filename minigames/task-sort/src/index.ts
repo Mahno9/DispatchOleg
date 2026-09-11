@@ -91,7 +91,8 @@ const STYLES = `
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px;
+  /* Справа — угол под «?» платформы (minigame_contract.md, 40×32 px). */
+  padding: 4px 40px 4px 8px;
   background: #062326;
   border: 1px solid #0A3435;
   box-shadow: inset 0 0 0 1px #030B0C;
@@ -452,7 +453,6 @@ export function init(
   const total = tasks.length;
 
   // --- state ---
-  let muted = config.muted === true;
   let finished = false;
   const gain = (v: unknown, fallback: number): number =>
     Math.max(0, Math.min(100, typeof v === 'number' && Number.isFinite(v) ? v : fallback)) / 100;
@@ -548,15 +548,7 @@ export function init(
   title.textContent = 'Смена · разбор входящих';
   const msgEl = el('div', `${PREFIX}msg`);
   msgEl.textContent = 'Свои активные — в очередь по срочности, остальное — в архив';
-  const muteBtn = el('button', `${PREFIX}sq`);
-  muteBtn.setAttribute('aria-label', 'Звук');
-  muteBtn.textContent = muted ? '🔇' : '🔊';
-  muteBtn.addEventListener('click', () => {
-    muted = !muted;
-    muteBtn.textContent = muted ? '🔇' : '🔊';
-    audio.setMuted(muted);
-  });
-  topbar.append(title, msgEl, muteBtn);
+  topbar.append(title, msgEl);
 
   audio.retryMusic();
   // Автоплей глушится до первого жеста в документе, а игра монтируется под
@@ -1127,12 +1119,9 @@ export function init(
   );
 
   return {
-    // Общий регулятор в шапке плеера; локальная кнопка 🔊 остаётся быстрым
-    // переключателем, но глобальная настройка её перебивает.
+    // Общий регулятор в шапке плеера — своей кнопки звука у игры нет.
     setVolume(v): void {
       audio.setVolume(volumeOf(v));
-      muted = v.muted === true;
-      muteBtn.textContent = muted ? '🔇' : '🔊';
     },
     destroy(): void {
       cleanupDrag();

@@ -228,24 +228,14 @@ const STYLES = `
   font-size: 10px; line-height: 1.25; letter-spacing: 0.05em; color: #759C96;
   white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.${PREFIX}aside { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end; gap: 4px; }
+/* Ошибки прижаты вниз: верх справа — угол под «?» платформы (minigame_contract.md, 40×32 px). */
+.${PREFIX}aside { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end; gap: 4px; }
 .${PREFIX}fails { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #759C96; letter-spacing: 0.1em; }
 .${PREFIX}fails i {
   width: 10px; height: 10px; border-radius: 50%;
   border: 1px solid #759C96; background: transparent;
 }
 .${PREFIX}fails i.${PREFIX}spent { border-color: #F0713E; background: #F0713E; box-shadow: 0 0 6px rgba(240,113,62,0.6); }
-.${PREFIX}sq {
-  width: 28px; height: 26px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: #0A3435; border: 1px solid #16A69B; border-radius: 0;
-  box-shadow: inset 0 0 0 1px #062326;
-  color: #D3DED5; font: inherit; font-size: 13px; cursor: pointer;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-  pointer-events: auto;
-}
-.${PREFIX}sq:hover { border-color: #5DE2D0; box-shadow: 0 0 6px rgba(93,226,208,0.35), inset 0 0 0 1px #062326; }
-.${PREFIX}sq:focus-visible { outline: 1px solid #E9A928; outline-offset: 1px; }
 
 /* --- middle ------------------------------------------------------------ */
 .${PREFIX}mid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 6px; }
@@ -481,7 +471,6 @@ export function init(
 
   // --- state ---
   let state = initialState();
-  let muted = config.muted === true;
   let finished = false;
   let rafId = 0;
   let lastFrameAt = 0;
@@ -514,16 +503,7 @@ export function init(
     failMarks.push(mark);
     failsEl.appendChild(mark);
   }
-  const muteBtn = el('button', `${PREFIX}sq`);
-  muteBtn.type = 'button';
-  muteBtn.setAttribute('aria-label', 'Звук');
-  muteBtn.textContent = muted ? '🔇' : '🔊';
-  muteBtn.addEventListener('click', () => {
-    muted = !muted;
-    muteBtn.textContent = muted ? '🔇' : '🔊';
-    audio.setMuted(muted);
-  });
-  aside.append(failsEl, muteBtn);
+  aside.append(failsEl);
   queue.append(cardsEl, aside);
 
   const cards = cfg.orders.map((order) => {
@@ -936,7 +916,6 @@ export function init(
     if (activePointerId !== null) return; // busy: second finger, second click
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const target = e.target as HTMLElement | null;
-    if (target?.closest(`.${PREFIX}sq`)) return;
     const cell = target?.closest<HTMLElement>('[data-ing]');
     const potHit = target?.closest<HTMLElement>('[data-pot]');
     if (!cell && !potHit) return;
@@ -1029,8 +1008,6 @@ export function init(
   return {
     setVolume(v): void {
       audio.setVolume(v);
-      muted = v.muted === true;
-      muteBtn.textContent = muted ? '🔇' : '🔊';
     },
     destroy(): void {
       stopRaf();

@@ -35,39 +35,30 @@ export const STYLES = `
 .${P}hud {
   flex: 0 0 auto;
   display: flex;
+  /* На телефоне строка не влезает: ячейки уходят на вторую строку, а не за край. */
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  padding: 4px 8px;
+  gap: 2px 10px;
+  /* Справа — угол под «?» платформы (minigame_contract.md, 40×32 px). */
+  padding: 4px 40px 4px 8px;
   background: #062326;
   border: 1px solid #0A3435;
   box-shadow: inset 0 0 0 1px #030B0C;
   font-size: 13px;
   letter-spacing: 0.1em;
 }
-.${P}hud__title { font-weight: 700; color: #16A69B; white-space: nowrap; }
-.${P}hud__spacer { flex: 1 1 auto; }
+.${P}hud__title {
+  min-width: 0;
+  max-width: 100%;
+  font-weight: 700;
+  color: #16A69B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .${P}hud__cell { color: #759C96; white-space: nowrap; }
 .${P}hud__cell b { color: #D3DED5; font-weight: 400; }
 .${P}hud__cell--alert b { color: #F0713E; }
-
-.${P}sq {
-  flex: 0 0 auto;
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #0A3435;
-  border: 1px solid #16A69B;
-  box-shadow: inset 0 0 0 1px #062326;
-  color: #D3DED5;
-  border-radius: 0;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-.${P}sq:hover { border-color: #5DE2D0; box-shadow: 0 0 6px rgba(93,226,208,0.35); }
 
 /* --- рабочая область ---------------------------------------------------- */
 .${P}body { flex: 1 1 auto; min-height: 0; display: flex; gap: 6px; }

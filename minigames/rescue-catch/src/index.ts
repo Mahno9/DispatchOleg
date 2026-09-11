@@ -114,10 +114,6 @@ font:30px ${MONO};opacity:.85}
 .${PREFIX}arrow:active{border-color:${C.glow};color:${C.text}}
 .${PREFIX}scan{position:absolute;inset:0;pointer-events:none;opacity:.35;
 background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 1px,transparent 1px,transparent 4px)}
-.${PREFIX}btn{position:absolute;top:10px;right:10px;width:34px;height:34px;padding:0;cursor:pointer;
-background:${C.surface};color:${C.glow};border:1px solid ${C.teal};border-radius:0;font:14px ${MONO};
-line-height:32px;transition:border-color 140ms linear,color 140ms linear}
-.${PREFIX}btn:hover{border-color:${C.glow};color:${C.text}}
 `;
 
 // ---------------------------------------------------------------------------
@@ -168,9 +164,7 @@ export function init(
   // ponytail: the platform draws its own CRT overlay; if it reads as double
   // moire on device, delete this element and the .rc-scan rule.
   scan.className = `${PREFIX}scan`;
-  const muteBtn = document.createElement('button');
-  muteBtn.className = `${PREFIX}btn`;
-  root.append(canvas, scan, muteBtn);
+  root.append(canvas, scan);
   container.appendChild(root);
   requestAnimationFrame(() => root.classList.add(`${PREFIX}visible`));
 
@@ -289,15 +283,8 @@ export function init(
 
   function applyMute(): void {
     master.gain.value = muted ? 0 : sfxGain;
-    muteBtn.textContent = muted ? '🔇' : '🔊';
     syncMusic();
   }
-  muteBtn.title = 'Звук';
-  muteBtn.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    muted = !muted;
-    applyMute();
-  });
   applyMute();
   // Autoplay stays blocked until the document sees a gesture, and the game mounts
   // under the briefing overlay that eats the first one.

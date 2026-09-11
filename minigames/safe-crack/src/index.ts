@@ -69,7 +69,6 @@ export function init(
   const timers = new Set<ReturnType<typeof setTimeout>>();
   let ticker: ReturnType<typeof setInterval> | undefined;
   let widget: LockWidget | undefined;
-  let muted = rawConfig.muted === true;
   let finished = false;
   let held = false; // заморозка платформой на время инструктажа
   // Своё событие фазы, пришедшее под инструктажем. Ввод игрока под паузой
@@ -103,15 +102,7 @@ export function init(
   const hudScore = el('div', `${P}hud__cell ${P}mono`);
   const hudAttempts = el('div', `${P}hud__cell ${P}mono`);
   const hudTime = el('div', `${P}hud__cell ${P}mono`);
-  const muteBtn = el('button', `${P}sq`, muted ? '🔇' : '🔊');
-  muteBtn.type = 'button';
-  muteBtn.setAttribute('aria-label', 'Звук');
-  muteBtn.addEventListener('click', () => {
-    muted = !muted;
-    muteBtn.textContent = muted ? '🔇' : '🔊';
-    audio.setMuted(muted);
-  });
-  hud.append(hudTitle, hudLock, hudScore, hudAttempts, hudTime, el('div', `${P}hud__spacer`), muteBtn);
+  hud.append(hudTitle, hudLock, hudScore, hudAttempts, hudTime);
 
   // --- сцена ----------------------------------------------------------------
   const body = el('div', `${P}body`);
@@ -372,12 +363,9 @@ export function init(
       }
     },
 
-    // Общий регулятор в шапке плеера; локальная кнопка 🔊 остаётся быстрым
-    // переключателем, но глобальная настройка её перебивает.
+    // Общий регулятор в шапке плеера — своей кнопки звука у игры нет.
     setVolume(v): void {
       audio.setVolume(v);
-      muted = v.muted === true;
-      muteBtn.textContent = muted ? '🔇' : '🔊';
     },
 
     destroy(): void {

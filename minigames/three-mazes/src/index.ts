@@ -138,21 +138,7 @@ const STYLES = `
 }
 .${PREFIX}root.${PREFIX}visible { opacity: 1; }
 .${PREFIX}canvas { display: block; width: 100%; height: 100%; }
-.${PREFIX}mute {
-  position: absolute; top: 10px; right: 10px; width: 32px; height: 32px;
-  padding: 0; border-radius: 0; cursor: pointer;
-  background: rgba(6,35,38,0.8); border: 1px solid ${C.frame};
-  box-shadow: inset 0 0 0 1px rgba(93,226,208,0.15);
-  color: ${C.wall}; display: flex; align-items: center; justify-content: center;
-  transition: box-shadow 140ms ease, border-color 140ms ease;
-}
-.${PREFIX}mute:hover { border-color: ${C.wall}; box-shadow: 0 0 8px rgba(93,226,208,0.5); }
-.${PREFIX}mute svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.5; }
-.${PREFIX}mute.${PREFIX}off { color: ${C.muted}; }
 `;
-
-const SPEAKER_SVG =
-  '<svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 9c1.4 1.6 1.4 4.4 0 6"/><path class="cross" d="M16 9l5 6M21 9l-5 6" style="display:none"/></svg>';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -380,32 +366,6 @@ export function init(
       ambient.pause();
     }
   }
-
-  // --- mute button ---
-  const muteBtn = document.createElement('button');
-  muteBtn.className = `${PREFIX}mute`;
-  muteBtn.type = 'button';
-  muteBtn.title = 'ЗВУК';
-  muteBtn.innerHTML = SPEAKER_SVG;
-  function renderMute(): void {
-    muteBtn.classList.toggle(`${PREFIX}off`, muted);
-    const wave = muteBtn.querySelector<SVGPathElement>('.wave');
-    const cross = muteBtn.querySelector<SVGPathElement>('.cross');
-    if (wave) wave.style.display = muted ? 'none' : '';
-    if (cross) cross.style.display = muted ? '' : 'none';
-  }
-  renderMute();
-  muteBtn.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    muted = !muted;
-    renderMute();
-    if (muted) {
-      for (const a of live) a.pause();
-      live.length = 0;
-    }
-    syncAmbient(phase === 'ACTIVE');
-  });
-  root.appendChild(muteBtn);
 
   // --- screamer image (lazy, silent fallback on error) ---
   let screamerImg: HTMLImageElement | null = null;
@@ -1052,7 +1012,6 @@ export function init(
     musicGain = gainOf(v.musicVolume, 100);
     sfxGain = gainOf(v.sfxVolume, 100);
     muted = v.muted === true;
-    renderMute();
     if (muted) {
       for (const a of live) a.pause();
       live.length = 0;

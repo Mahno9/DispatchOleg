@@ -206,28 +206,6 @@ const STYLES = `
 }
 .${PREFIX}key:active, .${PREFIX}key.${PREFIX}on { background: #12595a; border-color: #5DE2D0; }
 
-.${PREFIX}mute {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: #0A3435;
-  border: 1px solid #16A69B;
-  box-shadow: inset 0 0 0 1px #062326;
-  color: #D3DED5;
-  border-radius: 0;
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  z-index: 30;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
-}
-.${PREFIX}mute:hover { border-color: #5DE2D0; box-shadow: 0 0 6px rgba(93,226,208,0.35); }
-
 .${PREFIX}pause {
   position: absolute;
   inset: 0;
@@ -410,7 +388,6 @@ export function init(
 
   // --- audio ---
   // Создаётся до разбора конфига: звук гасится в baseDestroy, общем и для панели ошибки.
-  let muted = config.muted === true;
   const audio = createAudio(config.sounds?.music, config);
   const { play } = audio;
   // Автоплей заблокирован до первого жеста, а брифинговый оверлей его съедает — нужен добор.
@@ -529,17 +506,6 @@ export function init(
 
   const pieceEl = el('div', `${PREFIX}piece`);
   field.append(gridEl, pieceEl);
-
-  const muteBtn = el('button', `${PREFIX}mute`);
-  muteBtn.setAttribute('aria-label', 'Звук');
-  muteBtn.textContent = muted ? '🔇' : '🔊';
-  muteBtn.addEventListener('click', () => {
-    muted = !muted;
-    muteBtn.textContent = muted ? '🔇' : '🔊';
-    audio.setMuted(muted);
-    root.focus({ preventScroll: true });
-  });
-  field.appendChild(muteBtn);
 
   const bar = el('div', `${PREFIX}bar`);
   const headEl = el('span');
@@ -894,8 +860,6 @@ export function init(
     },
     setVolume(v): void {
       audio.setVolume(v);
-      muted = v.muted === true;
-      muteBtn.textContent = muted ? '🔇' : '🔊';
     },
   };
 }
