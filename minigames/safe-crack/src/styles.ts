@@ -107,6 +107,17 @@ export const STYLES = `
   background: #16A69B;
   transition: width 180ms linear;
 }
+.${P}question {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-left: 2px solid #16A69B;
+  background: #0A3435;
+  color: #D3DED5;
+  font-size: 15px;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
 .${P}slot {
   flex: 1 1 auto;
   min-height: 0;

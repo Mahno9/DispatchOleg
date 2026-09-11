@@ -8,11 +8,11 @@ import {
   dedupe,
   EMPTY_SLOT,
   generateDecoys,
+  lockQuestion,
   normalize,
   normalizeConfig,
   normalizePattern,
   numberToWords,
-  panelLine,
   reduce,
   resolveExpected,
   shuffle,
@@ -315,39 +315,39 @@ describe('number-as-words', () => {
   });
 });
 
-describe('panelLine — подсказка в слоте 2', () => {
+describe('lockQuestion — подсказка над виджетом', () => {
   const cfg = config({ locks: [lock({ question: 'первая' }), lock({ question: 'вторая' })] });
 
-  it('на заставке панель свободна', () => {
-    expect(panelLine(cfg, createState(cfg))).toBeNull();
+  it('на заставке подсказки нет', () => {
+    expect(lockQuestion(cfg, createState(cfg))).toBeNull();
   });
 
-  it('висит весь ригель, включая проверку и показ результата', () => {
+  it('видна весь ригель, включая проверку и показ результата', () => {
     let state = run(cfg, [{ type: 'START' }]);
-    expect(panelLine(cfg, state)).toBe('первая');
+    expect(lockQuestion(cfg, state)).toBe('первая');
     state = run(cfg, [{ type: 'SUBMIT', value: '1' }], state);
     expect(state.phase).toBe('checking');
-    expect(panelLine(cfg, state)).toBe('первая');
+    expect(lockQuestion(cfg, state)).toBe('первая');
     state = run(cfg, [{ type: 'CHECK_DONE' }], state);
     expect(state.phase).toBe('lockOpen');
-    expect(panelLine(cfg, state)).toBe('первая');
+    expect(lockQuestion(cfg, state)).toBe('первая');
   });
 
   it('на следующем ригеле меняется на его подсказку', () => {
     const state = solve(cfg, run(cfg, [{ type: 'START' }]));
-    expect(panelLine(cfg, state)).toBe('вторая');
+    expect(lockQuestion(cfg, state)).toBe('вторая');
   });
 
-  it('финал освобождает панель под итоговую строку прогресса', () => {
+  it('финал прячет подсказку', () => {
     const one = config({ locks: [lock({ question: 'первая' })] });
     const won = solve(one, run(one, [{ type: 'START' }]));
     expect(won.phase).toBe('victory');
-    expect(panelLine(one, won)).toBeNull();
+    expect(lockQuestion(one, won)).toBeNull();
   });
 
-  it('пустой вопрос панель не занимает', () => {
+  it('пустой вопрос ничего не показывает', () => {
     const mute = config({ locks: [lock({ question: '   ' })] });
-    expect(panelLine(mute, run(mute, [{ type: 'START' }]))).toBeNull();
+    expect(lockQuestion(mute, run(mute, [{ type: 'START' }]))).toBeNull();
   });
 });
 

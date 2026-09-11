@@ -1,8 +1,8 @@
 import {
   buildResult,
   createState,
+  lockQuestion,
   normalizeConfig,
-  panelLine,
   reduce,
   type Config,
   type Event,
@@ -28,7 +28,6 @@ interface Callbacks {
   onComplete: (result: { score: number; won: boolean; details?: Record<string, number | string> }) => void;
   onExit: () => void;
   onProgress?: (text: string, percent?: number) => void;
-  onLine?: (text: string | null, onDismiss?: () => void) => void;
 }
 
 const FADE_MS = 300;
@@ -123,6 +122,7 @@ export function init(
   const progressFill = el('div', `${P}progress__fill`);
   progressBar.append(progressFill);
   progressRow.append(progressLabel, progressBar);
+  const question = el('div', `${P}question`);
   const slot = el('div', `${P}slot`);
   const statusRow = el('div', `${P}status`);
   const statusBar = el('div', `${P}statusbar ${P}mono`);
@@ -130,7 +130,7 @@ export function init(
   enterBtn.type = 'button';
   enterBtn.addEventListener('click', () => dispatch({ type: 'SUBMIT', value: widget?.getValue() ?? '' }));
   statusRow.append(statusBar, enterBtn);
-  stage.append(progressRow, slot, statusRow);
+  stage.append(progressRow, question, slot, statusRow);
 
   const bolts = el('div', `${P}bolts`);
   const boltNodes = config.locks.map((_, i) => {
@@ -220,20 +220,12 @@ export function init(
     progressLabel.textContent = `ВСКРЫТО ${state.locksOpened}/${total}`;
     progressFill.style.width = `${total === 0 ? 100 : Math.round((state.locksOpened / total) * 100)}%`;
 
+    const hint = lockQuestion(config, state);
+    question.hidden = !hint;
+    question.textContent = hint ?? '';
+
     slot.classList.toggle(`${P}slot--off`, state.phase !== 'lock');
     enterBtn.disabled = state.phase !== 'lock';
-    pushLine();
-  }
-
-  // Подсказка Малеволы висит в слоте 2 нижней панели весь взлом: без onDismiss
-  // платформа сама её не гасит (minigame_contract.md). Толкаем только на смене
-  // текста — render() зовётся и на каждый тик таймера.
-  let lineShown: string | null = null;
-  function pushLine(): void {
-    const text = panelLine(config, state);
-    if (text === lineShown) return;
-    lineShown = text;
-    callbacks.onLine?.(text);
   }
 
   // --- виджеты --------------------------------------------------------------
@@ -272,8 +264,6 @@ export function init(
     widget = undefined;
     audio.finishMusic();
     play(won ? 'victory' : 'lockFail');
-    // Пока реплика висит, платформа прячет прогресс — снимаем её под итог.
-    pushLine();
     const percent = won ? 100 : Math.round((state.locksOpened / Math.max(1, total)) * 100);
     callbacks.onProgress?.(won ? 'Сейф вскрыт' : 'Взлом сорван', percent);
     endScreen(won);
@@ -391,7 +381,6 @@ export function init(
     },
 
     destroy(): void {
-      callbacks.onLine?.(null); // иначе реплика виснет в панели плеера после выгрузки
       stopTicker();
       for (const id of timers) clearTimeout(id);
       timers.clear();

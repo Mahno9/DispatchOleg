@@ -241,10 +241,10 @@ export function reduce(state: State, event: Event, config: Config): State {
 }
 
 /**
- * Реплика для слота 2 нижней панели: подсказка текущего ригеля.
- * Висит всё время взлома — заставка и финал панель освобождают.
+ * Подсказка текущего ригеля — рисуется на сцене прямо над виджетом.
+ * Видна всё время взлома — заставка и финал её прячут.
  */
-export function panelLine(config: Config, state: State): string | null {
+export function lockQuestion(config: Config, state: State): string | null {
   if (state.phase === 'intro' || state.phase === 'victory' || state.phase === 'defeat') return null;
   return config.locks[state.currentLock]?.question.trim() || null;
 }
