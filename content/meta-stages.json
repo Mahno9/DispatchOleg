@@ -4,7 +4,7 @@
     "title": "Смена принята",
     "sort_order": 10,
     "background_json": {
-      "image": "/assets-store/hqShtab01.svg",
+      "image": "/assets-store/hqShtab02.svg",
       "fit": "cover",
       "scale": 1,
       "offset": {
@@ -58,7 +58,7 @@
     "title": "Город на связи",
     "sort_order": 20,
     "background_json": {
-      "image": "/assets-store/hqShtab01.svg",
+      "image": "/assets-store/hqShtab03.svg",
       "fit": "cover",
       "scale": 1,
       "offset": {
@@ -105,7 +105,7 @@
     "title": "Разгар смены",
     "sort_order": 30,
     "background_json": {
-      "image": "/assets-store/hqShtab01.svg",
+      "image": "/assets-store/hqShtab04.svg",
       "fit": "cover",
       "scale": 1,
       "offset": {
@@ -160,7 +160,7 @@
     "title": "Ночь длинная",
     "sort_order": 40,
     "background_json": {
-      "image": "/assets-store/hqShtab01.svg",
+      "image": "/assets-store/hqShtab05.svg",
       "fit": "cover",
       "scale": 1,
       "offset": {
@@ -208,7 +208,7 @@
     "title": "После смены",
     "sort_order": 50,
     "background_json": {
-      "image": "/assets-store/hqShtab01.svg",
+      "image": "/assets-store/hqShtab06.svg",
       "fit": "cover",
       "scale": 1,
       "offset": {
