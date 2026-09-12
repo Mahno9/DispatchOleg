@@ -17,6 +17,7 @@ interface GameRow {
   required_game_ids_json: string;
   sort_order: number;
   is_tutorial: number;
+  is_finale: number;
 }
 
 export interface GameDto {
@@ -33,6 +34,8 @@ export interface GameDto {
   requiredGameIds: number[];
   sortOrder: number;
   isTutorial: boolean;
+  /** Финал смены: запускается кнопкой «Закрыть смену», а не по QR из ростера. */
+  isFinale: boolean;
 }
 
 export interface GameInput {
@@ -47,6 +50,7 @@ export interface GameInput {
   requiredGameIds?: number[];
   sortOrder?: number;
   isTutorial?: boolean;
+  isFinale?: boolean;
 }
 
 function parse<T>(json: string, fallback: T): T {
@@ -71,6 +75,7 @@ function rowToDto(row: GameRow): GameDto {
     requiredGameIds: parse<number[]>(row.required_game_ids_json, []),
     sortOrder: row.sort_order,
     isTutorial: row.is_tutorial !== 0,
+    isFinale: row.is_finale !== 0,
   };
 }
 
@@ -93,6 +98,7 @@ function toColumns(input: GameInput): [string, unknown][] {
     push('required_game_ids_json', JSON.stringify(input.requiredGameIds));
   if (input.sortOrder !== undefined) push('sort_order', input.sortOrder);
   if (input.isTutorial !== undefined) push('is_tutorial', input.isTutorial ? 1 : 0);
+  if (input.isFinale !== undefined) push('is_finale', input.isFinale ? 1 : 0);
   return out;
 }
 

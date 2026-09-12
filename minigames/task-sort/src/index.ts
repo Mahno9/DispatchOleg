@@ -2,6 +2,8 @@ import { createAudio } from '../../shared/audio.js';
 import {
   PROBE_TICK_MS,
   evaluate,
+  finishMessage,
+  finishProgressText,
   maxScoreFor,
   normalizeTasks,
   probeTicks,
@@ -16,10 +18,14 @@ import {
 // Config / callbacks
 // ---------------------------------------------------------------------------
 
+/**
+ * Конфиг из админки. Лишние поля старых уровней (например, снятый
+ * `winThresholdPercent`) просто не читаются — разбор конфига по известным
+ * ключам, а не по схеме, поэтому неизвестный ключ ничего не ломает.
+ */
 interface GameConfig {
   playerName?: string;
   attempts?: number;
-  winThresholdPercent?: number;
   tasks?: unknown;
   sounds?: {
     pick?: AudioValue;
@@ -445,9 +451,6 @@ export function init(
   // --- config ---
   const playerName = (typeof config.playerName === 'string' && config.playerName.trim()) || 'Диспетчер';
   const attemptsAllowed = Math.max(1, Math.min(5, Math.round(Number(config.attempts)) || 2));
-  const winThreshold = Number.isFinite(Number(config.winThresholdPercent))
-    ? Math.max(0, Math.min(100, Math.round(Number(config.winThresholdPercent))))
-    : 100;
   const tasks = normalizeTasks(config.tasks);
   const byId = new Map(tasks.map((t) => [t.id, t]));
   const total = tasks.length;
@@ -1084,7 +1087,6 @@ export function init(
     if (finished) return;
     finished = true;
     phase = 'done';
-    const won = result.perfect || (winThreshold > 0 && result.percent >= winThreshold);
     const details: Record<string, number | string> = {
       mistakes: result.mistakes.length,
       archivedOwnActive: result.mistakes.filter((m) => m.kind === 'archived-own-active').length,
@@ -1093,16 +1095,18 @@ export function init(
       attemptsUsed,
       percent: result.percent,
     };
-    if (won) details.styleTag = styleTagFor(result, attemptsUsed);
-    mistakeIds = won ? new Set() : new Set(result.mistakeIds);
-    msgEl.textContent = won
-      ? `Смена принята · ${result.score} из ${maxScoreFor(tasks, playerName)}`
-      : `Смена не принята · ${result.percent}%`;
-    msgEl.classList.toggle(`${PREFIX}alert`, !won);
-    play(won ? config.sounds?.confirm : config.sounds?.error);
-    callbacks.onProgress?.(won ? 'СМЕНА ПРИНЯТА' : 'СМЕНА НЕ ПРИНЯТА', 100);
+    details.styleTag = styleTagFor(result, attemptsUsed);
+    // Ошибки остаются подсвеченными: игрок видит, что именно ушло не туда,
+    // хотя смена всё равно закрыта.
+    mistakeIds = new Set(result.mistakeIds);
+    msgEl.textContent = finishMessage(result, maxScoreFor(tasks, playerName));
+    msgEl.classList.remove(`${PREFIX}alert`);
+    play(config.sounds?.confirm);
+    callbacks.onProgress?.(finishProgressText(result), 100);
     render();
-    fadeOut(() => callbacks.onComplete({ score: result.score, won, details }));
+    // Проигрыша у финала смены нет: смена закрывается в любом случае
+    // (minigame_contract.md — «нет понятия поражение → won: true»).
+    fadeOut(() => callbacks.onComplete({ score: result.score, won: true, details }));
   }
 
   // --- start: РАСКЛАДКА ---

@@ -20,6 +20,9 @@ interface QrScanScreenProps {
 /** Коробочный код уже отработал на онбординге — системную игру не запустить. */
 export const TUTORIAL_DONE_TEXT = 'ОБУЧЕНИЕ УЖЕ ПРОЙДЕНО';
 
+/** Финал смены кодом со стены не запускается — только кнопкой «Закрыть смену». */
+export const FINALE_LOCKED_TEXT = 'Эта операция запускается при закрытии смены';
+
 /** Что делать с ответом `/api/qr/verify`. */
 export type ScanVerdict =
   | { kind: 'start'; game: VerifiedGame }
@@ -29,11 +32,14 @@ export type ScanVerdict =
 /**
  * Разбор ответа сервера. Код обучалки валиден и после онбординга, но у
  * системной игры нет бандла (`entryUrl: null`), и запуск обернулся бы «Сбоем
- * запуска» — здесь он просто отбивается.
+ * запуска» — здесь он просто отбивается. Так же отбивается и финал смены.
  */
 export function verifyVerdict(res: QrVerifyResponse): ScanVerdict {
   if (res.ok) {
     if (res.game.isTutorial) return { kind: 'flash', text: TUTORIAL_DONE_TEXT };
+    // Финал висит на кнопке экрана победы: запусти его отсюда — игрок закрыл бы
+    // смену, не отработав ростер, и «Закрыть смену» осталась бы без операции.
+    if (res.game.isFinale) return { kind: 'flash', text: FINALE_LOCKED_TEXT };
     return { kind: 'start', game: res.game };
   }
   if (res.reason === 'locked') return { kind: 'locked', titles: res.requiredTitles };

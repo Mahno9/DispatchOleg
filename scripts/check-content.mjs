@@ -114,6 +114,27 @@ for (const g of rows('games')) {
   }
 }
 
+// ---- финал смены: ровно один, ни от кого не зависит и никого не открывает ----
+// Финал запускают кнопкой «Закрыть смену» с победного экрана, а не по QR из
+// ростера. Поэтому предусловий у него нет (их роль играет сам победный экран),
+// и никакая другая игра не может висеть на его прохождении — до неё уже не дойти.
+// Ссылка из триггера меты на финал законна: «После смены» и должна ждать финала.
+{
+  const games = rows('games');
+  const finales = games.filter((g) => g.is_finale);
+  if (finales.length > 1)
+    bad(`финалом смены помечено несколько игр: ${finales.map((g) => `#${g.id}`).join(', ')}`);
+  for (const f of finales) {
+    const where = `игра #${f.id} «${f.title}»`;
+    if (f.is_tutorial) bad(`${where}: помечена и обучалкой, и финалом смены`);
+    if (JSON.parse(f.required_game_ids_json).length > 0)
+      bad(`${where}: у финала смены не должно быть requiredGameIds — он открывается победой`);
+    for (const g of games)
+      if (JSON.parse(g.required_game_ids_json).includes(f.id))
+        bad(`игра #${g.id} «${g.title}»: ждёт финала смены #${f.id} — до неё не дойти`);
+  }
+}
+
 // ---- мета: расстановка персонажей ------------------------------------------
 for (const s of rows('meta_stages')) {
   const where = `этап меты #${s.id} «${s.title}»`;

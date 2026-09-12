@@ -9,6 +9,7 @@ function game(id: number, requiredGameIds: number[] = []): Game {
     title: `G${id}`,
     minigameId: 'demo',
     isTutorial: false,
+    isFinale: false,
     requiredGameIds,
     sortOrder: id,
     character: null,
@@ -38,16 +39,26 @@ describe('pickRandomGame', () => {
   }
 
   const tutorial: Game = { ...game(0), isTutorial: true };
+  const finale: Game = { ...game(9), isFinale: true };
 
   it('returns null when nothing is unlocked', () => {
     expect(pickRandomGame([], {}, () => 0)).toBe(null);
     expect(pickRandomGame([tutorial], {}, () => 0)).toBe(null);
+    expect(pickRandomGame([finale], {}, () => 0)).toBe(null);
     expect(pickRandomGame([game(2, [1])], {}, () => 0)).toBe(null);
   });
 
   it('never offers the tutorial', () => {
     expect(pickRandomGame([tutorial, game(1)], {}, () => 0)?.id).toBe(1);
     expect(pickRandomGame([tutorial, game(1)], {}, () => 0.99)?.id).toBe(1);
+  });
+
+  // Финал запускается только кнопкой «Закрыть смену»: жребий его не выдаёт ни
+  // как свежую операцию, ни как переигровку после полного прохождения.
+  it('never offers the finale', () => {
+    expect(pickRandomGame([finale, game(1)], {}, () => 0)?.id).toBe(1);
+    expect(pickRandomGame([finale, game(1)], {}, () => 0.99)?.id).toBe(1);
+    expect(pickRandomGame([finale, game(1)], won(1), () => 0.99)?.id).toBe(1);
   });
 
   it('picks across the unlocked and unbeaten pool', () => {

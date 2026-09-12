@@ -29,6 +29,7 @@ function blankGame(minigameId: string, sortOrder: number): Game {
     requiredGameIds: [],
     sortOrder,
     isTutorial: false,
+    isFinale: false,
   };
 }
 
@@ -264,6 +265,7 @@ export function GamesSection() {
             >
               <span className='minigames-row-name'>
                 {g.isTutorial ? '⌂ ' : ''}
+                {g.isFinale ? '★ ' : ''}
                 {g.title}
               </span>
               <span className='minigames-row-game'>{g.minigameId}</span>
@@ -308,6 +310,14 @@ export function GamesSection() {
                   onChange={(e) => patch({ isTutorial: e.target.checked })}
                 />
                 Обучалка
+              </label>
+              <label className='poi-check-label'>
+                <input
+                  type='checkbox'
+                  checked={draft.isFinale}
+                  onChange={(e) => patch({ isFinale: e.target.checked })}
+                />
+                Финал смены
               </label>
               <label className='poi-field-label'>
                 Порядок
@@ -400,9 +410,10 @@ export function GamesSection() {
             </div>
 
             <label className='poi-field-label'>Открывается после прохождения</label>
+            {/* Финал смены в предусловия не предлагаем: после него смена уже закрыта. */}
             <div className='poi-blockers'>
               {games
-                .filter((g) => g.id !== draft.id)
+                .filter((g) => g.id !== draft.id && !g.isFinale)
                 .map((g) => (
                   <label className='poi-blocker-row' key={g.id}>
                     <input
@@ -419,7 +430,7 @@ export function GamesSection() {
                     {g.title}
                   </label>
                 ))}
-              {games.filter((g) => g.id !== draft.id).length === 0 && (
+              {games.filter((g) => g.id !== draft.id && !g.isFinale).length === 0 && (
                 <span className='minigames-empty'>Других игр нет.</span>
               )}
             </div>

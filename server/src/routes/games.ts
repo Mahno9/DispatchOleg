@@ -22,6 +22,7 @@ const gameBodyProps = {
   requiredGameIds: { type: 'array', items: { type: 'integer' } },
   sortOrder: { type: 'integer' },
   isTutorial: { type: 'boolean' },
+  isFinale: { type: 'boolean' },
 } as const;
 
 type GameBody = GameInput & { title?: string; minigameId?: string };
@@ -46,6 +47,7 @@ export async function gamesRoutes(app: FastifyInstance) {
       title: g.title,
       minigameId: g.minigameId,
       isTutorial: g.isTutorial,
+      isFinale: g.isFinale,
       requiredGameIds: g.requiredGameIds,
       sortOrder: g.sortOrder,
       character: g.characterId === null ? null : (characters.get(g.characterId) ?? null),
@@ -62,6 +64,7 @@ export async function gamesRoutes(app: FastifyInstance) {
       title: game.title,
       minigameId: game.minigameId,
       config: game.config,
+      isFinale: game.isFinale,
       characterId: game.characterId,
       preDialogueId: game.preDialogueId,
       postWinDialogueId: game.postWinDialogueId,

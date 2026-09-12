@@ -66,9 +66,11 @@ function seed(db: Database.Database) {
   ).run(1, 'Гранит', '/assets-store/hero.svg', 1, 'right');
   db.prepare(
     `INSERT INTO games (id, title, minigame_id, config_json, character_id, pre_dialogue_id,
-       post_win_dialogue_id, style_dialogues_json, required_game_ids_json, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(7, 'Смена', 'task-sort', JSON.stringify({ rounds: 3 }), 1, 1, 2, '{}', '[]', 5);
+       post_win_dialogue_id, style_dialogues_json, required_game_ids_json, sort_order, is_finale)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    // is_finale = 1: снимок сверяет строки целиком, так что флаг обязан
+    // пережить круг «БД → content/*.json → БД», а не вернуться дефолтом.
+  ).run(7, 'Смена', 'task-sort', JSON.stringify({ rounds: 3 }), 1, 1, 2, '{}', '[]', 5, 1);
   db.prepare(
     'INSERT INTO meta_stages (id, title, sort_order, background_json, characters_json, trigger_json) VALUES (?, ?, ?, ?, ?, ?)',
   ).run(

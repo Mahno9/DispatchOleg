@@ -42,6 +42,23 @@ describe('migrate', () => {
     expect(JSON.parse(interval.value_json)).toBe(30);
   });
 
+  it('adds games.is_finale with a 0 default — старые строки остаются не-финалом', () => {
+    const db = new Database(':memory:');
+    migrate(db, migrationsDir);
+
+    const cols = db.prepare('PRAGMA table_info(games)').all() as {
+      name: string;
+      notnull: number;
+      dflt_value: string | null;
+    }[];
+    const finale = cols.find((c) => c.name === 'is_finale');
+    expect(finale).toMatchObject({ notnull: 1, dflt_value: '0' });
+
+    // Вставка без колонки: значение берётся из DEFAULT, а не падает на NOT NULL.
+    db.prepare("INSERT INTO games (title, minigame_id) VALUES ('Смена', 'noop')").run();
+    expect(db.prepare('SELECT is_finale FROM games').get()).toEqual({ is_finale: 0 });
+  });
+
   it('is idempotent on re-run', () => {
     const db = new Database(':memory:');
     migrate(db, migrationsDir);

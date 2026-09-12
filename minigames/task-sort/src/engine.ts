@@ -198,8 +198,23 @@ export function shouldPlayReadyCue(inboxEmpty: boolean, isSortPhase: boolean, wa
   return inboxEmpty && isSortPhase && !wasEmpty;
 }
 
-/** Post-dialogue branching tag; only meaningful when the player won. */
+/** Post-dialogue branching tag; смена закрывается всегда, тег лишь описывает, как именно. */
 export function styleTagFor(evaluation: Evaluation, attemptsUsed: number): 'flawless' | 'corrected' | 'sloppy' {
   if (!evaluation.perfect) return 'sloppy';
   return attemptsUsed <= 1 ? 'flawless' : 'corrected';
+}
+
+/**
+ * Финальная надпись на экране смены. Поражения в игре нет: смена закрывается
+ * в любом случае, разница только в формулировке — безошибочная раскладка
+ * принята целиком, остальные закрыты «с N ошибками», без слова «не принята».
+ */
+export function finishMessage(evaluation: Evaluation, maxScore: number): string {
+  if (evaluation.perfect) return `Смена закрыта · ${evaluation.score} из ${maxScore}`;
+  return `Смена закрыта · ошибок ${evaluation.mistakes.length} · ${evaluation.score} из ${maxScore}`;
+}
+
+/** Короткая строка для нижней панели платформы (onProgress). */
+export function finishProgressText(evaluation: Evaluation): string {
+  return evaluation.perfect ? 'СМЕНА ЗАКРЫТА' : `СМЕНА ЗАКРЫТА · ОШИБОК ${evaluation.mistakes.length}`;
 }

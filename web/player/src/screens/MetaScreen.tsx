@@ -3,6 +3,7 @@ import type { Character, Game, MetaStage, MetaStageCharacter } from '../api';
 import { CharacterInfo } from '../dialogue/CharacterInfo';
 import { silhouetteFor } from '../dialogue/Silhouettes';
 import type { GameResult } from '../state/localState';
+import { rosterGames } from './flow';
 import { bgStyle } from './metaStage';
 
 /** A character worth drawing on the default meta scene: one with something to say. */
@@ -34,7 +35,8 @@ export function isUnlocked(game: Game, results: Record<string, GameResult>): boo
 
 /**
  * Режим без QR: следующую операцию выдаёт жребий, а не код на стене. Кандидаты
- * — разблокированные не-туториалы, ещё не выигранные; если невыигранных не
+ * — разблокированные операции ростера (без обучалки и финала), ещё не
+ * выигранные; если невыигранных не
  * осталось, отдаём любую разблокированную (переигрывать можно), а когда не
  * открыто вообще ничего — null, и START просто ничего не запускает.
  */
@@ -43,7 +45,7 @@ export function pickRandomGame(
   results: Record<string, GameResult>,
   rand: () => number = Math.random,
 ): Game | null {
-  const open = games.filter((g) => !g.isTutorial && isUnlocked(g, results));
+  const open = rosterGames(games).filter((g) => isUnlocked(g, results));
   const fresh = open.filter((g) => results[String(g.id)]?.won !== true);
   const pool = fresh.length > 0 ? fresh : open;
   if (pool.length === 0) return null;
@@ -71,7 +73,7 @@ const SIDES = ['left', 'right'] as const;
  * two-column arrangement by `metaPosition`.
  */
 export function MetaScreen({ games, characters, stage, seen, onCharacter }: MetaScreenProps) {
-  const playable = games.filter((g) => !g.isTutorial);
+  const playable = rosterGames(games);
   const isRead = (id: number) => seen.includes(id);
 
   const chatty = characters.filter((c): c is MetaCharacter => c.metaDialogueId !== null);

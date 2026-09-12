@@ -5,6 +5,8 @@ import {
   PROBE_MIN_MS,
   PROBE_TICK_MS,
   evaluate,
+  finishMessage,
+  finishProgressText,
   isOwnActive,
   maxScoreFor,
   normalizeTasks,
@@ -172,6 +174,35 @@ describe('default content', () => {
     expect(r.mistakes).toEqual([]);
     expect(r.score).toBe(630);
     expect(r.percent).toBe(100);
+  });
+});
+
+describe('финал смены: поражения нет', () => {
+  const perfect = evaluate(['t0', 't1', 't2', 't3'], ['t4', 't5'], TASKS, P);
+  // всё в архив: 2 верных размещения, остальное — ошибки
+  const flawed = evaluate([], ['t0', 't1', 't2', 't3', 't4', 't5'], TASKS, P);
+
+  it('безошибочная раскладка закрывает смену и не теряет очки', () => {
+    expect(perfect.perfect).toBe(true);
+    expect(perfect.score).toBe(MAX);
+    expect(finishMessage(perfect, perfect.maxScore)).toBe(`Смена закрыта · ${MAX} из ${MAX}`);
+    expect(finishProgressText(perfect)).toBe('СМЕНА ЗАКРЫТА');
+  });
+
+  it('раскладка с ошибками тоже закрывает смену — формулировка без поражения', () => {
+    expect(flawed.perfect).toBe(false);
+    expect(flawed.score).toBe(20); // t4 + t5 в архиве — верно
+    const msg = finishMessage(flawed, flawed.maxScore);
+    expect(msg).toBe(`Смена закрыта · ошибок ${flawed.mistakes.length} · 20 из ${MAX}`);
+    expect(msg).not.toMatch(/не принята|провал|поражен/i);
+    expect(finishProgressText(flawed)).toBe(`СМЕНА ЗАКРЫТА · ОШИБОК ${flawed.mistakes.length}`);
+  });
+
+  it('порог победы снят: низкий percent ничего не меняет', () => {
+    // раньше percent ниже winThresholdPercent давал won: false; теперь оценка
+    // остаётся той же, а исход смены от неё не зависит вовсе
+    expect(flawed.percent).toBeLessThan(100);
+    expect(finishProgressText(flawed)).toContain('СМЕНА ЗАКРЫТА');
   });
 });
 

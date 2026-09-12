@@ -3,7 +3,7 @@
   "title": "Сортировка задач диспетчера",
   "description": "Игрок разбирает стопку входящих тикетов: свои активные задачи — в очередь по срочности, чужие и выполненные — в архив. Приоритет на карточке не показан, его надо понять из текста.",
   "type": "object",
-  "required": ["playerName", "attempts", "winThresholdPercent", "tasks"],
+  "required": ["playerName", "attempts", "tasks"],
   "properties": {
     "playerName": {
       "type": "string",
@@ -18,14 +18,6 @@
       "default": 2,
       "minimum": 1,
       "maximum": 5
-    },
-    "winThresholdPercent": {
-      "type": "integer",
-      "title": "Порог победы, %",
-      "description": "100 — побеждает только безошибочная раскладка",
-      "default": 100,
-      "minimum": 0,
-      "maximum": 100
     },
     "tasks": {
       "type": "array",

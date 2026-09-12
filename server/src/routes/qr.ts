@@ -86,6 +86,8 @@ export async function qrRoutes(app: FastifyInstance) {
       }
 
       // isTutorial: the onboarding scan accepts the tutorial code only.
+      // isFinale: the finale is launched from the victory screen, so the player
+      // refuses its code on scan instead of starting the game out of order.
       return {
         ok: true,
         game: {
@@ -93,6 +95,7 @@ export async function qrRoutes(app: FastifyInstance) {
           title: game.title,
           minigameId: game.minigameId,
           isTutorial: game.isTutorial,
+          isFinale: game.isFinale,
         },
       };
     },

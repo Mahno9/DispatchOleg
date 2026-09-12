@@ -17,6 +17,8 @@ export interface Game {
   title: string;
   minigameId: string;
   isTutorial: boolean;
+  /** Финал смены: запускается с экрана победы, а не кодом со стены. */
+  isFinale: boolean;
   requiredGameIds: number[];
   sortOrder: number;
   character: Character | null;
@@ -123,6 +125,8 @@ export interface VerifiedGame {
   minigameId: string;
   /** The onboarding gate only opens for the tutorial game. */
   isTutorial: boolean;
+  /** Финал смены: сканер его отбивает, запуск — только «Закрыть смену». */
+  isFinale: boolean;
 }
 
 export type QrVerifyResponse =
@@ -156,10 +160,25 @@ function post<T>(url: string, body: unknown): Promise<T> {
   });
 }
 
+/**
+ * Поле `isFinale` появилось позже клиента: на старом сервере его в ответе нет,
+ * и без подстановки оно приехало бы как undefined — тогда `!g.isFinale` ещё
+ * работает, а `games.find((g) => g.isFinale)` молча вернул бы что угодно из
+ * будущих проверок. Нормализуем на границе, один раз.
+ */
+function withFinaleFlag<T extends { isFinale?: boolean }>(game: T): T & { isFinale: boolean } {
+  return { ...game, isFinale: game.isFinale === true };
+}
+
+/** То же для ответа сканера: у него игра лежит внутри `ok: true`. */
+function withVerifiedFinaleFlag(res: QrVerifyResponse): QrVerifyResponse {
+  return res.ok ? { ...res, game: withFinaleFlag(res.game) } : res;
+}
+
 export const api = {
   postSession: (name: string) => post<SessionResponse>('/api/session', { name }),
   postSync: (body: { userId: string; state: ClientState }) => post<SyncResponse>('/api/sync', body),
-  getGames: () => request<Game[]>('/api/games'),
+  getGames: () => request<Game[]>('/api/games').then((list) => list.map(withFinaleFlag)),
   getGameConfig: (id: number) => request<GameConfig>(`/api/games/${id}/config`),
   getCharacters: () => request<Character[]>('/api/characters'),
   getMetaStages: () => request<MetaStage[]>('/api/meta-stages'),
@@ -167,5 +186,5 @@ export const api = {
   getDialogue: (id: number) => request<unknown>(`/api/dialogues/${id}`),
   getMinigames: () => request<Minigame[]>('/api/minigames'),
   verifyQr: (body: { payload: string; userId: string }) =>
-    post<QrVerifyResponse>('/api/qr/verify', body),
+    post<QrVerifyResponse>('/api/qr/verify', body).then(withVerifiedFinaleFlag),
 };

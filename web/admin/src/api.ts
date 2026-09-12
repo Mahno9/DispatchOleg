@@ -63,6 +63,8 @@ export interface Game {
   requiredGameIds: number[];
   sortOrder: number;
   isTutorial: boolean;
+  /** Финал смены: запускается кнопкой «Закрыть смену», а не по QR из ростера. */
+  isFinale: boolean;
 }
 
 export type GameInput = Partial<Omit<Game, 'id'>>;

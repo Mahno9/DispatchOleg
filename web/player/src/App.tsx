@@ -27,6 +27,7 @@ import { BarPortrait } from './ui/BarPortrait';
 import { BottomBar } from './ui/BottomBar';
 import { DialogueScreen } from './screens/DialogueScreen';
 import { MetaScreen, isUnlocked, pickRandomGame } from './screens/MetaScreen';
+import { allRosterWon, finaleGame, rosterGames, shouldShowVictory } from './screens/flow';
 import {
   pendingDialogueIds,
   requiredDialogueCount,
@@ -45,13 +46,6 @@ import { completedGameResults, testTarget } from './testMode';
 import { SandboxLauncher } from './ui/SandboxLauncher';
 
 type Screen = 'onboarding' | 'meta' | 'qr-scan' | 'launch' | 'dialogue' | 'minigame' | 'victory';
-
-/**
- * "The player has already seen the ending." Deliberately outside ClientState:
- * it is a one-off presentation flag, not progress, so it must not enter the
- * sync contract with the server.
- */
-const VICTORY_SEEN_KEY = 'dispatch_victory_seen';
 
 /** Which dialogue is on screen and where the chain goes once it ends. */
 interface DialogueStep {
@@ -276,8 +270,10 @@ export function App() {
           localState.replace({
             ...localState.getSnapshot(),
             updatedAt: completedAt,
+            // Финал не «пройден»: эндгейм-тест ровно в той точке, где смена
+            // отработана и ждёт «Закрыть смену».
             gameResults: completedGameResults(
-              list.filter((game) => !game.isTutorial).map((game) => game.id),
+              rosterGames(list).map((game) => game.id),
               completedAt,
             ),
             seenDialogues: [],
@@ -338,15 +334,18 @@ export function App() {
     setScreen('onboarding');
   }, [state.onboarded, screen]);
 
-  const playable = games.filter((g) => !g.isTutorial);
-  const won = playable.filter((g) => state.gameResults[String(g.id)]?.won).length;
-  const unlocked = playable.filter((g) => isUnlocked(g, state.gameResults)).length;
-  const allWon = playable.length > 0 && won === playable.length;
+  // Ростер — операции смены; финал в него не входит, он висит на кнопке
+  // «Закрыть смену» и в прогрессе не считается (screens/flow.ts).
+  const roster = rosterGames(games);
+  const finale = finaleGame(games);
+  const won = roster.filter((g) => state.gameResults[String(g.id)]?.won).length;
+  const unlocked = roster.filter((g) => isUnlocked(g, state.gameResults)).length;
+  const allWon = allRosterWon(games, state.gameResults);
 
   // Текущая стадия меты. ?test=meta:<id> форсит конкретную; ?test=meta (stageId
   // null) оставляет обычный разбор триггеров, как и было в MetaScreen.
   const forceStageId = testTarget?.kind === 'meta' ? testTarget.stageId : null;
-  const playableIds = useMemo(() => games.filter((g) => !g.isTutorial).map((g) => g.id), [games]);
+  const playableIds = useMemo(() => rosterGames(games).map((g) => g.id), [games]);
   const stage = useMemo(() => {
     if (forceStageId !== null) return stages.find((s) => s.id === forceStageId) ?? null;
     return resolveStage(stages, state.gameResults, playableIds);
@@ -373,15 +372,26 @@ export function App() {
   // The ending fires once per completed run. Falling short of a full clear —
   // an admin reset, a new game added — arms it again for the next time.
   useEffect(() => {
-    // Test mode must not touch the terminal's real "ending seen" flag.
+    // Флагом владеет localState: он же гасит его при смене игрока, и в тестовом
+    // режиме сам не трогает реальную отметку терминала.
     if (testTarget) return;
-    if (!allWon) return localStorage.removeItem(VICTORY_SEEN_KEY);
+    if (!allWon) return localState.clearVictorySeen();
     // Only the meta screen may be interrupted: a dialogue or a running minigame
     // gets to finish, and lands back on the meta, where this fires.
-    if (screen !== 'meta' || localStorage.getItem(VICTORY_SEEN_KEY) === '1') return;
-    localStorage.setItem(VICTORY_SEEN_KEY, '1');
+    if (screen !== 'meta') return;
+    if (
+      !shouldShowVictory({
+        games,
+        results: state.gameResults,
+        victorySeen: localState.isVictorySeen(),
+      })
+    )
+      return;
+    // Флаг ведёт смену только без финала. С финалом ворота держит сам его
+    // результат: бросил «Разбор» на середине — победа встречает снова.
+    localState.markVictorySeen();
     setScreen('victory');
-  }, [allWon, screen]);
+  }, [allWon, screen, games, state.gameResults]);
 
   let workarea;
   let context;
@@ -429,11 +439,11 @@ export function App() {
       context = (
         <>
           <div className="label">
-            Прогресс по всей игре · операций завершено {won} / {playable.length} · доступно{' '}
+            Прогресс по всей игре · операций завершено {won} / {roster.length} · доступно{' '}
             {unlocked}
           </div>
           <div className="seg-bar">
-            {playable.map((game) => (
+            {roster.map((game) => (
               <i
                 key={game.id}
                 className={`seg ${state.gameResults[String(game.id)]?.won ? 'seg-done' : ''}`}
@@ -450,7 +460,7 @@ export function App() {
         </>
       );
       action = allWon && remaining === 0 ? (
-        <SandboxLauncher games={playable} onSelect={(game) => startGame(game, true)} />
+        <SandboxLauncher games={roster} onSelect={(game) => startGame(game, true)} />
       ) : (
         <div className="start-gate">
           <button
@@ -592,11 +602,18 @@ export function App() {
       workarea = <VictoryScreen playerName={state.profile.name || DEFAULT_PLAYER_NAME} />;
       context = (
         <div className="label">
-          Прогресс по всей игре · операций завершено {won} / {playable.length}
+          Прогресс по всей игре · операций завершено {won} / {roster.length}
         </div>
       );
       action = (
-        <button type="button" className="btn btn-key btn-key-tight" onClick={() => setScreen('meta')}>
+        <button
+          type="button"
+          className="btn btn-key btn-key-tight"
+          // Есть финал — «Закрыть смену» и есть его запуск: та же цепочка
+          // пре-диалог → мини-игра → пост-диалог, что и по коду со стены. По её
+          // концу endChain возвращает на мету, где стадию берёт «После смены».
+          onClick={() => (finale ? startGame(finale) : setScreen('meta'))}
+        >
           Закрыть смену
         </button>
       );

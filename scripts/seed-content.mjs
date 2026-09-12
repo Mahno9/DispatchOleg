@@ -917,8 +917,8 @@ function seedGames() {
   const insert = db.prepare(
     `INSERT INTO games (title, minigame_id, config_json, character_id, pre_dialogue_id,
                         post_win_dialogue_id, post_lose_dialogue_id, style_dialogues_json,
-                        required_game_ids_json, sort_order, is_tutorial)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, 0)`,
+                        required_game_ids_json, sort_order, is_tutorial, is_finale)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, 0, 0)`,
   );
   // Два прохода: requiredGameIds ссылается на игры из этого же списка.
   games.forEach((g, i) => {

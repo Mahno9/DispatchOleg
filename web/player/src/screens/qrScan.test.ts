@@ -2,13 +2,19 @@ import { describe, expect, it } from 'vitest';
 import type { QrVerifyResponse, VerifiedGame } from '../api';
 import type { CameraState } from '../camera/camera';
 import { TEXTS } from './OnboardingScreen';
-import { TUTORIAL_DONE_TEXT, scanErrorText, verifyVerdict } from './QrScanScreen';
+import {
+  FINALE_LOCKED_TEXT,
+  TUTORIAL_DONE_TEXT,
+  scanErrorText,
+  verifyVerdict,
+} from './QrScanScreen';
 
-const game = (isTutorial: boolean): VerifiedGame => ({
+const game = (isTutorial: boolean, isFinale = false): VerifiedGame => ({
   id: 4,
   title: 'Сейф',
   minigameId: 'safe-crack',
   isTutorial,
+  isFinale,
 });
 
 describe('verifyVerdict', () => {
@@ -22,6 +28,14 @@ describe('verifyVerdict', () => {
   it('код обучалки отбивается флешем, а не запускается', () => {
     const res: QrVerifyResponse = { ok: true, game: game(true) };
     expect(verifyVerdict(res)).toEqual({ kind: 'flash', text: TUTORIAL_DONE_TEXT });
+  });
+
+  // Финал висит на кнопке «Закрыть смену»: код со стены его не запускает,
+  // иначе смена закрылась бы посреди неотработанного ростера.
+  it('код финала отбивается подсказкой, а не запускается', () => {
+    const res: QrVerifyResponse = { ok: true, game: game(false, true) };
+    expect(verifyVerdict(res)).toEqual({ kind: 'flash', text: FINALE_LOCKED_TEXT });
+    expect(FINALE_LOCKED_TEXT).toBe('Эта операция запускается при закрытии смены');
   });
 
   it('закрытая операция показывает, чего не хватает', () => {
