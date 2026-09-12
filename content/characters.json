@@ -78,5 +78,13 @@
     "meta_dialogue_id": null,
     "meta_position": "right",
     "description": "Заместитель заместителя мэра по чрезвычайным чудесам. Не выезжает. Уточняет формулировки."
+  },
+  {
+    "id": 63,
+    "name": "Материй Стойкий",
+    "portrait_asset": "/assets-store/BNrmQrtguR.svg",
+    "meta_dialogue_id": null,
+    "meta_position": "right",
+    "description": "Материя из пустоты: создаст что угодно, отдел заказывает у него бумагу для принтера. Живое не трогает и не объясняет почему."
   }
 ]

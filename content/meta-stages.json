@@ -46,6 +46,13 @@
         "x": 89,
         "y": 65,
         "scale": 0.95
+      },
+      {
+        "characterId": 63,
+        "x": 30,
+        "y": 64,
+        "scale": 0.9,
+        "dialogueId": 173
       }
     ],
     "trigger_json": {
@@ -93,6 +100,13 @@
         "x": 90,
         "y": 66,
         "scale": 0.9
+      },
+      {
+        "characterId": 63,
+        "x": 40,
+        "y": 63,
+        "scale": 0.9,
+        "dialogueId": 174
       }
     ],
     "trigger_json": {
@@ -148,6 +162,13 @@
         "y": 65,
         "scale": 0.9,
         "dialogueId": 167
+      },
+      {
+        "characterId": 63,
+        "x": 61,
+        "y": 64,
+        "scale": 0.92,
+        "dialogueId": 175
       }
     ],
     "trigger_json": {
@@ -196,6 +217,13 @@
         "y": 65,
         "scale": 0.95,
         "dialogueId": 168
+      },
+      {
+        "characterId": 63,
+        "x": 28,
+        "y": 63,
+        "scale": 0.9,
+        "dialogueId": 176
       }
     ],
     "trigger_json": {
@@ -258,6 +286,13 @@
         "y": 65,
         "scale": 0.9,
         "dialogueId": 170
+      },
+      {
+        "characterId": 60,
+        "x": 11,
+        "y": 64,
+        "scale": 0.92,
+        "dialogueId": 177
       }
     ],
     "trigger_json": {
