@@ -53,30 +53,49 @@ describe('авторазмещение', () => {
     expect(autoDir(HOST, null)).toBe('up');
   });
 
-  it('сажает стрелку на ближнюю к краю кромку цели, а не в её центр', () => {
-    expect(autoPoint('left')).toEqual({ x: 10, y: 50 });
-    expect(autoPoint('right')).toEqual({ x: 90, y: 50 });
-    expect(autoPoint('up')).toEqual({ x: 50, y: 10 });
-    expect(autoPoint('down')).toEqual({ x: 50, y: 90 });
+  it('сажает стрелку на обращённую к подписи кромку, чтобы остриё смотрело внутрь цели', () => {
+    expect(autoPoint('left')).toEqual({ x: 90, y: 50 });
+    expect(autoPoint('right')).toEqual({ x: 10, y: 50 });
+    expect(autoPoint('up')).toEqual({ x: 50, y: 90 });
+    expect(autoPoint('down')).toEqual({ x: 50, y: 10 });
   });
 
   it('шаг без dir берёт направление у своего места на экране', () => {
     const left = { left: 100, top: 250, width: 200, height: 100 };
-    expect(resolveStep(HOST, left, { text: '' })).toMatchObject({ dir: 'left' });
-    // 10% ширины цели от её левого края → 120px → 2% рабочей области.
-    expect(resolveStep(HOST, left, { text: '' }).x).toBeCloseTo(2, 5);
+    const right = { left: 900, top: 250, width: 200, height: 100 };
+    const top = { left: 500, top: 50, width: 200, height: 100 };
+    const bottom = { left: 500, top: 450, width: 200, height: 100 };
+    expect(resolveStep(HOST, left, { text: '' })).toEqual({ x: 18, y: 50, dir: 'left' });
+    expect(resolveStep(HOST, right, { text: '' })).toEqual({ x: 82, y: 50, dir: 'right' });
+    expect(resolveStep(HOST, top, { text: '' })).toEqual({ x: 50, y: 18, dir: 'up' });
+    expect(resolveStep(HOST, bottom, { text: '' })).toEqual({ x: 50, y: 82, dir: 'down' });
   });
 });
 
 describe('данные инструктажа', () => {
-  // Регресс: у task-sort все три стрелки стояли примерно на x≈50 и на широком
-  // экране втыкались в среднюю колонку. Три шага — три разные зоны.
-  it('task-sort целится в три разные зоны', () => {
+  it('task-sort целится в заголовки зон и подсказку приоритета', () => {
     expect(TUTORIALS['task-sort']?.map((s) => s.target)).toEqual([
-      '.ts-zone--inbox',
-      '.ts-zone--queue',
-      '.ts-zone--archive',
+      '.ts-zone--inbox .ts-zone__head',
+      '.ts-zone--queue .ts-zone__hint',
+      '.ts-zone--archive .ts-zone__head',
     ]);
+    expect(TUTORIALS['task-sort']?.map((s) => s.dir)).toEqual(['up', 'up', 'up']);
+  });
+
+  it('сейф целится в активный ригель и сам виджет ввода', () => {
+    expect(TUTORIALS['safe-crack']?.slice(0, 2).map((s) => s.target)).toEqual([
+      '.sc-bolt--active',
+      '.sc-slot',
+    ]);
+  });
+
+  it('падающая деталь целится в видимую клетку, а не в безразмерный контейнер', () => {
+    expect(TUTORIALS['tetris-fill']?.[0]?.target).toBe('.tf-piece .tf-sq:first-child');
+  });
+
+  it('кухня целится в видимую строку рецепта, а котёл подписывает сверху', () => {
+    expect(TUTORIALS['cooking-orders']?.[0]?.target).toBe('.co-recipe li:first-child');
+    expect(TUTORIALS['cooking-orders']?.[2]?.dir).toBe('down');
   });
 
   it('у каждого шага есть цель, а проценты лежат внутри неё', () => {
@@ -91,10 +110,15 @@ describe('данные инструктажа', () => {
     }
   });
 
-  it('подземка оставляет две стрелки на финише и старте первого лабиринта', () => {
+  it('подземка ведёт сначала на старт, затем на финиш первого лабиринта', () => {
     expect(TUTORIALS['three-mazes']).toMatchObject([
-      { x: 36.5, y: 18.5, dir: 'down', text: expect.stringMatching(/финиш/) },
       { x: 81.5, y: 72.5, dir: 'up', text: expect.stringMatching(/старт/) },
+      { x: 36.5, y: 18.5, dir: 'down', text: expect.stringMatching(/двойной янтарный круг/) },
     ]);
+  });
+
+  it('Восточный мост целится в стартовую точку Q и не указывает в пустоту', () => {
+    expect(TUTORIALS['rescue-catch']).toHaveLength(2);
+    expect(TUTORIALS['rescue-catch']?.[1]).toMatchObject({ x: 28.3, y: 71.8, dir: 'left' });
   });
 });

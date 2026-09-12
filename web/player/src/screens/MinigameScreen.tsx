@@ -334,80 +334,99 @@ export function Briefing({
 
     let frame = 0;
     function measure(): void {
-      frame = 0;
       const box = host!.getBoundingClientRect();
-      setSpots(
-        steps.map((step) => {
-          const target = step.target
-            ? (host!.querySelector(step.target)?.getBoundingClientRect() ?? null)
-            : null;
-          return resolveStep(box, target, step);
-        }),
+      const next = steps.map((step) => {
+        const target = step.target
+          ? (host!.querySelector(step.target)?.getBoundingClientRect() ?? null)
+          : null;
+        return resolveStep(box, target, step);
+      });
+      setSpots((current) =>
+        current.every(
+          (spot, i) =>
+            spot.x === next[i]?.x && spot.y === next[i]?.y && spot.dir === next[i]?.dir,
+        )
+          ? current
+          : next,
       );
-    }
-    function schedule(): void {
-      if (!frame) frame = requestAnimationFrame(measure);
+      // Мини-игры подгружают собственные стили после монтирования: позиция цели
+      // может измениться без resize или DOM-мутации. Оверлей живёт недолго, поэтому
+      // следим за его тремя целями до закрытия.
+      frame = requestAnimationFrame(measure);
     }
 
     measure();
-    // Бандл игры догружается асинхронно, так что в момент первого замера целей
-    // может ещё не быть: пересчитываем и когда игра дорисовала свой DOM, и когда
-    // рабочая область сменила размер.
-    const resize = new ResizeObserver(schedule);
-    resize.observe(host);
-    const mutation = new MutationObserver(schedule);
-    mutation.observe(host, { childList: true, subtree: true });
     return () => {
-      if (frame) cancelAnimationFrame(frame);
-      resize.disconnect();
-      mutation.disconnect();
+      cancelAnimationFrame(frame);
     };
   }, [steps, hostRef]);
 
-  // Развести подписи: стрелки уже стоят там, где надо, а вот сами подписи могут
-  // налезть друг на друга или свеситься за край (цель в углу — кнопка ВВОД у
-  // safe-crack). Двигаем ТЕКСТ, а не стрелку: стрелка обязана остаться на цели,
-  // иначе смысл привязки теряется. Так координаты не приходится выверять руками.
+  // Стрелки остаются на целях, подписи занимают ближайшее свободное место внутри
+  // оверлея. Препятствия — все стрелки, уже поставленные подписи и крестик.
   useLayoutEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
     const box = overlay.getBoundingClientRect();
-    const PAD = 6;
+    const PAD = 8;
     const texts = [...overlay.querySelectorAll<HTMLElement>('.tut-text')];
+    const arrows = [...overlay.querySelectorAll<HTMLElement>('.tut-arrow')];
     for (const text of texts) {
       text.style.setProperty('--nx', '0px');
       text.style.setProperty('--ny', '0px');
     }
     const rects = texts.map((t) => t.getBoundingClientRect());
-    const shift = rects.map(() => 0);
-
-    // Сверху вниз: каждую следующую подпись сдвигаем ниже всех, с кем она
-    // пересекается и по горизонтали тоже — иначе две соседние колонки
-    // расталкивались бы зря.
-    const order = rects.map((_, i) => i).sort((a, b) => rects[a]!.top - rects[b]!.top);
-    // Крестик закрытия — неподвижное препятствие в верхнем углу: подпись уходит
-    // ниже него, как от соседней подписи. Он стоит выше всех, поэтому первый.
+    const fixed = arrows.map((a) => a.getBoundingClientRect());
     const close = overlay.querySelector('.tut-close')?.getBoundingClientRect();
-    order.forEach((i, k) => {
-      const above = order.slice(0, k).map((j) => ({ r: rects[j]!, s: shift[j]!, m: 0 }));
-      if (close) above.unshift({ r: close, s: 0, m: PAD });
-      for (const { r, s, m } of above) {
-        const overlapX = Math.min(rects[i]!.right, r.right + m) - Math.max(rects[i]!.left, r.left - m);
-        if (overlapX <= 0) continue;
-        const need = r.bottom + s + PAD - (rects[i]!.top + shift[i]!);
-        if (need > 0) shift[i]! += need;
-      }
-    });
+    if (close) fixed.push(close);
+    const placed: Array<{ left: number; right: number; top: number; bottom: number }> = [];
+    const order = rects.map((_, i) => i).sort((a, b) => rects[a]!.top - rects[b]!.top);
+    const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+    const overlaps = (
+      a: { left: number; right: number; top: number; bottom: number },
+      b: { left: number; right: number; top: number; bottom: number },
+    ) =>
+      a.left < b.right + PAD &&
+      a.right > b.left - PAD &&
+      a.top < b.bottom + PAD &&
+      a.bottom > b.top - PAD;
 
-    texts.forEach((text, i) => {
+    for (const i of order) {
+      const text = texts[i]!;
       const r = rects[i]!;
-      const nx = Math.min(0, box.right - PAD - r.right) + Math.max(0, box.left + PAD - r.left);
-      let ny = shift[i]!;
-      // Зажим сильнее расталкивания: за край подпись не выпускаем в любом случае.
-      ny += Math.min(0, box.bottom - PAD - (r.bottom + ny)) + Math.max(0, box.top + PAD - (r.top + ny));
-      text.style.setProperty('--nx', `${Math.round(nx)}px`);
-      text.style.setProperty('--ny', `${Math.round(ny)}px`);
-    });
+      const minX = box.left + PAD;
+      const maxX = box.right - PAD - r.width;
+      const minY = box.top + PAD;
+      const maxY = box.bottom - PAD - r.height;
+      const preferred = { x: clamp(r.left, minX, maxX), y: clamp(r.top, minY, maxY) };
+      const obstacles = [...fixed, ...placed];
+      const xs = new Set([preferred.x, minX, maxX]);
+      const ys = new Set([preferred.y, minY, maxY]);
+      for (const obstacle of obstacles) {
+        xs.add(clamp(obstacle.left - PAD - r.width, minX, maxX));
+        xs.add(clamp(obstacle.right + PAD, minX, maxX));
+        ys.add(clamp(obstacle.top - PAD - r.height, minY, maxY));
+        ys.add(clamp(obstacle.bottom + PAD, minY, maxY));
+      }
+      const candidates = [...xs].flatMap((x) => [...ys].map((y) => ({ x, y })));
+      candidates.sort(
+        (a, b) =>
+          (a.x - preferred.x) ** 2 + (a.y - preferred.y) ** 2 -
+          ((b.x - preferred.x) ** 2 + (b.y - preferred.y) ** 2),
+      );
+      const spot =
+        candidates.find(({ x, y }) => {
+          const candidate = { left: x, right: x + r.width, top: y, bottom: y + r.height };
+          return !obstacles.some((obstacle) => overlaps(candidate, obstacle));
+        }) ?? preferred;
+      text.style.setProperty('--nx', `${Math.round(spot.x - r.left)}px`);
+      text.style.setProperty('--ny', `${Math.round(spot.y - r.top)}px`);
+      placed.push({
+        left: spot.x,
+        right: spot.x + r.width,
+        top: spot.y,
+        bottom: spot.y + r.height,
+      });
+    }
   }, [spots]);
 
   return (
