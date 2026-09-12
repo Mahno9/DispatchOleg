@@ -228,7 +228,7 @@
     ],
     "trigger_json": {
       "type": "wonCount",
-      "value": 5
+      "value": 4
     }
   },
   {

@@ -11,7 +11,8 @@
     "style_dialogues_json": {},
     "required_game_ids_json": [],
     "sort_order": 0,
-    "is_tutorial": 1
+    "is_tutorial": 1,
+    "is_finale": 0
   },
   {
     "id": 20,
@@ -20,7 +21,6 @@
     "config_json": {
       "playerName": "{player}",
       "attempts": 2,
-      "winThresholdPercent": 100,
       "tasks": [
         {
           "text": "Разобрать входящие задачи",
@@ -329,11 +329,12 @@
     "character_id": 62,
     "pre_dialogue_id": 138,
     "post_win_dialogue_id": 140,
-    "post_lose_dialogue_id": 141,
+    "post_lose_dialogue_id": null,
     "style_dialogues_json": {},
     "required_game_ids_json": [],
-    "sort_order": 10,
-    "is_tutorial": 0
+    "sort_order": 100,
+    "is_tutorial": 0,
+    "is_finale": 1
   },
   {
     "id": 21,
@@ -429,7 +430,8 @@
     "style_dialogues_json": {},
     "required_game_ids_json": [],
     "sort_order": 20,
-    "is_tutorial": 0
+    "is_tutorial": 0,
+    "is_finale": 0
   },
   {
     "id": 22,
@@ -734,14 +736,14 @@
       "breaker": 172
     },
     "required_game_ids_json": [
-      20,
       21,
       23,
       24,
       25
     ],
     "sort_order": 60,
-    "is_tutorial": 0
+    "is_tutorial": 0,
+    "is_finale": 0
   },
   {
     "id": 23,
@@ -913,7 +915,8 @@
     "style_dialogues_json": {},
     "required_game_ids_json": [],
     "sort_order": 30,
-    "is_tutorial": 0
+    "is_tutorial": 0,
+    "is_finale": 0
   },
   {
     "id": 24,
@@ -1300,7 +1303,8 @@
     "style_dialogues_json": {},
     "required_game_ids_json": [],
     "sort_order": 40,
-    "is_tutorial": 0
+    "is_tutorial": 0,
+    "is_finale": 0
   },
   {
     "id": 25,
@@ -1580,6 +1584,7 @@
     "style_dialogues_json": {},
     "required_game_ids_json": [],
     "sort_order": 50,
-    "is_tutorial": 0
+    "is_tutorial": 0,
+    "is_finale": 0
   }
 ]
