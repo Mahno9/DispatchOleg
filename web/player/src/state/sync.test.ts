@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from '../api';
 import { localState, type ClientState } from './localState';
 import { getConnectivitySnapshot, syncNow } from './sync';
+import { installMemoryLocalStorage } from './memoryStorage';
+
+// Плеер тестируется в node, без DOM: без заглушки флаг показа финала не хранится.
+installMemoryLocalStorage();
 
 // ApiError настоящий: по нему синк отличает «игрока нет» от обрыва связи.
 vi.mock('../api', async (importActual) => ({
@@ -104,6 +108,26 @@ describe('syncNow when the server does not know the player', () => {
     expect(localState.getSnapshot().onboarded).toBe(false);
     // Сервер ответил — связь есть, вечного OFFLINE быть не должно.
     expect(getConnectivitySnapshot()).toBe(true);
+  });
+
+  // Прогресса на сервере больше нет, а за терминалом играют по очереди:
+  // остатки результатов и отметок достались бы следующему игроку.
+  it('wipes the whole progress but keeps the device audio prefs', async () => {
+    localState.recordGameResult(4, { score: 9, won: true });
+    localState.markDialogueSeen(303);
+    localState.markBriefed('task-sort');
+    localState.setAudioPrefs({ musicVolume: 25 });
+    localState.markVictorySeen();
+    vi.mocked(api.postSync).mockRejectedValue(new ApiError(404, 'user not found'));
+
+    await syncNow();
+
+    const s = localState.getSnapshot();
+    expect(s.gameResults).toEqual({});
+    expect(s.seenDialogues).toEqual([]);
+    expect(s.briefedMinigames).toEqual([]);
+    expect(localState.isVictorySeen()).toBe(false);
+    expect(s.prefs.musicVolume).toBe(25);
   });
 
   it('keeps the session and goes OFFLINE on a real network error', async () => {

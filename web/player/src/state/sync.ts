@@ -1,5 +1,5 @@
 import { ApiError, api, type ServerState } from '../api';
-import { localState, type ClientState } from './localState';
+import { isAdoptableState, localState } from './localState';
 
 // ---------------------------------------------------------------------------
 // Connectivity store
@@ -53,13 +53,6 @@ if (typeof window !== 'undefined') {
 // Core sync logic
 // ---------------------------------------------------------------------------
 
-/** True if a server payload is a usable ClientState we should adopt. */
-function isAdoptableState(value: unknown): value is ClientState {
-  if (typeof value !== 'object' || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return v.version === 1 && typeof v.updatedAt === 'number';
-}
-
 /**
  * Pushes the current local state to the server once. On a 'server-newer' or
  * 'merged' outcome the server's payload wins — adopt and persist it locally.
@@ -82,12 +75,13 @@ export async function syncNow(): Promise<void> {
   } catch (err) {
     // 404 — сервер жив, а вот игрока с таким userId у него нет: базу
     // пересоздали или игрока стёрли из админки. Дальше синкать нечего, и
-    // молчаливый OFFLINE навсегда — худший исход: чистим профиль, и App по
-    // снятому `onboarded` уводит игрока на онбординг регистрироваться заново.
+    // молчаливый OFFLINE навсегда — худший исход: чистим сессию целиком, и App
+    // по снятому `onboarded` уводит игрока на онбординг регистрироваться
+    // заново. Именно целиком: прогресса на сервере всё равно больше нет, а
+    // остатки чужих результатов и отметок достались бы следующему игроку.
     if (err instanceof ApiError && err.status === 404) {
       notifySyncResult(true);
-      localState.setProfile({ userId: '', name: '' });
-      localState.setOnboarded(false);
+      localState.clearSession();
       return;
     }
     // Offline / server down — try again on the next interval.

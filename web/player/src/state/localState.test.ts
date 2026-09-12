@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_AUDIO_PREFS, localState, normalizeAudioPrefs } from './localState';
+import {
+  DEFAULT_AUDIO_PREFS,
+  isAdoptableState,
+  localState,
+  normalizeAudioPrefs,
+} from './localState';
+import { installMemoryLocalStorage } from './memoryStorage';
+
+// Плеер тестируется в node, без DOM: без заглушки флаг показа финала не хранится.
+installMemoryLocalStorage();
 
 describe('normalizeAudioPrefs', () => {
   // У игроков, начавших до появления регулятора, в localStorage лежит
@@ -167,5 +176,84 @@ describe('setAudioPrefs', () => {
     expect(after.prefs.voiceVolume).toBe(50);
     expect(after.prefs.sfxVolume).toBe(before.prefs.sfxVolume);
     expect(after.prefs.musicVolume).toBe(before.prefs.musicVolume);
+  });
+});
+
+describe('startSession', () => {
+  // За терминалом играют по очереди: следующий игрок обязан начать с нуля,
+  // а не донашивать чужие пройденные игры и прочитанные диалоги.
+  it('wipes the previous player progress and keeps the device audio prefs', () => {
+    localState.setProfile({ userId: 'u1', name: 'ОЛЕГ' });
+    localState.setOnboarded(true);
+    localState.recordGameResult(7, { score: 100, won: true });
+    localState.markDialogueSeen(501);
+    localState.markBriefed('safe-crack');
+    localState.setAudioPrefs({ musicVolume: 33, voiceMuted: true });
+
+    localState.startSession({ userId: 'u2', name: 'АНЯ' });
+
+    const s = localState.getSnapshot();
+    expect(s.profile).toEqual({ userId: 'u2', name: 'АНЯ' });
+    expect(s.gameResults).toEqual({});
+    expect(s.seenDialogues).toEqual([]);
+    expect(s.briefedMinigames).toEqual([]);
+    expect(s.onboarded).toBe(false);
+    expect(s.removedGames).toBeUndefined();
+    // Громкость настраивают под помещение — это свойство устройства.
+    expect(s.prefs.musicVolume).toBe(33);
+    expect(s.prefs.voiceMuted).toBe(true);
+  });
+
+  // Финал показывается раз за прохождение, и отметка о нём живёт вне
+  // ClientState — сброс обязан гасить и её, иначе новый игрок финала не увидит.
+  it('clears the "ending seen" flag', () => {
+    localState.markVictorySeen();
+    expect(localState.isVictorySeen()).toBe(true);
+
+    localState.startSession({ userId: 'u3', name: 'ПЁТР' });
+
+    expect(localState.isVictorySeen()).toBe(false);
+  });
+
+  // Вернувшийся игрок регистрируется тем же именем: сервер отдаёт его прогресс,
+  // и он ложится поверх чистого состояния.
+  it('lets a server payload land on top of the clean state', () => {
+    localState.recordGameResult(1, { score: 10, won: true });
+    localState.startSession({ userId: 'u4', name: 'ЛЕНА' });
+    localState.replace({
+      ...localState.getSnapshot(),
+      updatedAt: Date.now() + 1000,
+      gameResults: { '9': { bestScore: 5, won: true, attempts: 2, firstCompletedAt: 1 } },
+      seenDialogues: [777],
+    });
+
+    const s = localState.getSnapshot();
+    expect(Object.keys(s.gameResults)).toEqual(['9']);
+    expect(s.seenDialogues).toEqual([777]);
+  });
+});
+
+describe('clearSession', () => {
+  it('empties the profile along with the rest of the progress', () => {
+    localState.setProfile({ userId: 'u5', name: 'ИГОРЬ' });
+    localState.recordGameResult(3, { score: 1, won: true });
+    localState.setAudioPrefs({ sfxVolume: 44 });
+
+    localState.clearSession();
+
+    const s = localState.getSnapshot();
+    expect(s.profile).toEqual({ userId: '', name: '' });
+    expect(s.gameResults).toEqual({});
+    expect(s.prefs.sfxVolume).toBe(44);
+  });
+});
+
+describe('isAdoptableState', () => {
+  it('passes a versioned payload and rejects junk', () => {
+    expect(isAdoptableState({ version: 1, updatedAt: 5 })).toBe(true);
+    expect(isAdoptableState({ version: 2, updatedAt: 5 })).toBe(false);
+    expect(isAdoptableState({ version: 1 })).toBe(false);
+    expect(isAdoptableState(null)).toBe(false);
+    expect(isAdoptableState('нет')).toBe(false);
   });
 });

@@ -75,6 +75,14 @@ import { testTarget } from '../testMode';
 
 const STORAGE_KEY = 'dispatch_state';
 
+/**
+ * «Игрок уже видел финал» — одноразовый флаг показа, а не прогресс, поэтому он
+ * намеренно живёт вне ClientState и не попадает в контракт синка с сервером.
+ * Ключ держим здесь же: сброс состояния игрока обязан гасить и его, а ради
+ * одного места сброса лучше один владелец ключа, чем два.
+ */
+const VICTORY_SEEN_KEY = 'dispatch_victory_seen';
+
 function createInitialState(): ClientState {
   return {
     version: 1,
@@ -99,6 +107,17 @@ function isClientState(value: unknown): value is ClientState {
     typeof v.gameResults === 'object' &&
     v.gameResults !== null
   );
+}
+
+/**
+ * Годится ли полезная нагрузка сервера на роль состояния клиента. Сервер
+ * круглит payload как непрозрачный объект, поэтому проверяем минимум, на
+ * который опирается `replace`.
+ */
+export function isAdoptableState(value: unknown): value is ClientState {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return v.version === 1 && typeof v.updatedAt === 'number';
 }
 
 /**
@@ -231,6 +250,63 @@ class LocalStateStore {
 
   setProfile(profile: { userId: string; name: string }): void {
     this.commit({ ...this.state, updatedAt: Date.now(), profile: { ...profile } });
+  }
+
+  /**
+   * За терминалом играют по очереди: следующий игрок обязан начать с чистого
+   * листа, а не унаследовать чужие пройденные игры, прочитанные диалоги и
+   * закрытые инструктажи. Поэтому состояние сбрасывается целиком — кроме
+   * `prefs`: громкость и mute настраивают под помещение, это свойство
+   * устройства, а не игрока.
+   *
+   * Сброс безусловный и для вернувшегося игрока: он регистрируется тем же
+   * именем, сервер отдаёт его прогресс, и вызывающий накладывает этот payload
+   * поверх чистого состояния (`replace`).
+   */
+  startSession(profile: { userId: string; name: string }): void {
+    const fresh = createInitialState();
+    this.clearVictorySeen();
+    this.commit({
+      ...fresh,
+      updatedAt: Date.now(),
+      profile: { ...profile },
+      prefs: this.state.prefs,
+    });
+  }
+
+  /** Игрока больше нет (404 от сервера): чистим всё, кроме настроек устройства. */
+  clearSession(): void {
+    this.startSession({ userId: '', name: '' });
+  }
+
+  /** Финал уже показан этому игроку? */
+  isVictorySeen(): boolean {
+    if (testTarget) return false;
+    try {
+      return localStorage.getItem(VICTORY_SEEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  /** Отметить показ финала. В тестовом режиме реальный флаг терминала не трогаем. */
+  markVictorySeen(): void {
+    if (testTarget) return;
+    try {
+      localStorage.setItem(VICTORY_SEEN_KEY, '1');
+    } catch {
+      // Storage full or unavailable — tolerate silently.
+    }
+  }
+
+  /** Снять отметку: полного прохождения больше нет — финал взведён заново. */
+  clearVictorySeen(): void {
+    if (testTarget) return;
+    try {
+      localStorage.removeItem(VICTORY_SEEN_KEY);
+    } catch {
+      // Storage unavailable — tolerate silently.
+    }
   }
 
   setOnboarded(onboarded: boolean): void {

@@ -15,7 +15,7 @@ import {
   subscribe as subscribeCamera,
 } from '../camera/camera';
 import { isDispatchCode } from '../camera/QrScanner';
-import { localState } from '../state/localState';
+import { isAdoptableState, localState } from '../state/localState';
 import { testTarget } from '../testMode';
 import { ScanView } from '../ui/ScanView';
 
@@ -241,6 +241,25 @@ function BootScreen({ onSkip }: { onSkip: () => void }) {
 // 1.2 name-entry = registration
 // ---------------------------------------------------------------------------
 
+/**
+ * Регистрация: заводит нового игрока на сервере (или находит прежнего по имени)
+ * и переводит терминал на его сессию. Вынесено из компонента, чтобы проверять
+ * саму проводку состояния — DOM в тестах плеера нет.
+ *
+ * Возвращает `user.onboarded`: вернувшийся игрок минует обучение.
+ */
+export async function registerPlayer(name: string): Promise<boolean> {
+  const { user, state } = await api.postSession(name);
+  // За терминалом играют по очереди: новый игрок начинает с нуля, а не
+  // донашивает прогресс предыдущего. Настройки звука — свойство устройства,
+  // их `startSession` сохраняет.
+  localState.startSession({ userId: user.id, name: user.name });
+  // Вернувшийся игрок регистрируется тем же именем — сервер отдаёт его
+  // прогресс, и он ложится поверх чистого состояния.
+  if (isAdoptableState(state)) localState.replace(state);
+  return user.onboarded;
+}
+
 function NameEntry({ onRegistered }: { onRegistered: (onboarded: boolean) => void }) {
   const t = useTexts();
   const [name, setName] = useState(() => localState.getSnapshot().profile.name);
@@ -262,9 +281,7 @@ function NameEntry({ onRegistered }: { onRegistered: (onboarded: boolean) => voi
     setPending(true);
     setError(null);
     try {
-      const { user } = await api.postSession(name.trim());
-      localState.setProfile({ userId: user.id, name: user.name });
-      onRegistered(user.onboarded);
+      onRegistered(await registerPlayer(name.trim()));
     } catch (err) {
       setRetry(true);
       if (err instanceof ApiError && err.status === 409) {
