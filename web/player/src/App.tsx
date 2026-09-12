@@ -29,6 +29,11 @@ import { DialogueScreen } from './screens/DialogueScreen';
 import { MetaScreen, isUnlocked, pickRandomGame } from './screens/MetaScreen';
 import { allRosterWon, finaleGame, rosterGames, shouldShowVictory } from './screens/flow';
 import {
+  INSTANT_WIN_RESULT,
+  instantFinaleTarget,
+  instantWinTarget,
+} from './screens/instantWin';
+import {
   pendingDialogueIds,
   requiredDialogueCount,
   stageDialogueIds,
@@ -42,7 +47,7 @@ import { QrScanScreen } from './screens/QrScanScreen';
 import { useClickSound } from './ui/useClickSound';
 import { useMusicLoop } from './ui/useMusicLoop';
 import { VictoryScreen } from './screens/VictoryScreen';
-import { completedGameResults, testTarget } from './testMode';
+import { completedGameResults, stageTestGameIds, testTarget } from './testMode';
 import { SandboxLauncher } from './ui/SandboxLauncher';
 
 type Screen = 'onboarding' | 'meta' | 'qr-scan' | 'launch' | 'dialogue' | 'minigame' | 'victory';
@@ -68,6 +73,12 @@ export function syncIntervalS(raw: unknown): number {
 
 /** Сообщение в слоте 2 меты, когда конфиг задания не доехал. */
 const LAUNCH_FAIL_TEXT = 'Задание не загрузилось · повторите';
+
+/** Shift+START в тест-режиме, а закрывать нечего — все операции уже выиграны. */
+const NO_INSTANT_TEXT = 'Нет доступной операции';
+
+/** Подсказка тестировщику под START; видна только в тест-режиме. */
+const INSTANT_WIN_HINT = 'Shift+START — пройти сразу';
 
 /** Сколько держится пузырь над запертым START после тапа. */
 const START_HINT_MS = 2500;
@@ -179,6 +190,7 @@ export function App() {
   /** Номер текущего запуска: сверка в колбэке отсекает ответ отменённого. */
   const runRef = useRef(0);
   const endgamePrepared = useRef(false);
+  const stagePrepared = useRef(false);
 
   const endChain = useCallback(() => {
     // Уходим с экрана запуска — конфиг, который ещё в пути, больше не нужен.
@@ -259,6 +271,27 @@ export function App() {
       .getMetaStages()
       .then(setStages, (err: unknown) => console.error('[app] failed to load meta stages', err));
   }, []);
+
+  // ?test=meta:<id> — сцену форсит forceStageId, но одного её вида мало: без
+  // результатов мета показывает 0 из 5, «Три уровня подземки» заперты, а гейт
+  // опроса считает won = 0. Досыпаем в память ровно те победы, на которых
+  // триггер сцены и держится. Игры и стадии едут разными запросами — ждём обе.
+  useEffect(() => {
+    const target = testTarget;
+    if (target?.kind !== 'meta' || target.stageId === null) return;
+    if (games.length === 0 || stages.length === 0 || stagePrepared.current) return;
+    stagePrepared.current = true;
+    const stage = stages.find((s) => s.id === target.stageId);
+    // Неизвестный id — сеять нечего: мета останется пустой, как и раньше.
+    if (!stage) return console.error(`[app] test stage #${target.stageId} not found`);
+    const completedAt = Date.now();
+    localState.replace({
+      ...localState.getSnapshot(),
+      updatedAt: completedAt,
+      gameResults: completedGameResults(stageTestGameIds(stage, rosterGames(games)), completedAt),
+      seenDialogues: [],
+    });
+  }, [games, stages]);
 
   useEffect(() => {
     api.getGames().then(
@@ -373,8 +406,8 @@ export function App() {
   // an admin reset, a new game added — arms it again for the next time.
   useEffect(() => {
     // Флагом владеет localState: он же гасит его при смене игрока, и в тестовом
-    // режиме сам не трогает реальную отметку терминала.
-    if (testTarget) return;
+    // режиме сам не трогает реальную отметку терминала — там отметка живёт в
+    // памяти, так что победу видит и тестировщик, и она не зацикливается.
     if (!allWon) return localState.clearVictorySeen();
     // Only the meta screen may be interrupted: a dialogue or a running minigame
     // gets to finish, and lands back on the meta, where this fires.
@@ -387,8 +420,8 @@ export function App() {
       })
     )
       return;
-    // Флаг ведёт смену только без финала. С финалом ворота держит сам его
-    // результат: бросил «Разбор» на середине — победа встречает снова.
+    // Один показ на прохождение — дальше держит флаг. Финал на это не влияет:
+    // его запускают кнопкой отсюда, а брошенный остаётся в списке операций.
     localState.markVictorySeen();
     setScreen('victory');
   }, [allWon, screen, games, state.gameResults]);
@@ -460,7 +493,13 @@ export function App() {
         </>
       );
       action = allWon && remaining === 0 ? (
-        <SandboxLauncher games={roster} onSelect={(game) => startGame(game, true)} />
+        // Песочница после полного прохождения — и единственный способ вернуться
+        // к финалу: экран победы показывается раз, брошенный на середине
+        // «Разбор» иначе потерялся бы навсегда.
+        <SandboxLauncher
+          games={finale ? [...roster, finale] : roster}
+          onSelect={(game) => startGame(game, true)}
+        />
       ) : (
         <div className="start-gate">
           <button
@@ -471,7 +510,22 @@ export function App() {
             // игрок не узнаёт, почему кнопка мёртвая.
             aria-disabled={lockHint ? true : undefined}
             aria-describedby={lockHint ? 'start-lock-hint' : undefined}
-            onClick={() => {
+            onClick={(event) => {
+              // Shift в тест-режиме — рычаг тестировщика: операция засчитывается
+              // на месте, без диалогов и мини-игры. Гейт опроса он проходит
+              // насквозь: ради быстрого прохода его и делали.
+              if (testTarget && event.shiftKey) {
+                const instant = instantWinTarget({
+                  testMode: true,
+                  shift: true,
+                  games,
+                  results: state.gameResults,
+                });
+                if (!instant) return setLaunchError(NO_INSTANT_TEXT);
+                setLaunchError(null);
+                localState.recordGameResult(instant.id, INSTANT_WIN_RESULT);
+                return;
+              }
               if (lockHint) return setStartHintTap((n) => n + 1);
               // Без QR: код на стене заменяет жребий по разблокированным операциям.
               if (!noQr) return setScreen('qr-scan');
@@ -490,6 +544,7 @@ export function App() {
               {lockHint}
             </div>
           )}
+          {testTarget && <div className="label">{INSTANT_WIN_HINT}</div>}
         </div>
       );
       break;
@@ -611,8 +666,21 @@ export function App() {
           className="btn btn-key btn-key-tight"
           // Есть финал — «Закрыть смену» и есть его запуск: та же цепочка
           // пре-диалог → мини-игра → пост-диалог, что и по коду со стены. По её
-          // концу endChain возвращает на мету, где стадию берёт «После смены».
-          onClick={() => (finale ? startGame(finale) : setScreen('meta'))}
+          // концу endChain возвращает на мету; стадия «После смены» там уже
+          // открыта победами ростера и финала не ждёт.
+          onClick={(event) => {
+            // Тот же рычаг на финале: смена закрывается без «Разбора».
+            if (testTarget && event.shiftKey) {
+              const instant = instantFinaleTarget({
+                testMode: true,
+                shift: true,
+                games,
+                results: state.gameResults,
+              });
+              if (instant) return localState.recordGameResult(instant.id, INSTANT_WIN_RESULT);
+            }
+            return finale ? startGame(finale) : setScreen('meta');
+          }}
         >
           Закрыть смену
         </button>

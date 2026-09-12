@@ -75,23 +75,24 @@ describe('isWon', () => {
 describe('shouldShowVictory · смена с финалом', () => {
   const games = [tutorial, game(1), game(2), finale];
 
-  it('ростер не добит — финала нет', () => {
+  it('ростер не добит — победы нет', () => {
     expect(shouldShowVictory({ games, results: won(1), victorySeen: false })).toBe(false);
   });
 
-  it('ростер добит, финал впереди — победа с кнопкой «Закрыть смену»', () => {
+  it('ростер добит — победа один раз, дальше держит флаг', () => {
     expect(shouldShowVictory({ games, results: won(1, 2), victorySeen: false })).toBe(true);
+    expect(shouldShowVictory({ games, results: won(1, 2), victorySeen: true })).toBe(false);
   });
 
-  // Игрок вышел из «Разбора» на середине и вернулся на мету: флаг показа уже
-  // стоит, но ворота к финалу обязаны открыться снова.
-  it('финал брошен на середине — победа встречает снова, флаг не помеха', () => {
-    expect(shouldShowVictory({ games, results: won(1, 2), victorySeen: true })).toBe(true);
-  });
-
-  it('финал выигран — победу больше не показываем', () => {
-    expect(shouldShowVictory({ games, results: won(1, 2, 99), victorySeen: false })).toBe(false);
+  // Финал больше не ворота: он запускается кнопкой с победного экрана и на его
+  // показ не влияет — ни выигранный, ни брошенный на середине.
+  it('выигранный финал ничего не меняет', () => {
+    expect(shouldShowVictory({ games, results: won(1, 2, 99), victorySeen: false })).toBe(true);
     expect(shouldShowVictory({ games, results: won(1, 2, 99), victorySeen: true })).toBe(false);
+  });
+
+  it('брошенный финал не возвращает победу', () => {
+    expect(shouldShowVictory({ games, results: won(1, 2), victorySeen: true })).toBe(false);
   });
 });
 

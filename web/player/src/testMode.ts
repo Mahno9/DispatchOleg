@@ -4,6 +4,7 @@
 // test run neither pollutes the terminal's real progress nor creates players.
 // ---------------------------------------------------------------------------
 
+import type { Game, MetaStage } from './api';
 import type { GameResult } from './state/localState';
 
 export type TestTarget =
@@ -39,6 +40,20 @@ export function completedGameResults(gameIds: number[], completedAt: number): Re
       { bestScore: 0, won: true, attempts: 1, firstCompletedAt: completedAt },
     ]),
   );
+}
+
+/**
+ * Какие игры отметить выигранными, чтобы триггер сцены сработал (?test=meta:<id>).
+ *
+ * `games` — ровно перечисленные id, как их задал контент: там может оказаться
+ * и финал, и это не ошибка — функция берёт список как есть. `wonCount` — первые `value` операций
+ * ростера в порядке (sortOrder, id): тот же порядок, в котором игрок их
+ * закрывает. Порог больше ростера обрезается по его длине.
+ */
+export function stageTestGameIds(stage: MetaStage, roster: Game[]): number[] {
+  if (stage.trigger.type === 'games') return [...stage.trigger.ids];
+  const ordered = [...roster].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
+  return ordered.slice(0, Math.max(0, stage.trigger.value)).map((g) => g.id);
 }
 
 export const testTarget: TestTarget | null =

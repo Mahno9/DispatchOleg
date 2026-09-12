@@ -129,6 +129,8 @@ export function isAdoptableState(value: unknown): value is ClientState {
 class LocalStateStore {
   private state: ClientState = this.read();
   private readonly listeners = new Set<() => void>();
+  /** Отметка о показе победы в тест-режиме: в памяти, мимо localStorage. */
+  private testVictorySeen = false;
 
   private read(): ClientState {
     // Test mode: fresh in-memory state; userId stays '' so syncNow() no-ops.
@@ -279,9 +281,9 @@ class LocalStateStore {
     this.startSession({ userId: '', name: '' });
   }
 
-  /** Финал уже показан этому игроку? */
+  /** Экран победы уже показан этому игроку? */
   isVictorySeen(): boolean {
-    if (testTarget) return false;
+    if (testTarget) return this.testVictorySeen;
     try {
       return localStorage.getItem(VICTORY_SEEN_KEY) === '1';
     } catch {
@@ -289,9 +291,17 @@ class LocalStateStore {
     }
   }
 
-  /** Отметить показ финала. В тестовом режиме реальный флаг терминала не трогаем. */
+  /**
+   * Отметить показ победы. В тестовом режиме реальный флаг терминала не
+   * трогаем — отметка живёт в памяти экземпляра, как и весь тестовый прогон:
+   * тестировщик победу видит, но она не зацикливается на мете и не переживает
+   * перезагрузку страницы.
+   */
   markVictorySeen(): void {
-    if (testTarget) return;
+    if (testTarget) {
+      this.testVictorySeen = true;
+      return;
+    }
     try {
       localStorage.setItem(VICTORY_SEEN_KEY, '1');
     } catch {
@@ -299,9 +309,12 @@ class LocalStateStore {
     }
   }
 
-  /** Снять отметку: полного прохождения больше нет — финал взведён заново. */
+  /** Снять отметку: полного прохождения больше нет — победа взведена заново. */
   clearVictorySeen(): void {
-    if (testTarget) return;
+    if (testTarget) {
+      this.testVictorySeen = false;
+      return;
+    }
     try {
       localStorage.removeItem(VICTORY_SEEN_KEY);
     } catch {
